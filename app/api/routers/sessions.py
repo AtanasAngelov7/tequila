@@ -1,0 +1,200 @@
+"""REST API for session management (§3.2, §3.7, §13.1).
+
+Endpoints:
+  POST   /api/sessions                    — create session
+  GET    /api/sessions                    — list sessions (filters, pagination)
+  GET    /api/sessions/{session_id}       — retrieve single session
+  PATCH  /api/sessions/{session_id}       — update title / summary / metadata
+  DELETE /api/sessions/{session_id}       — permanently delete
+  POST   /api/sessions/{session_id}/archive    — archive session
+  POST   /api/sessions/{session_id}/unarchive  — restore from archive
+"""
+from __future__ import annotations
+
+from typing import Any, Literal
+
+from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
+
+from app.api.deps import require_gateway_token
+from app.exceptions import SessionNotFoundError
+from app.sessions.models import Session
+from app.sessions.store import get_session_store
+
+router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+
+
+# ── Request / Response schemas ────────────────────────────────────────────────
+
+
+class CreateSessionRequest(BaseModel):
+    session_key: str | None = None
+    kind: str = "user"
+    agent_id: str = "main"
+    channel: str = "webchat"
+    policy: dict[str, Any] | None = None
+    parent_session_key: str | None = None
+    title: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class UpdateSessionRequest(BaseModel):
+    title: str | None = None
+    summary: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
+class SessionResponse(BaseModel):
+    session_id: str
+    session_key: str
+    kind: str
+    agent_id: str
+    channel: str
+    status: str
+    title: str | None
+    summary: str | None
+    message_count: int
+    last_message_at: str | None
+    created_at: str
+    updated_at: str
+    version: int
+    metadata: dict[str, Any]
+
+
+def _session_to_response(s: Session) -> SessionResponse:
+    return SessionResponse(
+        session_id=s.session_id,
+        session_key=s.session_key,
+        kind=s.kind,
+        agent_id=s.agent_id,
+        channel=s.channel,
+        status=s.status,
+        title=s.title,
+        summary=s.summary,
+        message_count=s.message_count,
+        last_message_at=s.last_message_at.isoformat() if s.last_message_at else None,
+        created_at=s.created_at.isoformat(),
+        updated_at=s.updated_at.isoformat(),
+        version=s.version,
+        metadata=s.metadata,
+    )
+
+
+class SessionListResponse(BaseModel):
+    sessions: list[SessionResponse]
+    total: int
+
+
+# ── Endpoints ─────────────────────────────────────────────────────────────────
+
+
+@router.post("", response_model=SessionResponse, status_code=201)
+async def create_session(
+    body: CreateSessionRequest,
+    _token: None = Depends(require_gateway_token),
+) -> SessionResponse:
+    """Create a new session."""
+    store = get_session_store()
+    session = await store.create(
+        session_key=body.session_key,
+        kind=body.kind,
+        agent_id=body.agent_id,
+        channel=body.channel,
+        policy=body.policy,
+        parent_session_key=body.parent_session_key,
+        title=body.title,
+        metadata=body.metadata,
+    )
+    return _session_to_response(session)
+
+
+@router.get("", response_model=SessionListResponse)
+async def list_sessions(
+    status: str | None = Query(None, description="Filter by status: active|idle|archived"),
+    kind: str | None = Query(None, description="Filter by kind: user|agent|channel|cron|webhook|workflow"),
+    agent_id: str | None = Query(None),
+    q: str | None = Query(None, description="Search across session title and summary"),
+    sort: str = Query("last_activity", description="Sort by: last_activity|created|message_count|title"),
+    order: str = Query("desc", description="Sort direction: asc|desc"),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    _token: None = Depends(require_gateway_token),
+) -> SessionListResponse:
+    """List sessions with optional filters, search, and sort."""
+    # Treat "all" as no filter so the frontend can use a consistent param.
+    status_filter = None if status in (None, "all") else status
+    store = get_session_store()
+    sessions = await store.list(
+        status=status_filter,
+        kind=kind,
+        agent_id=agent_id,
+        q=q,
+        sort=sort,
+        order=order,
+        limit=limit,
+        offset=offset,
+    )
+    return SessionListResponse(
+        sessions=[_session_to_response(s) for s in sessions],
+        total=len(sessions),
+    )
+
+
+@router.get("/{session_id}", response_model=SessionResponse)
+async def get_session(
+    session_id: str,
+    _token: None = Depends(require_gateway_token),
+) -> SessionResponse:
+    """Retrieve a single session by ID."""
+    store = get_session_store()
+    session = await store.get_by_id(session_id)
+    return _session_to_response(session)
+
+
+@router.patch("/{session_id}", response_model=SessionResponse)
+async def update_session(
+    session_id: str,
+    body: UpdateSessionRequest,
+    _token: None = Depends(require_gateway_token),
+) -> SessionResponse:
+    """Update title, summary, or metadata on a session."""
+    store = get_session_store()
+    session = await store.update(
+        session_id,
+        title=body.title,
+        summary=body.summary,
+        metadata=body.metadata,
+    )
+    return _session_to_response(session)
+
+
+@router.delete("/{session_id}", status_code=204)
+async def delete_session(
+    session_id: str,
+    _token: None = Depends(require_gateway_token),
+) -> None:
+    """Permanently delete a session and all its messages."""
+    store = get_session_store()
+    await store.delete(session_id)
+
+
+@router.post("/{session_id}/archive", response_model=SessionResponse)
+async def archive_session(
+    session_id: str,
+    _token: None = Depends(require_gateway_token),
+) -> SessionResponse:
+    """Archive a session."""
+    store = get_session_store()
+    session = await store.archive(session_id)
+    return _session_to_response(session)
+
+
+@router.post("/{session_id}/unarchive", response_model=SessionResponse)
+async def unarchive_session(
+    session_id: str,
+    _token: None = Depends(require_gateway_token),
+) -> SessionResponse:
+    """Restore an archived session to active status."""
+    store = get_session_store()
+    session = await store.unarchive(session_id)
+    return _session_to_response(session)
