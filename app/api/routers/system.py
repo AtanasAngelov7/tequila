@@ -11,7 +11,9 @@
 """
 from __future__ import annotations
 
+import os
 import time
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -27,12 +29,14 @@ router = APIRouter(tags=["system"])
 # ── startup time (set by create_app lifespan) ─────────────────────────────────
 
 _startup_time: float = time.monotonic()
+_started_at: datetime = datetime.now(timezone.utc)
 
 
 def record_startup_time() -> None:
     """Call once at application startup to anchor the uptime counter."""
-    global _startup_time  # noqa: PLW0603
+    global _startup_time, _started_at  # noqa: PLW0603
     _startup_time = time.monotonic()
+    _started_at = datetime.now(timezone.utc)
 
 
 # ── Response models ───────────────────────────────────────────────────────────
@@ -54,6 +58,25 @@ class HealthResponse(BaseModel):
     """Seconds the process has been running."""
 
 
+class ProviderStatus(BaseModel):
+    """Status for a single LLM provider (§13.3)."""
+
+    provider_id: str
+    available: bool
+    circuit_state: str = "closed"
+    model_count: int = 0
+    last_error: str | None = None
+
+
+class PluginStatus(BaseModel):
+    """Status for a single plugin (§13.3)."""
+
+    plugin_id: str
+    status: str
+    healthy: bool | None = None
+    last_error: str | None = None
+
+
 class SystemStatus(BaseModel):
     """Extended status returned by ``GET /api/status`` (§13.3)."""
 
@@ -63,10 +86,34 @@ class SystemStatus(BaseModel):
     app: str
     version: str
     uptime_s: float
+    started_at: str
+    """ISO-8601 UTC datetime when the process started."""
 
+    # ── Providers ─────────────────────────────────────────────────────────
+    providers: list[ProviderStatus]
+
+    # ── Plugins ───────────────────────────────────────────────────────────
+    plugins: list[PluginStatus]
+
+    # ── Database ──────────────────────────────────────────────────────────
     db_ok: bool
-    """Whether the database connection is healthy."""
+    db_size_mb: float
+    db_wal_size_mb: float
 
+    # ── Sessions ──────────────────────────────────────────────────────────
+    active_session_count: int
+    active_turn_count: int
+
+    # ── Memory (stub) ─────────────────────────────────────────────────────
+    memory_extract_count: int
+    entity_count: int
+    embedding_index_status: str
+
+    # ── Scheduler (stub) ──────────────────────────────────────────────────
+    scheduler_status: str
+    pending_jobs: int
+
+    # ── Config ────────────────────────────────────────────────────────────
     config_keys: int
     """Number of config rows loaded in the in-memory cache."""
 
@@ -127,22 +174,68 @@ async def health() -> HealthResponse:
 async def system_status(
     config: ConfigStore = Depends(get_config_dep),
 ) -> SystemStatus:
-    """Return extended system status (requires gateway token)."""
+    """Return extended system status (requires gateway token, §13.3)."""
     from app.db.connection import get_app_db
+    from app.paths import db_path
 
     db_ok = True
+    db_size_mb = 0.0
+    db_wal_size_mb = 0.0
+    active_session_count = 0
+    active_turn_count = 0
+
+    # ── DB health + sizes ─────────────────────────────────────────────────
     try:
         db = get_app_db()
         await db.execute("SELECT 1")
+        db_file = db_path()
+        db_wal_file = db_file.with_suffix(".db-wal")
+        if db_file.exists():
+            db_size_mb = round(os.path.getsize(db_file) / (1024 * 1024), 3)
+        if db_wal_file.exists():
+            db_wal_size_mb = round(os.path.getsize(db_wal_file) / (1024 * 1024), 3)
     except Exception:
         db_ok = False
 
+    # ── Active session count ──────────────────────────────────────────────
+    try:
+        db = get_app_db()
+        async with db.execute(
+            "SELECT COUNT(*) FROM sessions WHERE status = 'active'"
+        ) as cur:
+            row = await cur.fetchone()
+            if row:
+                active_session_count = row[0]
+    except Exception:
+        pass
+
+    # ── Active turn count (in-memory turn queues) ─────────────────────────
+    try:
+        from app.sessions.store import _turn_queues
+        active_turn_count = sum(1 for q in _turn_queues.values() if not q.empty())
+    except Exception:
+        pass
+
+    overall_status = "ok" if db_ok else "degraded"
+
     return SystemStatus(
-        status="ok" if db_ok else "degraded",
+        status=overall_status,
         app=APP_NAME,
         version=APP_VERSION,
         uptime_s=round(time.monotonic() - _startup_time, 2),
+        started_at=_started_at.isoformat(),
+        providers=[],          # stub — implemented in Sprint 04
+        plugins=[],            # stub — implemented in Sprint 06
         db_ok=db_ok,
+        db_size_mb=db_size_mb,
+        db_wal_size_mb=db_wal_size_mb,
+        active_session_count=active_session_count,
+        active_turn_count=active_turn_count,
+        memory_extract_count=0,    # stub — Sprint 05
+        entity_count=0,            # stub — Sprint 05
+        embedding_index_status="ready",  # stub
+        scheduler_status="stopped",      # stub — Sprint 07
+        pending_jobs=0,
         config_keys=len(config._cache),
     )
 

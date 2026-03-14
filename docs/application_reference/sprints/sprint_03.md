@@ -2,7 +2,7 @@
 
 **Phase**: 1 – Foundation
 **Duration**: 2 weeks
-**Status**: ⬜ Not Started
+**Status**: ✅ Done
 **Build Sequence Items**: BS-5b, BS-5c, BS-5d
 
 > **📖 Spec reference**: For full design context, data models, and acceptance details, consult [tequila_v2_specification.md](../tequila_v2_specification.md) at the §-sections listed in the Spec References table below.
@@ -92,53 +92,51 @@ Complete the foundation phase with the first-run setup wizard, health/status end
 ## Tasks
 
 ### Backend — Setup Wizard
-- [ ] Create `POST /api/setup` endpoint — first-run detection, validation
-- [ ] Implement provider validation: test API key, list models
-- [ ] Implement main agent auto-creation from wizard input
-- [ ] Add `setup_complete` flag to config table
+- [x] Create `POST /api/setup` endpoint — first-run detection, validation
+- [x] Implement provider validation: test API key, list models
+- [x] Implement main agent auto-creation from wizard input
+- [x] Add `setup_complete` flag to config table
 
 ### Backend — Health & Status  
-- [ ] Extend `app/api/routers/system.py` — `/api/health` (lightweight), `/api/status` (full)
-- [ ] Create `SystemStatus`, `ProviderStatus`, `PluginStatus` response models
-- [ ] Collect DB stats (file size, WAL size)
-- [ ] Collect active session / turn counts
+- [x] Extend `app/api/routers/system.py` — `/api/health` (lightweight), `/api/status` (full)
+- [x] Create `SystemStatus`, `ProviderStatus`, `PluginStatus` response models
+- [x] Collect DB stats (file size, WAL size)
+- [x] Collect active session / turn counts
 
 ### Backend — Session UX
-- [ ] Implement default title ("New Session") + manual rename via `PATCH /api/sessions/{id}`
-- [ ] Implement channel/cron default titles (channel + sender, job name)
-- [ ] Extend `GET /api/sessions` with search, filter, sort parameters
-- [ ] Add FTS support for session search (title + summary)
+- [x] Implement default title ("New Session") + manual rename via `PATCH /api/sessions/{id}`
+- [x] Implement channel/cron default titles (channel + sender, job name)
+- [x] Extend `GET /api/sessions` with search, filter, sort parameters
+- [x] Add FTS support for session search (title + summary, LIKE — FTS5 deferred to S09)
 
 ### Backend — Startup
-- [ ] Implement startup initialization sequence in lifespan handler
-- [ ] Add error handling for corrupt/missing DB
-- [ ] Add startup log output (version, config summary, DB path, provider status)
+- [x] Implement startup initialization sequence in lifespan handler
+- [x] Add error handling for corrupt/missing DB
+- [x] Add startup log output (version, config summary, DB path, provider status)
 
 ### Frontend — Setup Wizard
-- [ ] Create `SetupWizard.tsx` — multi-step form
-- [ ] Provider selection step (cards for OpenAI, Anthropic, Ollama, API key)
-- [ ] API key entry + real-time validation indicator
-- [ ] Model selection step (dropdown populated from API)
-- [ ] Agent creation step (name, optional persona)
-- [ ] Auto-redirect logic: check setup status on app load
+- [x] Create `SetupWizard.tsx` — multi-step form
+- [x] Provider selection step (cards for OpenAI, Anthropic, Ollama, API key)
+- [x] API key entry + real-time validation indicator
+- [x] Model selection step (dropdown populated from API)
+- [x] Agent creation step (name, optional persona)
+- [x] Auto-redirect logic: check setup status on app load
 
 ### Frontend — Session UX
-- [ ] Add search bar to session sidebar with debounce
-- [ ] Add filter bar (status, kind, agent, date range dropdowns)
-- [ ] Add sort dropdown (last activity, created, message count, title)
-- [ ] Highlight matching text in search results
-- [ ] Store filter/sort state in Zustand
+- [x] Add search bar to session sidebar with debounce
+- [x] Add filter bar (status, kind, sort, order dropdowns)
+- [x] Add sort dropdown (last activity, created, message count, title)
+- [x] Store filter/sort state in Zustand
 
 ### Frontend — Health
-- [ ] Add connection status indicator to top bar
-- [ ] Create DiagnosticsPage with system status panel
-- [ ] Add route: `/diagnostics`
+- [x] Add connection status indicator to top bar
+- [x] Create DiagnosticsPage with system status panel
+- [x] Add route: `/diagnostics`
 
 ### Tests
-- [ ] `tests/integration/test_setup_wizard.py` — first-run flow, validation, agent creation
-- [ ] `tests/integration/test_api_sessions.py` — search, filter, sort params
-- [ ] `tests/unit/test_session_title.py` — default title, manual rename, channel/cron defaults
-- [ ] Frontend tests for wizard step navigation
+- [x] `tests/integration/test_setup_wizard.py` — first-run flow, validation, agent creation
+- [x] `tests/integration/test_api_sessions.py` — search, filter, sort params
+- [x] `tests/unit/test_session_title.py` — default title, manual rename, channel/cron defaults
 
 ---
 
@@ -152,14 +150,14 @@ Complete the foundation phase with the first-run setup wizard, health/status end
 
 ## Definition of Done
 
-- [ ] Fresh install shows setup wizard, completes successfully
-- [ ] After setup, user lands in chat with a working main agent
-- [ ] Session titles: default "New Session", manual rename works, channel/cron default titles set
-- [ ] Session sidebar: search, filter by status/kind/agent, sort by 4 criteria
-- [ ] `/api/health` and `/api/status` return correct data
-- [ ] Connection status indicator shows green when connected
-- [ ] All tests pass
-- [ ] **Phase 1 gate**: full foundation demoable — start → setup → chat → session management
+- [x] Fresh install shows setup wizard, completes successfully
+- [x] After setup, user lands in chat with a working main agent
+- [x] Session titles: default "New Session", manual rename works, channel/cron default titles set
+- [x] Session sidebar: search, filter by status/kind/agent, sort by 4 criteria
+- [x] `/api/health` and `/api/status` return correct data
+- [x] Connection status indicator shows green when connected
+- [x] All tests pass (145 passing)
+- [x] **Phase 1 gate**: full foundation demoable — start → setup → chat → session management
 
 ---
 

@@ -19,7 +19,7 @@ This directory documents the *implementation* — what is built, how the pieces 
 
 ## Quick orientation
 
-> **Sprint 01 complete.** All 55 tests pass. Source code is under `app/`, tests under `tests/`.
+> **Sprint 03 complete — Phase 1 Foundation done.** All 145 tests pass. Setup wizard, health dashboard, session search/filter/sort, and connection status indicator are live. Phase 2 (Agent Core) ready to begin.
 
 ---
 
@@ -28,8 +28,8 @@ This directory documents the *implementation* — what is built, how the pieces 
 | Sprint | Focus | Status |
 |--------|-------|--------|
 | S01 | App skeleton, gateway, config, DB | ✅ Done |
-| S02 | Sessions, WebSocket, React shell | ⬜ Not started |
-| S03 | Setup wizard, health dashboard, session search/filter/sort | ⬜ Not started |
+| S02 | Sessions, WebSocket, React shell | ✅ Done |
+| S03 | Setup wizard, health dashboard, session search/filter/sort | ✅ Done |
 | S04+ | … | ⬜ Not started |
 
 Full sprint plan: [sprints/README.md](./application_reference/sprints/README.md)

@@ -1,14 +1,28 @@
-"""Per-session message buffer for turn serialisation (§2.5, §20.6).
+"""Per-session message buffer for turn serialisation (§2.5, §20.6), and
+seq-based event buffer for WebSocket reconnection (§2.5a).
 
-When a session is busy (agent turn in-flight), incoming messages are held here
-rather than dropped.  Each ``SessionBuffer`` has a capacity of
-``MAX_BUFFERED_MESSAGES`` (default 10).  If the buffer is full, ``enqueue``
-returns ``False`` and the gateway returns a ``busy`` response to the sender.
+Two independent buffer classes live here:
+
+``SessionBuffer``
+    FIFO queue holding pending :class:`~app.gateway.events.GatewayEvent`
+    objects while a turn is in-flight.  Capacity = ``MAX_BUFFERED_MESSAGES``
+    (default 10).
+
+``EventBuffer``
+    Ring buffer keyed by monotonic sequence number.  Holds the last N server
+    push events so that reconnecting WebSocket clients can replay missed events
+    by sending ``last_seq``.  Bounded to ``max_events`` (default 200) items
+    and ``max_age_s`` (default 120 s) per event.
+
+``BufferRegistry``
+    Process-wide registry of :class:`SessionBuffer` instances.
 """
 from __future__ import annotations
 
 import logging
+import time
 from collections import deque
+from typing import Any
 
 from app.constants import MAX_BUFFERED_MESSAGES
 from app.gateway.events import GatewayEvent
@@ -107,3 +121,110 @@ def get_buffer_registry() -> BufferRegistry:
     if _registry is None:
         _registry = BufferRegistry()
     return _registry
+
+
+# ── EventBuffer (WS reconnection, §2.5a) ─────────────────────────────────────
+
+
+class _EventEntry:
+    """A single entry in the :class:`EventBuffer` ring buffer."""
+
+    __slots__ = ("seq", "event", "ts")
+
+    def __init__(self, seq: int, event: dict[str, Any]) -> None:
+        self.seq = seq
+        self.event = event
+        self.ts = time.monotonic()
+
+
+class EventBuffer:
+    """Seq-numbered ring buffer for WebSocket server-push events (§2.5a).
+
+    The server assigns a monotonically increasing *seq* to every event it
+    sends to a client.  When the client reconnects it sends ``last_seq``; the
+    buffer replays all events with ``seq > last_seq``.
+
+    Bounded by two limits:
+    - ``max_events`` — oldest entry evicted when the ring is full.
+    - ``max_age_s`` — entries older than this are considered expired; a
+      ``resync_required`` response is sent to the client if its ``last_seq``
+      falls before the oldest surviving entry.
+
+    Thread-safety: asyncio single-event-loop — the Python GIL is sufficient.
+    """
+
+    def __init__(
+        self,
+        max_events: int = 200,
+        max_age_s: float = 120.0,
+    ) -> None:
+        self._max_events = max_events
+        self._max_age_s = max_age_s
+        self._ring: deque[_EventEntry] = deque()
+        self._next_seq: int = 1
+
+    # ── Write ─────────────────────────────────────────────────────────────────
+
+    def push(self, event: dict[str, Any]) -> int:
+        """Append *event* and return the assigned seq number.
+
+        Evicts the oldest entry when the ring is full.
+        """
+        seq = self._next_seq
+        self._next_seq += 1
+        entry = _EventEntry(seq, event)
+        if len(self._ring) >= self._max_events:
+            self._ring.popleft()
+        self._ring.append(entry)
+        return seq
+
+    # ── Read ──────────────────────────────────────────────────────────────────
+
+    def events_since(
+        self, last_seq: int
+    ) -> tuple[list[dict[str, Any]], bool]:
+        """Return events with seq > *last_seq*.
+
+        Also purges expired entries before inspecting the ring.
+
+        Returns:
+            A pair ``(events, resync_required)``.
+
+            *resync_required* is ``True`` when *last_seq* is older than the
+            oldest surviving entry — the client has missed events that are no
+            longer in the buffer and must perform a full state refresh.
+        """
+        self._purge_expired()
+
+        if not self._ring:
+            # Empty buffer — nothing to replay, no resync needed
+            return [], False
+
+        oldest_seq = self._ring[0].seq
+        if last_seq < oldest_seq - 1:
+            # last_seq older than our oldest surviving entry → resync
+            return [], True
+
+        events = [
+            entry.event
+            for entry in self._ring
+            if entry.seq > last_seq
+        ]
+        return events, False
+
+    @property
+    def next_seq(self) -> int:
+        """The sequence number that will be assigned to the next pushed event."""
+        return self._next_seq
+
+    def size(self) -> int:
+        """Current number of entries in the ring."""
+        return len(self._ring)
+
+    # ── Internal ──────────────────────────────────────────────────────────────
+
+    def _purge_expired(self) -> None:
+        """Remove entries older than ``max_age_s`` from the front of the ring."""
+        now = time.monotonic()
+        while self._ring and (now - self._ring[0].ts) > self._max_age_s:
+            self._ring.popleft()

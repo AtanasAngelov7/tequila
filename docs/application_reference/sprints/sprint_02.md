@@ -2,7 +2,7 @@
 
 **Phase**: 1 – Foundation
 **Duration**: 2 weeks
-**Status**: ⬜ Not Started
+**Status**: ✅ Done
 **Build Sequence Items**: BS-4, BS-5, BS-5a
 
 > **📖 Spec reference**: For full design context, data models, and acceptance details, consult [tequila_v2_specification.md](../tequila_v2_specification.md) at the §-sections listed in the Spec References table below.
@@ -122,43 +122,43 @@ Implement the session model with full CRUD and lifecycle, the WebSocket endpoint
 ## Tasks
 
 ### Backend — Sessions
-- [ ] Create `app/sessions/models.py` — Session + Message models
-- [ ] Create `app/sessions/store.py` — Session CRUD + lifecycle
-- [ ] Create `app/api/routers/sessions.py` — session REST API
-- [ ] Create `app/api/routers/messages.py` — message REST API
-- [ ] Implement idle detection background task
-- [ ] Add `sessions` and `messages` indexes to migration
+- [x] Create `app/sessions/models.py` — Session + Message models
+- [x] Create `app/sessions/store.py` — Session CRUD + lifecycle
+- [x] Create `app/api/routers/sessions.py` — session REST API
+- [x] Create `app/api/routers/messages.py` — message REST API
+- [x] Implement idle detection background task
+- [x] Add `sessions` and `messages` indexes to migration
 
 ### Backend — WebSocket
-- [ ] Create `app/api/ws.py` — WebSocket handler with typed frames
-- [ ] Create `app/gateway/buffer.py` — EventBuffer (seq-based, bounded)
-- [ ] Implement connect handshake (session create/resume)
-- [ ] Implement heartbeat ping/pong
-- [ ] Implement reconnection replay (`last_seq` → catch-up)
-- [ ] Wire WebChat adapter into gateway
+- [x] Create `app/api/ws.py` — WebSocket handler with typed frames
+- [x] Create `app/gateway/buffer.py` — EventBuffer (seq-based, bounded)
+- [x] Implement connect handshake (session create/resume)
+- [x] Implement heartbeat ping/pong
+- [x] Implement reconnection replay (`last_seq` → catch-up)
+- [x] Wire WebChat adapter into gateway
 
 ### Backend — Turn Queue
-- [ ] Implement per-session async turn queue in session store
-- [ ] Queue overflow handling (max 10, busy response)
+- [x] Implement per-session async turn queue in session store
+- [x] Queue overflow handling (max 10, busy response)
 
 ### Frontend
-- [ ] Initialize Vite + React + TypeScript project
-- [ ] Configure Tailwind CSS v4 + shadcn/ui
-- [ ] Create HTTP client (`api/client.ts`)
-- [ ] Create WebSocket client (`api/ws.ts`) with reconnection
-- [ ] Create Zustand stores (ui, ws, chat)
-- [ ] Build layout: sidebar + main chat panel
-- [ ] Build session list component (create, switch, display)
-- [ ] Build chat message list + input components
-- [ ] Implement theme system with toggle
-- [ ] Implement shortcut manager + help overlay
-- [ ] Configure Vite proxy for API
+- [x] Initialize Vite + React + TypeScript project
+- [x] Configure Tailwind CSS v4 + shadcn/ui
+- [x] Create HTTP client (`api/client.ts`)
+- [x] Create WebSocket client (`api/ws.ts`) with reconnection
+- [x] Create Zustand stores (ui, ws, chat)
+- [x] Build layout: sidebar + main chat panel
+- [x] Build session list component (create, switch, display)
+- [x] Build chat message list + input components
+- [x] Implement theme system with toggle
+- [x] Implement shortcut manager + help overlay
+- [x] Configure Vite proxy for API
 
 ### Tests
-- [ ] `tests/unit/test_session_store.py` — CRUD, lifecycle states
-- [ ] `tests/integration/test_api_sessions.py` — REST endpoints
-- [ ] `tests/integration/test_websocket.py` — WS connect, message send, reconnection replay
-- [ ] `tests/__tests__/` (frontend) — basic component render tests
+- [x] `tests/unit/test_session_store.py` — CRUD, lifecycle states
+- [x] `tests/integration/test_api_sessions.py` — REST endpoints
+- [x] `tests/integration/test_websocket.py` — WS connect, message send, reconnection replay
+- [x] `tests/__tests__/` (frontend) — basic component render tests
 
 ---
 
@@ -172,14 +172,14 @@ Implement the session model with full CRUD and lifecycle, the WebSocket endpoint
 
 ## Definition of Done
 
-- [ ] Browser at `http://localhost:8000` shows chat UI
-- [ ] User can create a session and see it in the sidebar
-- [ ] Messages sent via chat input appear in the message list (echo, no LLM)
-- [ ] WebSocket reconnection replays missed events
-- [ ] Theme toggle works (light/dark/system) without flash
-- [ ] Keyboard shortcuts functional (Ctrl+N, Ctrl+/, Enter, Shift+Enter)
-- [ ] All tests pass
-- [ ] Session lifecycle states: active → idle → archived (via API)
+- [x] Browser at `http://localhost:8000` shows chat UI
+- [x] User can create a session and see it in the sidebar
+- [x] Messages sent via chat input appear in the message list (echo, no LLM)
+- [x] WebSocket reconnection replays missed events
+- [x] Theme toggle works (light/dark/system) without flash
+- [x] Keyboard shortcuts functional (Ctrl+N, Ctrl+/, Enter, Shift+Enter)
+- [x] All tests pass
+- [x] Session lifecycle states: active → idle → archived (via API)
 
 ---
 

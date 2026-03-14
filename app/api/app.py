@@ -15,6 +15,7 @@ instance.  It:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import subprocess
 import sys
@@ -66,11 +67,23 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # 4. Open database connection (WAL mode).
     from app.db import connection as db_conn
-    await db_conn.startup(db)
+    try:
+        await db_conn.startup(db)
+    except Exception as exc:
+        logger.critical(
+            "Failed to open database — cannot start",
+            extra={"db_path": str(db), "error": str(exc)},
+        )
+        raise RuntimeError(f"Database open failed: {exc}") from exc
     logger.info("Database connection open.")
 
     # 5. Run Alembic migrations.
-    _run_migrations(alembic_dir())
+    try:
+        _run_migrations(alembic_dir())
+    except Exception as exc:
+        logger.critical("Alembic migration failed — cannot start", extra={"error": str(exc)})
+        await db_conn.shutdown()
+        raise
 
     # 6. Hydrate ConfigStore.
     from app.config import ConfigStore
@@ -85,13 +98,42 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_router()
     logger.info("GatewayRouter ready.")
 
-    logger.info("Tequila startup complete — accepting connections.")
+    # 8. Initialise SessionStore and MessageStore.
+    from app.sessions.store import init_session_store, idle_detection_task
+    from app.sessions.messages import init_message_store
+    session_store = init_session_store(db_conn.get_app_db())
+    init_message_store(db_conn.get_app_db())
+    logger.info("SessionStore and MessageStore ready.")
+
+    # 9. Start background idle-detection task (§3.7).
+    _idle_task = asyncio.create_task(idle_detection_task())
+
+    # 10. Log startup summary (§15.2 D5).
+    setup_complete = config_store.get("setup.complete", False)
+    provider = config_store.get("setup.provider", "")
+    logger.info(
+        "Tequila startup complete — accepting connections",
+        extra={
+            "version": APP_VERSION,
+            "db_path": str(db),
+            "setup_complete": setup_complete,
+            "provider": provider or "(none — first run)",
+            "host": settings.host,
+            "port": settings.port,
+        },
+    )
 
     # ── YIELD (app serves requests) ───────────────────────────────────────────
     yield
 
     # ── SHUTDOWN ──────────────────────────────────────────────────────────────
     logger.info("Tequila shutting down...")
+
+    _idle_task.cancel()
+    try:
+        await _idle_task
+    except asyncio.CancelledError:
+        pass
 
     from app.gateway.router import get_router
     try:
@@ -169,10 +211,15 @@ def create_app() -> FastAPI:
     app.add_exception_handler(TequilaError, _tequila_exception_handler)  # type: ignore[arg-type]
 
     # ── Routers ───────────────────────────────────────────────────────────────
-    from app.api.routers import system, logs
+    from app.api.routers import system, logs, sessions, messages, setup
+    from app.api import ws
 
     app.include_router(system.router)
     app.include_router(logs.router)
+    app.include_router(sessions.router)
+    app.include_router(messages.router)
+    app.include_router(setup.router)
+    app.include_router(ws.router)
 
     # ── Static frontend (placeholder) ─────────────────────────────────────────
     from app.paths import frontend_dir
