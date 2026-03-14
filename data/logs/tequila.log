@@ -1,0 +1,722 @@
+{"ts": "2026-03-14T17:22:11.549332+00:00", "level": "INFO", "module": "app.audit.logger", "message": "Logging configured", "format": "json", "output": "both"}
+{"ts": "2026-03-14T17:22:11.549332+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:22:11.552331+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_health_returns_ok0\\tequila.db"}
+{"ts": "2026-03-14T17:22:11.559335+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_health_returns_ok0\\tequila.db"}
+{"ts": "2026-03-14T17:22:11.559335+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:22:12.040262+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:22:12.041268+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:22:12.042263+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:22:12.042263+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:12.042263+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:22:12.042263+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:22:12.042263+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:22:12.045262+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:12.046263+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:22:12.046263+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:22:12.047262+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:22:12.047262+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:22:12.054269+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:22:12.057267+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_status_requires_token_whe0\\tequila.db"}
+{"ts": "2026-03-14T17:22:12.059267+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_status_requires_token_whe0\\tequila.db"}
+{"ts": "2026-03-14T17:22:12.060270+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:22:12.453238+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:22:12.454237+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:22:12.454237+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:22:12.454237+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:12.454237+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:22:12.454237+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:22:12.454237+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:22:12.456999+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/status \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:12.458003+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:22:12.458003+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:22:12.458003+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:22:12.459003+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:22:12.468004+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:22:12.470515+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_status_returns_app_info0\\tequila.db"}
+{"ts": "2026-03-14T17:22:12.473516+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_status_returns_app_info0\\tequila.db"}
+{"ts": "2026-03-14T17:22:12.473516+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:22:12.931993+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:22:12.933001+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:22:12.933001+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:22:12.934133+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:12.934133+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:22:12.934133+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:22:12.934133+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:22:12.935132+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/status \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:13.005643+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:22:13.005643+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:22:13.006643+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:22:13.006643+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:22:13.013642+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:22:13.016643+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_get_config_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:22:13.019643+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_get_config_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:22:13.019643+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:22:13.385893+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:22:13.386894+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:22:13.386894+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:22:13.387894+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:13.387894+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:22:13.387894+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:22:13.387894+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:22:13.389893+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/config \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:13.390893+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:22:13.390893+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:22:13.390893+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:22:13.390893+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:22:13.397893+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:22:13.400546+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_patch_config_updates_valu0\\tequila.db"}
+{"ts": "2026-03-14T17:22:13.403809+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_patch_config_updates_valu0\\tequila.db"}
+{"ts": "2026-03-14T17:22:13.403809+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:22:13.788674+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:22:13.789675+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:22:13.789675+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:22:13.789675+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:13.789675+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:22:13.789675+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:22:13.789675+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:22:13.793675+00:00", "level": "INFO", "module": "app.config", "message": "Config updated", "key": "logging.level", "requires_restart": false}
+{"ts": "2026-03-14T17:22:13.793675+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: PATCH http://test/api/config \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:13.795675+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:22:13.795675+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:22:13.797675+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:22:13.797675+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:22:13.803673+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:22:13.806674+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_get_logs_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:22:13.809044+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_get_logs_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:22:13.809044+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:22:14.184927+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:22:14.185927+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:22:14.186928+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:22:14.186928+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:14.186928+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:22:14.186928+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:22:14.186928+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:22:14.187928+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/logs \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:14.188928+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:22:14.188928+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:22:14.189928+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:22:14.189928+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:22:14.195928+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:22:14.197963+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_get_logs_respects_limit0\\tequila.db"}
+{"ts": "2026-03-14T17:22:14.200962+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_get_logs_respects_limit0\\tequila.db"}
+{"ts": "2026-03-14T17:22:14.200962+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:22:14.561840+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:22:14.562840+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:22:14.563841+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:22:14.563841+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:14.563841+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:22:14.563841+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:22:14.563841+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:22:14.565840+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/logs?limit=5 \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:14.565840+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:22:14.565840+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:22:14.566848+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:22:14.566848+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:22:14.574370+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:22:14.577363+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_health_endpoint_is_not_ra0\\tequila.db"}
+{"ts": "2026-03-14T17:22:14.580362+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_health_endpoint_is_not_ra0\\tequila.db"}
+{"ts": "2026-03-14T17:22:14.580362+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:22:14.956665+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:22:14.957819+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:22:14.958335+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:22:14.958335+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:14.958335+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:22:14.958335+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:22:14.958335+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:22:14.959420+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:14.959420+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:14.959925+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:14.959925+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:14.960445+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:22:14.960960+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:22:14.960960+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:22:14.961947+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:22:14.961947+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:22:14.968102+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_get_seeded_key0\\test_tequila.db"}
+{"ts": "2026-03-14T17:22:15.149846+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.schemas"}
+{"ts": "2026-03-14T17:22:15.149846+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.tables"}
+{"ts": "2026-03-14T17:22:15.149846+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.types"}
+{"ts": "2026-03-14T17:22:15.149846+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.constraints"}
+{"ts": "2026-03-14T17:22:15.149846+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.defaults"}
+{"ts": "2026-03-14T17:22:15.149846+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.comments"}
+{"ts": "2026-03-14T17:22:15.222449+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_get_missing_key_raises0\\test_tequila.db"}
+{"ts": "2026-03-14T17:22:15.268495+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_get_missing_key_with_defa0\\test_tequila.db"}
+{"ts": "2026-03-14T17:22:15.313499+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_set_updates_value0\\test_tequila.db"}
+{"ts": "2026-03-14T17:22:15.362508+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_set_missing_key_raises0\\test_tequila.db"}
+{"ts": "2026-03-14T17:22:15.406608+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_all_returns_all_rows0\\test_tequila.db"}
+{"ts": "2026-03-14T17:22:15.449610+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_all_filtered_by_category0\\test_tequila.db"}
+{"ts": "2026-03-14T17:22:15.492094+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-229\\test_reload_refreshes_cache0\\test_tequila.db"}
+{"ts": "2026-03-14T17:22:15.533098+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:15.536273+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:15.538272+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:15.539273+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:15.540273+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:15.542271+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:15.542271+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:22:15.542271+00:00", "level": "WARNING", "module": "app.gateway.router", "message": "emit() called on a stopped GatewayRouter \u2014 event dropped.", "event_type": "inbound.message", "event_id": "4888ee6c-ca78-4906-994e-e0ab8fe6f9e9"}
+{"ts": "2026-03-14T17:22:15.543273+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:15.544273+00:00", "level": "ERROR", "module": "app.gateway.router", "message": "Handler raised an exception during event dispatch", "handler": "test_handler_exception_does_not_abort_dispatch.<locals>.bad_handler", "event_type": "inbound.message", "event_id": "662e0f44-dc8b-41d9-9164-df6e10954ff9", "exc_info": "Traceback (most recent call last):\n  File \"C:\\Users\\aiang\\PycharmProjects\\AtanasAngelov\\tequila\\app\\gateway\\router.py\", line 133, in emit\n    await handler(event)\n  File \"C:\\Users\\aiang\\PycharmProjects\\AtanasAngelov\\tequila\\tests\\unit\\test_gateway_router.py\", line 134, in bad_handler\n    raise ValueError(\"intentional error\")\nValueError: intentional error"}
+{"ts": "2026-03-14T17:22:15.545273+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:22:15.545273+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:22:15.546273+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:08.888274+00:00", "level": "INFO", "module": "app.audit.logger", "message": "Logging configured", "format": "json", "output": "both"}
+{"ts": "2026-03-14T17:23:08.888274+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:08.890994+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_health_returns_ok0\\tequila.db"}
+{"ts": "2026-03-14T17:23:08.893998+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_health_returns_ok0\\tequila.db"}
+{"ts": "2026-03-14T17:23:08.894998+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:09.288880+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:09.290881+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:09.290881+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:09.290881+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:09.290881+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:09.290881+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:09.290881+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:09.292881+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:09.292881+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:09.293880+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:09.293880+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:09.293880+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:09.300881+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:09.302881+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_status_requires_token_whe0\\tequila.db"}
+{"ts": "2026-03-14T17:23:09.305881+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_status_requires_token_whe0\\tequila.db"}
+{"ts": "2026-03-14T17:23:09.305881+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:09.711015+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:09.712014+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:09.712014+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:09.712014+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:09.712014+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:09.712014+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:09.712014+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:09.714274+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/status \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:09.715284+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:09.715284+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:09.715284+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:09.715284+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:09.721289+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:09.724176+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_status_returns_app_info0\\tequila.db"}
+{"ts": "2026-03-14T17:23:09.726748+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_status_returns_app_info0\\tequila.db"}
+{"ts": "2026-03-14T17:23:09.726748+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:10.104478+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:10.105476+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:10.105476+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:10.105476+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:10.105476+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:10.105476+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:10.105476+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:10.107475+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/status \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:10.107475+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:10.108476+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:10.108476+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:10.108476+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:10.115475+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:10.118475+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_get_config_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:23:10.121478+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_get_config_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:23:10.121478+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:10.567908+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:10.568907+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:10.568907+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:10.568907+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:10.568907+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:10.569910+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:10.569910+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:10.573907+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/config \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:10.574907+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:10.574907+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:10.575907+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:10.575907+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:10.581907+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:10.584908+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_patch_config_updates_valu0\\tequila.db"}
+{"ts": "2026-03-14T17:23:10.587909+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_patch_config_updates_valu0\\tequila.db"}
+{"ts": "2026-03-14T17:23:10.587909+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:10.960216+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:10.961216+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:10.962216+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:10.962216+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:10.962216+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:10.962216+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:10.962216+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:10.964216+00:00", "level": "INFO", "module": "app.config", "message": "Config updated", "key": "logging.level", "requires_restart": false}
+{"ts": "2026-03-14T17:23:10.965216+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: PATCH http://test/api/config \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:10.965216+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:10.965216+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:10.967216+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:10.967216+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:10.973217+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:10.976218+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_get_logs_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:23:10.978217+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_get_logs_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:23:10.978217+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:11.353166+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:11.355167+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:11.355167+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:11.355167+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:11.355167+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:11.355167+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:11.355167+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:11.357168+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/logs \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:11.357168+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:11.357168+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:11.358166+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:11.358166+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:11.365166+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:11.368166+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_get_logs_respects_limit0\\tequila.db"}
+{"ts": "2026-03-14T17:23:11.371166+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_get_logs_respects_limit0\\tequila.db"}
+{"ts": "2026-03-14T17:23:11.371166+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:11.766651+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:11.768493+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:11.768493+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:11.768493+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:11.768493+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:11.768493+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:11.768493+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:11.770515+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/logs?limit=5 \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:11.770515+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:11.770515+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:11.771509+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:11.771509+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:11.777505+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:11.780507+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_health_endpoint_is_not_ra0\\tequila.db"}
+{"ts": "2026-03-14T17:23:11.783624+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_health_endpoint_is_not_ra0\\tequila.db"}
+{"ts": "2026-03-14T17:23:11.783624+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:12.152177+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:12.153175+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:12.153175+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:12.153175+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:12.153175+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:12.153175+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:12.153175+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:12.154176+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:12.154176+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:12.155176+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:12.155176+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:12.155176+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:12.156175+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:12.156175+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:12.156175+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:12.157176+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:12.162176+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-230\\test_get_seeded_key0\\test_tequila.db"}
+{"ts": "2026-03-14T17:23:12.352909+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.schemas"}
+{"ts": "2026-03-14T17:23:12.352909+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.tables"}
+{"ts": "2026-03-14T17:23:12.352909+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.types"}
+{"ts": "2026-03-14T17:23:12.352909+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.constraints"}
+{"ts": "2026-03-14T17:23:12.352909+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.defaults"}
+{"ts": "2026-03-14T17:23:12.352909+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.comments"}
+{"ts": "2026-03-14T17:23:54.359246+00:00", "level": "INFO", "module": "app.audit.logger", "message": "Logging configured", "format": "json", "output": "both"}
+{"ts": "2026-03-14T17:23:54.359246+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:54.362245+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_health_returns_ok0\\tequila.db"}
+{"ts": "2026-03-14T17:23:54.365654+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_health_returns_ok0\\tequila.db"}
+{"ts": "2026-03-14T17:23:54.365654+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:54.739635+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:54.740636+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:54.740636+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:54.741637+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:54.741637+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:54.741637+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:54.741637+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:54.743637+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:54.743637+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:54.744637+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:54.744637+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:54.744637+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:54.751636+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:54.753636+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_status_requires_token_whe0\\tequila.db"}
+{"ts": "2026-03-14T17:23:54.756640+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_status_requires_token_whe0\\tequila.db"}
+{"ts": "2026-03-14T17:23:54.756640+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:55.130022+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:55.131015+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:55.131015+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:55.132016+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:55.132016+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:55.132016+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:55.132016+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:55.134022+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/status \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:55.134022+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:55.134022+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:55.135022+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:55.135022+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:55.142014+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:55.144014+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_status_returns_app_info0\\tequila.db"}
+{"ts": "2026-03-14T17:23:55.147014+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_status_returns_app_info0\\tequila.db"}
+{"ts": "2026-03-14T17:23:55.147014+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:55.537601+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:55.538746+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:55.539267+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:55.539267+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:55.539267+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:55.539267+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:55.539267+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:55.540834+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/status \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:55.541357+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:55.541357+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:55.542420+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:55.542420+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:55.550060+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:55.552593+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_get_config_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:23:55.555593+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_get_config_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:23:55.555593+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:55.925252+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:55.926253+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:55.926253+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:55.926253+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:55.926253+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:55.927252+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:55.927252+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:55.928252+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/config \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:55.929253+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:55.929253+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:55.930253+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:55.930253+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:55.936254+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:55.939079+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_patch_config_updates_valu0\\tequila.db"}
+{"ts": "2026-03-14T17:23:55.941083+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_patch_config_updates_valu0\\tequila.db"}
+{"ts": "2026-03-14T17:23:55.942083+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:56.317110+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:56.318109+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:56.318109+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:56.318109+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:56.318109+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:56.319111+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:56.319111+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:56.321301+00:00", "level": "INFO", "module": "app.config", "message": "Config updated", "key": "logging.level", "requires_restart": false}
+{"ts": "2026-03-14T17:23:56.321301+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: PATCH http://test/api/config \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:56.322305+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:56.322305+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:56.323305+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:56.323305+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:56.329305+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:56.332306+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_get_logs_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:23:56.334306+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_get_logs_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:23:56.335305+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:56.715761+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:56.717763+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:56.717763+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:56.717763+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:56.717763+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:56.717763+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:56.717763+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:56.718761+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/logs \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:56.719761+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:56.719761+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:56.720760+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:56.720760+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:56.726762+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:56.728760+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_get_logs_respects_limit0\\tequila.db"}
+{"ts": "2026-03-14T17:23:56.731761+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_get_logs_respects_limit0\\tequila.db"}
+{"ts": "2026-03-14T17:23:56.731761+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:57.100192+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:57.101192+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:57.101192+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:57.101192+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:57.101192+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:57.101192+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:57.101192+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:57.103191+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/logs?limit=5 \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:57.103191+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:57.103191+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:57.104193+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:57.104193+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:57.110191+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:23:57.113191+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_health_endpoint_is_not_ra0\\tequila.db"}
+{"ts": "2026-03-14T17:23:57.115191+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-231\\test_health_endpoint_is_not_ra0\\tequila.db"}
+{"ts": "2026-03-14T17:23:57.115191+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:23:57.481022+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:23:57.482025+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:23:57.482025+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:23:57.483023+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:23:57.483023+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:23:57.483023+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:23:57.483023+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:23:57.484023+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:57.484023+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:57.484023+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:57.484023+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:57.484023+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:23:57.485030+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:23:57.485030+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:23:57.485030+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:23:57.485030+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:23:57.689249+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.schemas"}
+{"ts": "2026-03-14T17:23:57.689249+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.tables"}
+{"ts": "2026-03-14T17:23:57.689249+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.types"}
+{"ts": "2026-03-14T17:23:57.689249+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.constraints"}
+{"ts": "2026-03-14T17:23:57.689249+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.defaults"}
+{"ts": "2026-03-14T17:23:57.689249+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.comments"}
+{"ts": "2026-03-14T17:27:50.938064+00:00", "level": "INFO", "module": "app.audit.logger", "message": "Logging configured", "format": "json", "output": "both"}
+{"ts": "2026-03-14T17:27:50.938064+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:27:50.941064+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_health_returns_ok0\\tequila.db"}
+{"ts": "2026-03-14T17:27:50.944066+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_health_returns_ok0\\tequila.db"}
+{"ts": "2026-03-14T17:27:50.945065+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:27:51.327469+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:27:51.328469+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:27:51.328469+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:27:51.328469+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:27:51.328469+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:27:51.328469+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:27:51.328469+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:27:51.330469+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:51.331468+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:27:51.332467+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:27:51.332467+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:27:51.332467+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:27:51.340474+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:27:51.343473+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_status_requires_token_whe0\\tequila.db"}
+{"ts": "2026-03-14T17:27:51.345472+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_status_requires_token_whe0\\tequila.db"}
+{"ts": "2026-03-14T17:27:51.345472+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:27:51.720978+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:27:51.721978+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:27:51.721978+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:27:51.722978+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:27:51.722978+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:27:51.722978+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:27:51.722978+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:27:51.724985+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/status \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:51.724985+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:27:51.724985+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:27:51.725977+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:27:51.725977+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:27:51.731983+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:27:51.734979+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_status_returns_app_info0\\tequila.db"}
+{"ts": "2026-03-14T17:27:51.736978+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_status_returns_app_info0\\tequila.db"}
+{"ts": "2026-03-14T17:27:51.736978+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:27:52.115405+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:27:52.116406+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:27:52.116406+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:27:52.116406+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:27:52.116406+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:27:52.117409+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:27:52.117409+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:27:52.118407+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/status \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:52.119407+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:27:52.119407+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:27:52.120407+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:27:52.120407+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:27:52.126404+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:27:52.128406+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_get_config_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:27:52.131405+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_get_config_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:27:52.131405+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:27:52.503431+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:27:52.504431+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:27:52.504431+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:27:52.504431+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:27:52.504431+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:27:52.504431+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:27:52.504431+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:27:52.506432+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/config \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:52.507432+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:27:52.507432+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:27:52.508432+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:27:52.508432+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:27:52.515432+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:27:52.518431+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_patch_config_updates_valu0\\tequila.db"}
+{"ts": "2026-03-14T17:27:52.520432+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_patch_config_updates_valu0\\tequila.db"}
+{"ts": "2026-03-14T17:27:52.520432+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:27:52.951487+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:27:52.952487+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:27:52.952487+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:27:52.952487+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:27:52.952487+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:27:52.952487+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:27:52.952487+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:27:52.955486+00:00", "level": "INFO", "module": "app.config", "message": "Config updated", "key": "logging.level", "requires_restart": false}
+{"ts": "2026-03-14T17:27:52.955486+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: PATCH http://test/api/config \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:52.955486+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:27:52.956486+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:27:52.957488+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:27:52.957488+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:27:52.964488+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:27:52.966487+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_get_logs_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:27:52.969489+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_get_logs_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:27:52.969489+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:27:53.365476+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:27:53.366744+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:27:53.367259+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:27:53.367259+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:27:53.367259+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:27:53.367259+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:27:53.367259+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:27:53.368813+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/logs \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:53.369849+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:27:53.369849+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:27:53.370367+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:27:53.370893+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:27:53.378255+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:27:53.380260+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_get_logs_respects_limit0\\tequila.db"}
+{"ts": "2026-03-14T17:27:53.384260+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_get_logs_respects_limit0\\tequila.db"}
+{"ts": "2026-03-14T17:27:53.384765+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:27:53.765843+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:27:53.766844+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:27:53.766844+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:27:53.767843+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:27:53.767843+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:27:53.767843+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:27:53.767843+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:27:53.768843+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/logs?limit=5 \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:53.769846+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:27:53.769846+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:27:53.769846+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:27:53.769846+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:27:53.776848+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:27:53.778848+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_health_endpoint_is_not_ra0\\tequila.db"}
+{"ts": "2026-03-14T17:27:53.781847+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-235\\test_health_endpoint_is_not_ra0\\tequila.db"}
+{"ts": "2026-03-14T17:27:53.781847+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:27:54.150837+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:27:54.152839+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:27:54.152839+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:27:54.152839+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:27:54.152839+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:27:54.152839+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:27:54.152839+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:27:54.153838+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:54.153838+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:54.154838+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:54.154838+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:54.154838+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:27:54.154838+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:27:54.155837+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:27:54.155837+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:27:54.155837+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:27:54.352248+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.schemas"}
+{"ts": "2026-03-14T17:27:54.352248+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.tables"}
+{"ts": "2026-03-14T17:27:54.352248+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.types"}
+{"ts": "2026-03-14T17:27:54.352248+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.constraints"}
+{"ts": "2026-03-14T17:27:54.352248+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.defaults"}
+{"ts": "2026-03-14T17:27:54.352248+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.comments"}
+{"ts": "2026-03-14T17:30:10.404103+00:00", "level": "INFO", "module": "app.audit.logger", "message": "Logging configured", "format": "json", "output": "both"}
+{"ts": "2026-03-14T17:30:10.405102+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:30:10.408103+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_health_returns_ok0\\tequila.db"}
+{"ts": "2026-03-14T17:30:10.411103+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_health_returns_ok0\\tequila.db"}
+{"ts": "2026-03-14T17:30:10.412103+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:30:10.875535+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:30:10.877536+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:30:10.877536+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:30:10.877536+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:30:10.877536+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:30:10.877536+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:30:10.877536+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:30:10.879534+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:10.880536+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:30:10.880536+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:30:10.881536+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:30:10.882536+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:30:10.889535+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:30:10.892535+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_status_requires_token_whe0\\tequila.db"}
+{"ts": "2026-03-14T17:30:10.895535+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_status_requires_token_whe0\\tequila.db"}
+{"ts": "2026-03-14T17:30:10.896535+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:30:11.312846+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:30:11.313845+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:30:11.314846+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:30:11.314846+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:30:11.314846+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:30:11.314846+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:30:11.314846+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:30:11.316846+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/status \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:11.316846+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:30:11.316846+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:30:11.317846+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:30:11.317846+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:30:11.324846+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:30:11.327846+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_status_returns_app_info0\\tequila.db"}
+{"ts": "2026-03-14T17:30:11.330847+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_status_returns_app_info0\\tequila.db"}
+{"ts": "2026-03-14T17:30:11.330847+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:30:11.721787+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:30:11.722791+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:30:11.722791+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:30:11.722791+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:30:11.722791+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:30:11.722791+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:30:11.722791+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:30:11.724791+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/status \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:11.725792+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:30:11.725792+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:30:11.725792+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:30:11.726792+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:30:11.731792+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:30:11.734793+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_get_config_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:30:11.737793+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_get_config_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:30:11.737793+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:30:12.127396+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:30:12.128396+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:30:12.128396+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:30:12.128396+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:30:12.128396+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:30:12.128396+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:30:12.128396+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:30:12.131396+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/config \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:12.131396+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:30:12.131396+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:30:12.132396+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:30:12.132396+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:30:12.138395+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:30:12.141394+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_patch_config_updates_valu0\\tequila.db"}
+{"ts": "2026-03-14T17:30:12.144396+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_patch_config_updates_valu0\\tequila.db"}
+{"ts": "2026-03-14T17:30:12.144396+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:30:12.530047+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:30:12.531047+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:30:12.531047+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:30:12.531047+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:30:12.531047+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:30:12.531047+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:30:12.531047+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:30:12.535049+00:00", "level": "INFO", "module": "app.config", "message": "Config updated", "key": "logging.level", "requires_restart": false}
+{"ts": "2026-03-14T17:30:12.535049+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: PATCH http://test/api/config \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:12.536048+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:30:12.536048+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:30:12.537048+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:30:12.537048+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:30:12.544047+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:30:12.547048+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_get_logs_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:30:12.550047+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_get_logs_returns_list0\\tequila.db"}
+{"ts": "2026-03-14T17:30:12.550047+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:30:12.929668+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:30:12.930669+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:30:12.930669+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:30:12.930669+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:30:12.930669+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:30:12.930669+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:30:12.931668+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:30:12.932668+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/logs \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:12.933668+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:30:12.933668+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:30:12.933668+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:30:12.933668+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:30:12.940283+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:30:12.943284+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_get_logs_respects_limit0\\tequila.db"}
+{"ts": "2026-03-14T17:30:12.945839+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_get_logs_respects_limit0\\tequila.db"}
+{"ts": "2026-03-14T17:30:12.945839+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:30:13.345774+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:30:13.347774+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:30:13.347774+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:30:13.347774+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:30:13.347774+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:30:13.347774+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:30:13.347774+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:30:13.349775+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/logs?limit=5 \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:13.349775+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:30:13.349775+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:30:13.350775+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:30:13.350775+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:30:13.358781+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila starting", "version": "0.1.0", "debug": false}
+{"ts": "2026-03-14T17:30:13.361780+00:00", "level": "INFO", "module": "app.api.app", "message": "Filesystem paths ready", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_health_endpoint_is_not_ra0\\tequila.db"}
+{"ts": "2026-03-14T17:30:13.364779+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database startup complete", "db_path": "C:\\Users\\aiang\\AppData\\Local\\Temp\\pytest-of-aiang\\pytest-236\\test_health_endpoint_is_not_ra0\\tequila.db"}
+{"ts": "2026-03-14T17:30:13.364779+00:00", "level": "INFO", "module": "app.api.app", "message": "Database connection open."}
+{"ts": "2026-03-14T17:30:13.791807+00:00", "level": "INFO", "module": "app.api.app", "message": "Alembic migrations applied.", "output": ""}
+{"ts": "2026-03-14T17:30:13.792808+00:00", "level": "INFO", "module": "app.config", "message": "ConfigStore hydrated", "key_count": 7}
+{"ts": "2026-03-14T17:30:13.793806+00:00", "level": "INFO", "module": "app.api.app", "message": "ConfigStore hydrated."}
+{"ts": "2026-03-14T17:30:13.793806+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter started."}
+{"ts": "2026-03-14T17:30:13.793806+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter singleton initialised."}
+{"ts": "2026-03-14T17:30:13.793806+00:00", "level": "INFO", "module": "app.api.app", "message": "GatewayRouter ready."}
+{"ts": "2026-03-14T17:30:13.793806+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila startup complete \u2014 accepting connections."}
+{"ts": "2026-03-14T17:30:13.794807+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:13.794807+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:13.795808+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:13.795808+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:13.795808+00:00", "level": "INFO", "module": "httpx", "message": "HTTP Request: GET http://test/api/health \"HTTP/1.1 200 OK\""}
+{"ts": "2026-03-14T17:30:13.796807+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila shutting down..."}
+{"ts": "2026-03-14T17:30:13.796807+00:00", "level": "INFO", "module": "app.gateway.router", "message": "GatewayRouter stopped."}
+{"ts": "2026-03-14T17:30:13.797805+00:00", "level": "INFO", "module": "app.db.connection", "message": "Database connection closed."}
+{"ts": "2026-03-14T17:30:13.797805+00:00", "level": "INFO", "module": "app.api.app", "message": "Tequila stopped."}
+{"ts": "2026-03-14T17:30:14.017146+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.schemas"}
+{"ts": "2026-03-14T17:30:14.017146+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.tables"}
+{"ts": "2026-03-14T17:30:14.017146+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.types"}
+{"ts": "2026-03-14T17:30:14.017146+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.constraints"}
+{"ts": "2026-03-14T17:30:14.017146+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.defaults"}
+{"ts": "2026-03-14T17:30:14.017146+00:00", "level": "INFO", "module": "alembic.runtime.plugins", "message": "setup plugin alembic.autogenerate.comments"}
