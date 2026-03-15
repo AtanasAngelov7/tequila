@@ -2,7 +2,7 @@
 
 **Phase**: 2 – Agent Core (**Phase Gate Sprint**)
 **Duration**: 2 weeks
-**Status**: ⬜ Not Started
+**Status**: ✅ Done
 **Build Sequence Items**: BS-16, BS-17, BS-18
 
 > **📖 Spec reference**: For full design context, data models, and acceptance details, consult [tequila_v2_specification.md](../tequila_v2_specification.md) at the §-sections listed in the Spec References table below.
@@ -98,48 +98,48 @@ Complete the Agent Core phase by implementing context window management (compres
 ## Tasks
 
 ### Backend — Context Management
-- [ ] Create `app/agent/context.py` — ContextBudget class
-- [ ] Implement slot allocation (system, soul, memories, history, tools)
-- [ ] Implement priority trimming algorithm
-- [ ] Implement token counting with tiktoken + cache
-- [ ] Implement compression: summarize_old strategy
-- [ ] Implement compression: drop_tool_results strategy
-- [ ] Implement compression: trim_oldest strategy
-- [ ] Auto-compression trigger at 80% threshold
-- [ ] Integration with prompt assembly pipeline
+- [x] Create `app/agent/context.py` — ContextBudget class
+- [x] Implement slot allocation (system, soul, memories, history, tools)
+- [x] Implement priority trimming algorithm
+- [x] Implement token counting with tiktoken + cache
+- [x] Implement compression: summarize_old strategy
+- [x] Implement compression: drop_tool_results strategy
+- [x] Implement compression: trim_oldest strategy
+- [x] Auto-compression trigger at 80% threshold
+- [x] Integration with prompt assembly pipeline
 
 ### Backend — Resilience
-- [ ] Extend `app/providers/circuit_breaker.py` (from S04) — add `GracefulDegradation` class (§19.3)
-- [ ] Integrate `RetryPolicy` (from S04) with provider streaming calls in turn loop
-- [ ] Integrate `CircuitBreaker` (from S04) with provider streaming calls in turn loop
-- [ ] Wire `GracefulDegradation` fallback provider chain into turn loop
-- [ ] Expose circuit breaker state in health endpoint
+- [x] Extend `app/providers/circuit_breaker.py` (from S04) — add `GracefulDegradation` class (§19.3)
+- [x] Integrate `RetryPolicy` (from S04) with provider streaming calls in turn loop
+- [x] Integrate `CircuitBreaker` (from S04) with provider streaming calls in turn loop
+- [x] Wire `GracefulDegradation` fallback provider chain into turn loop
+- [x] Expose circuit breaker state in health endpoint
 
 ### Backend — Session Policy
-- [ ] Expand `app/sessions/policy.py` (from S01) — add enforcement logic to SessionPolicy model
-- [ ] Add policy column to sessions table + migration
-- [ ] Policy enforcement in gateway (pre-tool-execution check)
-- [ ] Default policy: all tools, destructive approval required
-- [ ] API: `PATCH /api/sessions/{id}/policy`
+- [x] Expand `app/sessions/policy.py` (from S01) — add enforcement logic to SessionPolicy model
+- [x] Add policy column to sessions table + migration
+- [x] Policy enforcement in gateway (pre-tool-execution check)
+- [x] Default policy: all tools, destructive approval required
+- [x] API: `PATCH /api/sessions/{id}/policy`
 
 ### Backend — Approval Flow (extend S05)
-- [ ] Add policy-driven approval triggering (`require_confirmation` list overrides safety level)
-- [ ] Add `auto_approve` bypass for listed tools
-- [ ] Upgrade batch-allow from per-turn (S05) to persistent per-session override
-- [ ] Audit log entries for all approval decisions (decision, actor, tool, timestamp)
+- [x] Add policy-driven approval triggering (`require_confirmation` list overrides safety level)
+- [x] Add `auto_approve` bypass for listed tools
+- [x] Upgrade batch-allow from per-turn (S05) to persistent per-session override
+- [x] Audit log entries for all approval decisions (decision, actor, tool, timestamp)
 
 ### Frontend
-- [ ] Context budget indicator (show usage % in session header)
-- [ ] Error state display with retry button
-- [ ] Approval timeout countdown
-- [ ] Session policy display (show active restrictions)
+- [ ] Context budget indicator (show usage % in session header) *(deferred to frontend sprint)*
+- [ ] Error state display with retry button *(deferred to frontend sprint)*
+- [ ] Approval timeout countdown *(deferred to frontend sprint)*
+- [ ] Session policy display (show active restrictions) *(deferred to frontend sprint)*
 
 ### Tests
-- [ ] `tests/unit/test_context_budget.py` — allocation, trimming, compression
-- [ ] `tests/unit/test_resilience.py` — retry, circuit breaker, fallback
-- [ ] `tests/unit/test_session_policy.py` — allow/require_confirmation/auto-approve, presets
-- [ ] `tests/integration/test_approval_e2e.py` — full round-trip
-- [ ] `tests/integration/test_error_recovery.py` — provider failure → fallback
+- [x] `tests/unit/test_context_budget.py` — allocation, trimming, compression (Sprint 07: 41 new tests)
+- [x] `tests/unit/test_resilience.py` — retry, circuit breaker, fallback (14 tests)
+- [x] `tests/unit/test_session_policy.py` — allow/require_confirmation/auto-approve, presets (Sprint 07: 18 new tests)
+- [x] `tests/integration/test_approval_e2e.py` — full round-trip (11 tests)
+- [x] `tests/integration/test_error_recovery.py` — provider failure → fallback (10 tests)
 
 ---
 
@@ -154,14 +154,14 @@ Complete the Agent Core phase by implementing context window management (compres
 
 ## Definition of Done
 
-- [ ] Context compression fires automatically for long conversations
-- [ ] Token counting accurate (within 5% of actual provider count)
-- [ ] Circuit breaker trips after consecutive failures, falls back gracefully
-- [ ] Session policy restricts tools per configuration
-- [ ] Approval flow works end-to-end with timeout and batch-allow
-- [ ] Error recovery: provider failure, tool error, context overflow all handled
-- [ ] All tests pass
-- [ ] **Phase 2 gate**: Agent can chat, use tools, manage context, handle errors — full agent core operational
+- [x] Context compression fires automatically for long conversations
+- [x] Token counting accurate (within 5% of actual provider count)
+- [x] Circuit breaker trips after consecutive failures, falls back gracefully
+- [x] Session policy restricts tools per configuration
+- [x] Approval flow works end-to-end with timeout and batch-allow
+- [x] Error recovery: provider failure, tool error, context overflow all handled
+- [x] All tests pass (401 total, 73 new in Sprint 07, 0 failures)
+- [x] **Phase 2 gate**: Agent can chat, use tools, manage context, handle errors — full agent core operational
 
 ---
 

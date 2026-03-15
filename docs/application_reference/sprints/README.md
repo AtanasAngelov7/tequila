@@ -1,7 +1,7 @@
 # Tequila v2 — Sprint Plan
 
 **Created**: March 13, 2026
-**Updated**: March 14, 2026
+**Updated**: March 15, 2026
 **Source**: [tequila_v2_specification.md](../tequila_v2_specification.md) §18 (Build Sequencing)
 **Sprint cadence**: 2-week sprints
 **Total sprints**: 17 (34 weeks)
@@ -26,10 +26,10 @@
 | **[S01](sprint_01.md)** | 1 – Foundation | App skeleton, gateway, config, DB | ✅ Done | §2.1–2.3, §12.4, §14.1–14.4, §20.1–20.2, §28, §28.4 |
 | **[S02](sprint_02.md)** | 1 – Foundation | Sessions, WebSocket, React shell | ✅ Done | §2.4–2.7, §3.1–3.2, §3.7, §9.1, §9.3–9.4, §13.2, §20.3–20.4, §20.6 |
 | **[S03](sprint_03.md)** | 1 – Foundation | Setup wizard, health, session UX | ✅ Done | §3.2, §9.5, §13.3, §15.1–15.2 |
-| **[S04](sprint_04.md)** | 2 – Agent Core | Agent model, providers, prompt assembly | ⬜ Not Started | §4.1–4.3a, §4.5.8, §4.6–4.6c, §4.7 |
-| **[S05](sprint_05.md)** | 2 – Agent Core | Turn loop, message model, tool framework | ⬜ Not Started | §3.4–3.6, §4.3, §4.6a, §11.1–11.2, §20.6 |
-| **[S06](sprint_06.md)** | 2 – Agent Core | Core tools (filesystem, web, vision) | ⬜ Not Started | §16.1–16.3, §16.7, §17.1–17.2, §17.4, §17.6 |
-| **[S07](sprint_07.md)** | 2 – Agent Core | Context management, policies, approvals | ⬜ Not Started | §4.3a, §4.7, §11.2, §19.1–19.3, §20.3c |
+| **[S04](sprint_04.md)** | 2 – Agent Core | Agent model, providers, prompt assembly | ✅ Done | §4.1–4.3a, §4.5.8, §4.6–4.6c, §4.7 |
+| **[S05](sprint_05.md)** | 2 – Agent Core | Turn loop, message model, tool framework | ✅ Done | §3.4–3.6, §4.3, §4.6a, §11.1–11.2, §20.6 |
+| **[S06](sprint_06.md)** | 2 – Agent Core | Core tools (filesystem, web, vision) | ✅ Done | §16.1–16.3, §16.7, §17.1–17.2, §17.4, §17.6 |
+| **[S07](sprint_07.md)** | 2 – Agent Core | Context management, policies, approvals | ✅ Done | §4.3a, §4.7, §11.2, §19.1–19.3, §20.3c |
 | **[S08](sprint_08.md)** | 3 – Multi-Agent | Session tools, sub-agents, workflows | ⬜ Not Started | §3.3, §10.1–10.3, §20.7 |
 | **[S09](sprint_09.md)** | 4 – Memory (I) | Vault, embeddings, memory data model | ⬜ Not Started | §5.1–5.4, §5.10, §5.13, §20.3b |
 | **[S10](sprint_10.md)** | 4 – Memory (II) | Extraction, recall, knowledge sources | ⬜ Not Started | §5.5–5.6, §5.14, §20.5 |
@@ -41,7 +41,7 @@
 | **[S15](sprint_15.md)** | 6 – Polish (II) | Full UI, file cleanup, packaging | ⬜ Not Started | §9.1–9.2b, §21.6–21.7, §29.1–29.5 |
 | **[S16](sprint_16.md)** | 7 – Future | Image gen, additional connectors, auto-update | ⬜ Not Started | §8.6 (future), §29.5 |
 
-**Progress**: 3 / 17 sprints complete — Sprint 01 (app skeleton), Sprint 02 (sessions, WebSocket, React shell), Sprint 03 (setup wizard, health dashboard, session UX) done.
+**Progress**: 7 / 17 sprints complete — Phase 1 (S01–S03) ✅ and Phase 2 (S04–S07) ✅ complete.
 
 ---
 
@@ -49,7 +49,7 @@
 
 ```
 Phase 1: Foundation     → S01 ✅, S02 ✅, S03 ✅      (6 weeks) ← PHASE 1 COMPLETE
-Phase 2: Agent Core     → S04 ⬜, S05 ⬜, S06 ⬜, S07 ⬜  (8 weeks)
+Phase 2: Agent Core     → S04 ✅, S05 ✅, S06 ✅, S07 ✅  (8 weeks) ← PHASE 2 COMPLETE
 Phase 3: Multi-Agent    → S08 ⬜                      (2 weeks)
 Phase 4: Memory         → S09 ⬜, S10 ⬜, S11 ⬜      (6 weeks)
 Phase 5: Plugins        → S12 ⬜, S13 ⬜              (4 weeks)

@@ -264,11 +264,12 @@ class SessionStore:
         title: str | None = None,
         summary: str | None = None,
         metadata: dict[str, Any] | None = None,
+        policy: Any | None = None,  # SessionPolicy or dict
     ) -> Session:
         """Update mutable display fields on a session (OCC, §20.3b).
 
-        Only *title*, *summary*, and *metadata* may be patched here; status
-        transitions go through :meth:`archive` / :meth:`unarchive` /
+        Supports *title*, *summary*, *metadata*, and *policy* (Sprint 07).
+        Status transitions go through :meth:`archive` / :meth:`unarchive` /
         :meth:`mark_idle`.
 
         Raises:
@@ -297,6 +298,12 @@ class SessionStore:
             if metadata is not None:
                 sets.append("metadata = :metadata")
                 params["metadata"] = json.dumps(metadata)
+            if policy is not None:
+                # Accept SessionPolicy model or raw dict
+                from app.sessions.policy import SessionPolicy as _SP
+                policy_obj = policy if isinstance(policy, _SP) else _SP.model_validate(policy)
+                sets.append("policy = :policy")
+                params["policy"] = policy_obj.model_dump_json()
 
             if len(sets) == 2:  # only timestamps — nothing to update
                 return session

@@ -27,8 +27,10 @@ from app.paths import db_path  # noqa: E402 — after sys.path adjustment
 config = context.config
 
 # Apply the ini-file logging config (unless the application already set it up).
+# disable_existing_loggers=False prevents alembic from disabling application
+# loggers (e.g. app.tools.registry) when migrations run during tests.
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # Override the SQLite URL with the runtime-resolved path so dev paths and
 # frozen-mode paths both work correctly.  Use as_posix() to produce

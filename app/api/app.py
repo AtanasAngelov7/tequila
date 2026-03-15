@@ -129,6 +129,16 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_turn_loop(get_router())
     logger.info("TurnLoop initialised.")
 
+    # 8e. Initialise WebCache (Sprint 06).
+    from app.db.web_cache import init_web_cache
+    init_web_cache(db_conn.get_app_db())
+    logger.info("WebCache initialised.")
+
+    # 8f. Register all built-in tools (Sprint 06).
+    from app.tools.builtin import register_all_builtin_tools
+    register_all_builtin_tools()
+    logger.info("Built-in tools registered.")
+
     # 9. Start background idle-detection task (§3.7).
     _idle_task = asyncio.create_task(idle_detection_task())
 

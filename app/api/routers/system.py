@@ -218,13 +218,49 @@ async def system_status(
 
     overall_status = "ok" if db_ok else "degraded"
 
+    # ── Provider health + circuit breaker states (Sprint 07) ──────────────
+    provider_statuses: list[ProviderStatus] = []
+    try:
+        from app.providers.circuit_breaker import get_all_circuit_breakers
+        from app.providers.registry import get_registry as get_provider_registry
+
+        registry = get_provider_registry()
+        all_cbs = get_all_circuit_breakers()
+        all_providers = registry.list_providers()
+
+        for provider in all_providers:
+            provider_id = provider.provider_id
+            cb = all_cbs.get(provider_id)
+            circuit_state = cb.state.value if cb else "closed"
+            try:
+                models = await provider.list_models()
+                model_count = len(models)
+                available = True
+            except Exception as provider_exc:
+                model_count = 0
+                available = False
+                if circuit_state == "closed" and cb:
+                    circuit_state = cb.state.value
+
+            if circuit_state in ("open",):
+                overall_status = "degraded"
+
+            provider_statuses.append(ProviderStatus(
+                provider_id=provider_id,
+                available=available,
+                circuit_state=circuit_state,
+                model_count=model_count,
+            ))
+    except Exception:
+        pass  # provider registry not yet initialised
+
     return SystemStatus(
         status=overall_status,
         app=APP_NAME,
         version=APP_VERSION,
         uptime_s=round(time.monotonic() - _startup_time, 2),
         started_at=_started_at.isoformat(),
-        providers=[],          # stub — implemented in Sprint 04
+        providers=provider_statuses,
         plugins=[],            # stub — implemented in Sprint 06
         db_ok=db_ok,
         db_size_mb=db_size_mb,

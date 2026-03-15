@@ -3,14 +3,22 @@
 Flow for each tool call
 -----------------------
 1. Check ``policy.allowed_tools`` (``["*"]`` = allow all).
-2. Determine if approval is required:
-   - Safety level is ``destructive`` or ``critical``, AND
-   - Tool is NOT in ``policy.auto_approve``.
-   - OR tool is in ``policy.require_confirmation`` and NOT in ``policy.auto_approve``.
+2. Determine if approval is required (Sprint 07 logic):
+   - Tool is in ``_session_approvals[session_key]`` → **auto-approved** (persistent).
+   - Turn-level allow-all flag is set → auto-approved.
+   - Tool is in ``policy.auto_approve`` → auto-approved.
+   - Tool is in ``policy.require_confirmation`` and NOT in ``policy.auto_approve`` → approval needed.
+   - Safety level is ``destructive`` or ``critical`` → approval needed.
 3. If approval required → emit ``APPROVAL_REQUEST`` gateway event → wait on
    an ``asyncio.Event`` up to ``APPROVAL_TIMEOUT_SECONDS``.
 4. Execute the tool function (sync or async).
-5. Return ``ToolResult``.
+5. Audit the decision and return ``ToolResult``.
+
+Persistent per-session approvals
+---------------------------------
+``grant_session_approval(session_key, tool_name)`` grants approval for *tool_name*
+that persists **beyond the current turn** (unlike the per-turn allow-all flag).
+Use cases: user clicks “always allow in this session” in the UI.
 
 Parallel execution
 ------------------
@@ -83,6 +91,8 @@ class ToolExecutor:
         self._pending: dict[str, list[_PendingApproval]] = {}
         # session_key → turn-level allow-all flag (cleared after each turn)
         self._allow_all: dict[str, bool] = {}
+        # session_key → set of tool names approved for the whole session (Sprint 07)
+        self._session_approvals: dict[str, set[str]] = {}
 
     # ── Policy helpers ────────────────────────────────────────────────────────
 
@@ -98,20 +108,27 @@ class ToolExecutor:
         session_key: str,
     ) -> bool:
         """Return True if this tool call must pause for user confirmation."""
-        # Turn-level allow-all overrides everything
+        # 1. Persistent session-level approval (Sprint 07) — overrides everything
+        session_approved = self._session_approvals.get(session_key, set())
+        if td.name in session_approved:
+            return False
+
+        # 2. Turn-level allow-all
         if self._allow_all.get(session_key):
             return False
 
         auto = getattr(policy, "auto_approve", [])
         require = getattr(policy, "require_confirmation", [])
 
+        # 3. Policy auto-approve list
         if td.name in auto:
             return False
 
+        # 4. Policy require_confirmation list
         if td.name in require:
             return True
 
-        # Safety-level defaults: destructive + critical require approval
+        # 5. Safety-level defaults: destructive + critical require approval
         return td.safety in ("destructive", "critical")
 
     # ── Approval gate ─────────────────────────────────────────────────────────
@@ -203,9 +220,94 @@ class ToolExecutor:
         self._allow_all[session_key] = value
 
     def clear_turn_state(self, session_key: str) -> None:
-        """Reset per-turn approval state after turn completion."""
+        """Reset per-turn approval state after turn completion.
+
+        **Does not** clear persistent session approvals — those survive
+        across turns until the session is closed.
+        """
         self._allow_all.pop(session_key, None)
         self._pending.pop(session_key, None)
+
+    # ── Persistent session approvals (Sprint 07) ───────────────────────────────────
+
+    def grant_session_approval(self, session_key: str, tool_name: str) -> None:
+        """Permanently approve *tool_name* for *session_key* (persists across turns).
+
+        Called when the user clicks “always allow in this session” in the UI.
+        """
+        self._session_approvals.setdefault(session_key, set()).add(tool_name)
+        logger.info(
+            "Session approval granted: session=%s tool=%r (persists until session close)",
+            session_key,
+            tool_name,
+        )
+
+    def revoke_session_approval(self, session_key: str, tool_name: str | None = None) -> None:
+        """Revoke persistent session approval for *tool_name* (or all tools if None)."""
+        if tool_name is None:
+            self._session_approvals.pop(session_key, None)
+        else:
+            approved = self._session_approvals.get(session_key)
+            if approved:
+                approved.discard(tool_name)
+        logger.info(
+            "Session approval revoked: session=%s tool=%r",
+            session_key,
+            tool_name or '(all)',
+        )
+
+    def get_session_approvals(self, session_key: str) -> set[str]:
+        """Return the set of tools permanently approved for *session_key*."""
+        return frozenset(self._session_approvals.get(session_key, set()))  # type: ignore[return-value]
+
+    def clear_session_state(self, session_key: str) -> None:
+        """Remove all state (turn + session) for *session_key* on session close."""
+        self.clear_turn_state(session_key)
+        self._session_approvals.pop(session_key, None)
+
+    # ── Audit logging (Sprint 07) ─────────────────────────────────────────────────
+
+    async def _audit(  # noqa: PLR0913
+        self,
+        event_type: str,
+        session_key: str,
+        tool_name: str,
+        decision: str,
+        actor: str = "user",
+        details: dict[str, Any] | None = None,
+    ) -> None:
+        """Write an approval / policy decision to the ``audit_log`` table.
+
+        Failures are silently swallowed so that audit errors never block tool
+        execution.
+        """
+        import datetime
+        import json
+        import uuid
+
+        try:
+            from app.db.connection import get_app_db, write_transaction
+
+            db = get_app_db()
+            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            row_id = str(uuid.uuid4())
+            details_json = json.dumps(details or {})
+
+            async with write_transaction(db):
+                await db.execute(
+                    """
+                    INSERT INTO audit_log
+                        (id, created_at, event_type, session_key, tool_name, decision, actor, details_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (row_id, now, event_type, session_key, tool_name, decision, actor, details_json),
+                )
+
+            logger.debug(
+                "Audit: %s/%s → %s (session=%s)", event_type, tool_name, decision, session_key
+            )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("Audit write failed (non-fatal): %s", exc)
 
     # ── Single execution ──────────────────────────────────────────────────────
 
@@ -238,6 +340,8 @@ class ToolExecutor:
         allowed = getattr(policy, "allowed_tools", ["*"])
         if not self._is_allowed(tool_name, allowed):
             logger.warning("Tool %r blocked by policy for session %s", tool_name, session_key)
+            await self._audit("tool_call", session_key, tool_name, "policy_denied",
+                              details={"tool_call_id": tool_call_id})
             return ToolResult(
                 tool_call_id=tool_call_id,
                 success=False,
@@ -249,7 +353,11 @@ class ToolExecutor:
         if self._needs_approval(td, policy, session_key):
             try:
                 await self._await_approval(tool_call_id, tool_name, session_key)
+                await self._audit("tool_call", session_key, tool_name, "approval_granted",
+                                  details={"tool_call_id": tool_call_id})
             except ApprovalDenied as exc:
+                await self._audit("tool_call", session_key, tool_name, "approval_denied",
+                                  details={"tool_call_id": tool_call_id, "reason": str(exc)})
                 return ToolResult(
                     tool_call_id=tool_call_id,
                     success=False,

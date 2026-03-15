@@ -120,3 +120,125 @@ def test_policy_json_round_trip() -> None:
     reloaded = SessionPolicy(**dumped)
     assert reloaded.allowed_tools == policy.allowed_tools
     assert reloaded.require_confirmation == policy.require_confirmation
+
+
+# ── Sprint 07: PolicyResult + check_policy ────────────────────────────────────
+
+from app.sessions.policy import PolicyResult, check_policy
+
+
+# ── PolicyResult ──────────────────────────────────────────────────────────────
+
+
+def test_policy_result_allowed_is_truthy() -> None:
+    r = PolicyResult(allowed=True)
+    assert bool(r) is True
+
+
+def test_policy_result_denied_is_falsy() -> None:
+    r = PolicyResult(allowed=False, reason="not allowed", error_code="tool_not_allowed")
+    assert bool(r) is False
+
+
+def test_policy_result_repr_allowed() -> None:
+    r = PolicyResult(allowed=True)
+    assert "True" in repr(r)
+
+
+def test_policy_result_repr_denied() -> None:
+    r = PolicyResult(allowed=False, reason="blocked", error_code="channel_blocked")
+    assert "False" in repr(r)
+    assert "channel_blocked" in repr(r)
+
+
+# ── check_policy: tool_call ────────────────────────────────────────────────────
+
+
+def test_check_policy_tool_call_wildcard_allowed() -> None:
+    policy = SessionPolicyPresets.ADMIN  # allowed_tools=["*"]
+    result = check_policy(policy, "tool_call", tool_name="anything")
+    assert result.allowed is True
+
+
+def test_check_policy_tool_call_explicit_allowed() -> None:
+    policy = SessionPolicy(allowed_tools=["web_search"])
+    result = check_policy(policy, "tool_call", tool_name="web_search")
+    assert result.allowed is True
+
+
+def test_check_policy_tool_call_denied() -> None:
+    policy = SessionPolicy(allowed_tools=["web_search"])
+    result = check_policy(policy, "tool_call", tool_name="code_exec")
+    assert result.allowed is False
+    assert result.error_code == "tool_not_allowed"
+
+
+# ── check_policy: channel_send ─────────────────────────────────────────────────
+
+
+def test_check_policy_channel_send_allowed() -> None:
+    policy = SessionPolicyPresets.STANDARD  # allowed_channels=["*"]
+    result = check_policy(policy, "channel_send", channel="slack")
+    assert result.allowed is True
+
+
+def test_check_policy_channel_send_denied() -> None:
+    policy = SessionPolicy(allowed_channels=["email"])
+    result = check_policy(policy, "channel_send", channel="slack")
+    assert result.allowed is False
+    assert result.error_code == "channel_blocked"
+
+
+# ── check_policy: path_access ──────────────────────────────────────────────────
+
+
+def test_check_policy_path_access_allowed() -> None:
+    policy = SessionPolicy(allowed_paths=["/safe/"])
+    result = check_policy(policy, "path_access", path="/safe/file.txt")
+    assert result.allowed is True
+
+
+def test_check_policy_path_access_denied() -> None:
+    policy = SessionPolicy(allowed_paths=["/safe/"])
+    result = check_policy(policy, "path_access", path="/etc/passwd")
+    assert result.allowed is False
+    assert result.error_code == "path_not_allowed"
+
+
+# ── check_policy: spawn_agent / inter_session_send ────────────────────────────
+
+
+def test_check_policy_spawn_agent_allowed() -> None:
+    policy = SessionPolicyPresets.ADMIN
+    result = check_policy(policy, "spawn_agent")
+    assert result.allowed is True
+
+
+def test_check_policy_spawn_agent_denied() -> None:
+    policy = SessionPolicyPresets.WORKER
+    result = check_policy(policy, "spawn_agent")
+    assert result.allowed is False
+    assert result.error_code == "spawn_denied"
+
+
+def test_check_policy_inter_session_allowed() -> None:
+    policy = SessionPolicyPresets.ADMIN
+    result = check_policy(policy, "inter_session_send")
+    assert result.allowed is True
+
+
+def test_check_policy_inter_session_denied() -> None:
+    policy = SessionPolicy(can_send_inter_session=False)
+    result = check_policy(policy, "inter_session_send")
+    assert result.allowed is False
+    assert result.error_code == "inter_session_denied"
+
+
+# ── check_policy: unknown event type ──────────────────────────────────────────
+
+
+def test_check_policy_unknown_event_type_is_allowed() -> None:
+    """Forward-compatible: unknown event types are always allowed."""
+    policy = SessionPolicyPresets.READ_ONLY
+    result = check_policy(policy, "future_event_type_xyz")
+    assert result.allowed is True

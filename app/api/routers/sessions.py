@@ -170,6 +170,70 @@ async def update_session(
     return _session_to_response(session)
 
 
+# ── Policy endpoint (Sprint 07) ───────────────────────────────────────────────
+
+
+class UpdatePolicyRequest(BaseModel):
+    """Request body for ``PATCH /api/sessions/{id}/policy``."""
+
+    policy: dict[str, Any]
+    """Full or partial ``SessionPolicy`` as a JSON object.
+
+    Supplied fields are merged into the existing policy (a full replacement
+    is performed — the entire policy is overwritten with the provided object).
+    """
+
+    preset: str | None = None
+    """Optional named preset (``ADMIN``, ``STANDARD``, ``WORKER``, etc.).
+
+    When *preset* is supplied, the preset policy is used as the base and any
+    fields in *policy* are merged on top.
+    """
+
+
+class PolicyResponse(BaseModel):
+    session_id: str
+    policy: dict[str, Any]
+
+
+@router.patch("/{session_id}/policy", response_model=PolicyResponse)
+async def update_session_policy(
+    session_id: str,
+    body: UpdatePolicyRequest,
+    _token: None = Depends(require_gateway_token),
+) -> PolicyResponse:
+    """Replace (or merge with a preset) the session policy (Sprint 07, §2.7).
+
+    Returns the new effective policy.
+    """
+    from app.sessions.policy import SessionPolicy, SessionPolicyPresets
+    from fastapi import HTTPException
+
+    # Start from preset or current policy
+    if body.preset:
+        try:
+            base = SessionPolicyPresets.by_name(body.preset)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        # Merge patch fields on top of preset
+        merged = {**base.model_dump(), **body.policy}
+    else:
+        merged = body.policy
+
+    try:
+        new_policy = SessionPolicy.model_validate(merged)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid policy: {exc}")
+
+    store = get_session_store()
+    try:
+        session = await store.update(session_id, policy=new_policy)
+    except SessionNotFoundError:
+        raise HTTPException(status_code=404, detail=f"Session {session_id!r} not found.")
+
+    return PolicyResponse(session_id=session_id, policy=session.policy.model_dump())
+
+
 @router.delete("/{session_id}", status_code=204)
 async def delete_session(
     session_id: str,

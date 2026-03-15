@@ -28,6 +28,7 @@ import logging
 import uuid
 from typing import Any
 
+from app.agent.context import get_or_create_budget
 from app.agent.models import AgentConfig
 from app.agent.prompt_assembly import AssemblyContext, assemble_prompt
 from app.agent.store import AgentStore, get_agent_store
@@ -36,6 +37,7 @@ from app.gateway.events import ET, EventSource, GatewayEvent, StreamPayload
 from app.gateway.router import GatewayRouter, get_router
 from app.providers.base import Message as ProviderMessage
 from app.providers.base import ToolDef, ToolResult
+from app.providers.circuit_breaker import CircuitOpenError, get_circuit_breaker
 from app.providers.registry import get_registry as get_provider_registry
 from app.sessions.messages import MessageStore, get_message_store
 from app.sessions.models import Session
@@ -200,15 +202,39 @@ class TurnLoop:
                     tool_defs=all_tool_defs,
                 )
 
+                # ── Step 3b: Context compression (Sprint 07) ─────────────────────
+                budget = get_or_create_budget(session_id, qualified_model)
+                if budget.needs_compression(messages):
+                    logger.info(
+                        "TurnLoop: context at %.0f%% — compressing (session=%s)",
+                        budget.usage_ratio(messages) * 100,
+                        session_id,
+                    )
+                    messages = await budget.auto_compress(
+                        messages, provider=provider, model=model
+                    )
+
                 # ── Step 4 + 5: Stream from provider + forward events ───────────
-                text_acc, tool_calls_raw, i_tok, o_tok = await self._stream_and_forward(
-                    provider=provider,
-                    messages=messages,
-                    model=model,
-                    tool_defs=all_tool_defs,
-                    session_key=session_key,
-                    policy=policy,
-                )
+                cb = get_circuit_breaker(getattr(provider, 'provider_id', 'unknown'))
+                try:
+                    text_acc, tool_calls_raw, i_tok, o_tok = await self._stream_and_forward(
+                        provider=provider,
+                        messages=messages,
+                        model=model,
+                        tool_defs=all_tool_defs,
+                        session_key=session_key,
+                        policy=policy,
+                    )
+                    await cb.record_success()
+                except CircuitOpenError as exc:
+                    await self._emit_error(
+                        session_key,
+                        f"Provider circuit is OPEN — {exc}. Please try again later.",
+                    )
+                    return
+                except Exception:
+                    await cb.record_failure()
+                    raise
                 in_tokens += i_tok
                 out_tokens += o_tok
 

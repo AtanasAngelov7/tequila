@@ -1,11 +1,9 @@
-"""Session-level capability policy model and presets for Tequila v2 (§2.7).
+"""Session-level capability policy model, presets, and enforcement (§2.7, §11.2).
 
-``SessionPolicy`` defines what an agent is allowed to do within a session.
-``SessionPolicyPresets`` provides named presets for common access patterns.
-
-Enforcement wiring (gateway-level checks before tool execution, delivery, etc.)
-is added in Sprint 07.  This module is data-model-only: it defines the
-structures and validates field values.
+``SessionPolicy``        — defines what an agent is allowed to do in a session.
+``SessionPolicyPresets`` — named presets for common access patterns.
+``PolicyResult``         — (Sprint 07) result object from a policy check.
+``check_policy``         — (Sprint 07) gateway-level policy enforcement function.
 """
 from __future__ import annotations
 
@@ -182,3 +180,135 @@ class SessionPolicyPresets:
                 f"Unknown preset '{name}'. Valid values: {list(preset_map.keys())}"
             )
         return preset_map[key]
+
+
+# ── PolicyResult & check_policy (Sprint 07) ───────────────────────────────────
+
+
+class PolicyResult:
+    """Outcome of a gateway-level policy check.
+
+    Attributes
+    ----------
+    allowed:
+        ``True`` when the action is permitted; ``False`` when it is blocked.
+    reason:
+        Human-readable explanation (always set when ``allowed=False``).
+    error_code:
+        Machine-readable code for the denial reason.  One of:
+
+        ``"tool_not_allowed"``      — tool absent from ``allowed_tools``.
+        ``"channel_blocked"``       — channel absent from ``allowed_channels``.
+        ``"path_not_allowed"``      — path outside ``allowed_paths``.
+        ``"spawn_denied"``          — ``can_spawn_agents`` is ``False``.
+        ``"inter_session_denied"``  — ``can_send_inter_session`` is ``False``.
+    """
+
+    __slots__ = ("allowed", "reason", "error_code")
+
+    def __init__(
+        self,
+        allowed: bool,
+        reason: str | None = None,
+        error_code: str | None = None,
+    ) -> None:
+        self.allowed = allowed
+        self.reason = reason
+        self.error_code = error_code
+
+    def __bool__(self) -> bool:
+        return self.allowed
+
+    def __repr__(self) -> str:
+        if self.allowed:
+            return "PolicyResult(allowed=True)"
+        return f"PolicyResult(allowed=False, error_code={self.error_code!r}, reason={self.reason!r})"
+
+
+def check_policy(
+    policy: "SessionPolicy",
+    event_type: str,
+    **kwargs: Any,
+) -> PolicyResult:
+    """Evaluate a gateway policy check and return a ``PolicyResult``.
+
+    Parameters
+    ----------
+    policy:
+        The ``SessionPolicy`` for the current session.
+    event_type:
+        Type of action being checked.  Supported values:
+
+        * ``"tool_call"``         — ``tool_name`` kwarg required.
+        * ``"channel_send"``      — ``channel`` kwarg required.
+        * ``"path_access"``       — ``path`` kwarg required.
+        * ``"spawn_agent"``       — no extra kwargs.
+        * ``"inter_session_send"``— no extra kwargs.
+
+    **kwargs:
+        Action-specific parameters (see *event_type* above).
+
+    Returns
+    -------
+    PolicyResult
+        ``allowed=True`` when the action is permitted; ``allowed=False``
+        (with ``reason`` and ``error_code`` set) when it is blocked.
+
+    Examples
+    --------
+    ::
+
+        result = check_policy(session.policy, "tool_call", tool_name="fs_write_file")
+        if not result:
+            raise PermissionError(result.reason)
+    """
+    if event_type == "tool_call":
+        tool_name: str = kwargs.get("tool_name", "")
+        if not policy.allows_tool(tool_name):
+            return PolicyResult(
+                allowed=False,
+                reason=f"Tool {tool_name!r} is not permitted in this session.",
+                error_code="tool_not_allowed",
+            )
+        return PolicyResult(allowed=True)
+
+    if event_type == "channel_send":
+        channel: str = kwargs.get("channel", "")
+        if not policy.allows_channel(channel):
+            return PolicyResult(
+                allowed=False,
+                reason=f"Channel {channel!r} is not permitted in this session.",
+                error_code="channel_blocked",
+            )
+        return PolicyResult(allowed=True)
+
+    if event_type == "path_access":
+        path: str = kwargs.get("path", "")
+        if not policy.allows_path(path):
+            return PolicyResult(
+                allowed=False,
+                reason=f"Path {path!r} is outside allowed paths for this session.",
+                error_code="path_not_allowed",
+            )
+        return PolicyResult(allowed=True)
+
+    if event_type == "spawn_agent":
+        if not policy.can_spawn_agents:
+            return PolicyResult(
+                allowed=False,
+                reason="This session is not permitted to spawn sub-agent sessions.",
+                error_code="spawn_denied",
+            )
+        return PolicyResult(allowed=True)
+
+    if event_type == "inter_session_send":
+        if not policy.can_send_inter_session:
+            return PolicyResult(
+                allowed=False,
+                reason="This session is not permitted to send inter-session messages.",
+                error_code="inter_session_denied",
+            )
+        return PolicyResult(allowed=True)
+
+    # Unknown event type — default allow to avoid breaking unknown future events
+    return PolicyResult(allowed=True)

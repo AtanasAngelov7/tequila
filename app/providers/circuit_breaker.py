@@ -1,9 +1,11 @@
-"""Sprint 04 — Circuit breaker for provider resilience (§4.6c).
+"""Sprint 04 / Sprint 07 — Circuit breaker + graceful degradation (§4.6c, §19.3).
 
 States:  closed → open → half-open → closed
 
-``RetryPolicy`` controls per-provider retry behaviour.
-``CircuitBreaker`` wraps any ``LLMProvider.stream_completion()`` call.
+``RetryPolicy``         — controls per-provider retry behaviour.
+``CircuitBreaker``      — wraps any ``LLMProvider.stream_completion()`` call.
+``GracefulDegradation`` — (Sprint 07) chains multiple providers as fallbacks.
+``get_circuit_breaker`` — (Sprint 07) global per-provider registry.
 """
 from __future__ import annotations
 
@@ -233,3 +235,132 @@ class CircuitBreaker:
 
 class CircuitOpenError(RuntimeError):
     """Raised when a request is rejected because the circuit is OPEN."""
+
+
+# ── GracefulDegradation (Sprint 07) ───────────────────────────────────────────
+
+
+class GracefulDegradation:
+    """Ordered fallback chain for provider resilience (§19.3).
+
+    When the primary provider fails (circuit open, network error, etc.),
+    ``GracefulDegradation`` transparently retries the request on the next
+    provider in the chain.
+
+    Usage::
+
+        gd = GracefulDegradation(
+            chain=[
+                (anthropic_provider, "claude-sonnet-4-5"),
+                (openai_provider,    "gpt-4o"),
+                (ollama_provider,    "llama3.1"),
+            ]
+        )
+        stream = await gd.stream_completion(messages, tools=tools)
+        async for event in stream:
+            ...
+    """
+
+    def __init__(self, chain: list[tuple[Any, str]]) -> None:
+        """
+        Parameters
+        ----------
+        chain:
+            Ordered list of ``(provider, model_id)`` pairs.  The first entry
+            is the primary provider; subsequent entries are fallbacks.
+        """
+        if not chain:
+            raise ValueError("GracefulDegradation chain must have at least one entry.")
+        self.chain = chain
+
+    async def stream_completion(
+        self,
+        messages: Any,
+        tools: Any = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Try each provider in the chain and return the first successful stream.
+
+        Raises
+        ------
+        RuntimeError
+            When every provider in the chain fails.
+        """
+        last_exc: Exception | None = None
+        for provider, model_id in self.chain:
+            cb = get_circuit_breaker(provider.provider_id)
+            if not cb.is_available():
+                logger.info(
+                    "GracefulDegradation: skipping %r (circuit OPEN)", provider.provider_id
+                )
+                continue
+            try:
+                stream = await provider.stream_completion(
+                    messages=messages,
+                    model=model_id,
+                    tools=tools or [],
+                    **kwargs,
+                )
+                await cb.record_success()
+                return stream
+            except Exception as exc:
+                logger.warning(
+                    "GracefulDegradation: provider %r failed (%s), trying next",
+                    provider.provider_id,
+                    exc,
+                )
+                await cb.record_failure()
+                last_exc = exc
+
+        raise RuntimeError(
+            f"All providers in GracefulDegradation chain failed. "
+            f"Last error: {last_exc}"
+        )
+
+
+# ── Circuit-breaker registry (Sprint 07) ─────────────────────────────────────
+
+_circuit_registry: dict[str, CircuitBreaker] = {}
+
+
+def get_circuit_breaker(
+    provider_id: str,
+    *,
+    failure_threshold: int = 5,
+    success_threshold: int = 2,
+    reset_timeout: float = 30.0,
+    retry_policy: RetryPolicy | None = None,
+) -> CircuitBreaker:
+    """Return (creating if necessary) the ``CircuitBreaker`` for *provider_id*.
+
+    The same instance is reused across calls so that state (failure count,
+    circuit state) persists for the lifetime of the process.
+
+    Parameters
+    ----------
+    provider_id:
+        Unique provider identifier (e.g. ``"anthropic"``).
+    failure_threshold, success_threshold, reset_timeout, retry_policy:
+        CircuitBreaker constructor arguments — only used when creating a new
+        instance; ignored on cache hit.
+    """
+    if provider_id not in _circuit_registry:
+        _circuit_registry[provider_id] = CircuitBreaker(
+            provider_id=provider_id,
+            failure_threshold=failure_threshold,
+            success_threshold=success_threshold,
+            reset_timeout=reset_timeout,
+            retry_policy=retry_policy,
+        )
+    return _circuit_registry[provider_id]
+
+
+def get_all_circuit_breakers() -> dict[str, CircuitBreaker]:
+    """Return a copy of the current circuit-breaker registry."""
+    return dict(_circuit_registry)
+
+
+def reset_circuit_registry() -> None:
+    """Clear the registry — for use in tests only."""
+    _circuit_registry.clear()
+

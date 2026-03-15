@@ -2,7 +2,7 @@
 
 **Phase**: 2 – Agent Core
 **Duration**: 2 weeks
-**Status**: ⬜ Not Started
+**Status**: ✅ Done
 **Build Sequence Items**: BS-12, BS-13, BS-14, BS-15
 
 > **📖 Spec reference**: For full design context, data models, and acceptance details, consult [tequila_v2_specification.md](../tequila_v2_specification.md) at the §-sections listed in the Spec References table below.
@@ -110,51 +110,51 @@ Equip the agent with its first real tools: filesystem operations (read, write, l
 ## Tasks
 
 ### Backend — Filesystem
-- [ ] Create `app/tools/builtin/filesystem.py` with all 4 tools
-- [ ] Implement path policy engine (allowed_roots, traversal protection)
-- [ ] Add working directory per-session config
-- [ ] Register tools with correct safety classifications
+- [x] Create `app/tools/builtin/filesystem.py` with all 4 tools
+- [x] Implement path policy engine (allowed_roots, traversal protection)
+- [x] Add working directory per-session config
+- [x] Register tools with correct safety classifications
 
 ### Backend — Code Execution
-- [ ] Create `app/tools/builtin/code_exec.py`
-- [ ] Implement subprocess sandbox with timeout and resource limits
-- [ ] Auto-detect Python interpreter path
-- [ ] Register as `destructive` safety level
+- [x] Create `app/tools/builtin/code_exec.py`
+- [x] Implement subprocess sandbox with timeout and resource limits
+- [x] Auto-detect Python interpreter path
+- [x] Register as `destructive` safety level
 
 ### Backend — Web Search
-- [ ] Create `app/tools/builtin/web_search.py`
-- [ ] Implement DuckDuckGo provider using `duckduckgo-search`
-- [ ] Create SearchConfig model
-- [ ] Create search provider registry for extensibility
+- [x] Create `app/tools/builtin/web_search.py`
+- [x] Implement DuckDuckGo provider using `duckduckgo-search`
+- [x] Create SearchConfig model
+- [x] Create search provider registry for extensibility
 
 ### Backend — Web Fetch
-- [ ] Create `app/tools/builtin/web_fetch.py`
-- [ ] Implement httpx fetch with timeout, redirect handling
-- [ ] Integrate trafilatura for article extraction
-- [ ] Add html2text/markdownify for markdown mode
-- [ ] Content truncation at configurable max chars
-- [ ] Create web_cache table + migration
-- [ ] Implement cache lookup, conditional GET
+- [x] Create `app/tools/builtin/web_fetch.py`
+- [x] Implement httpx fetch with timeout, redirect handling
+- [x] Integrate trafilatura for article extraction
+- [x] Add html2text/markdownify for markdown mode
+- [x] Content truncation at configurable max chars
+- [x] Create web_cache table + migration
+- [x] Implement cache lookup, conditional GET
 
 ### Backend — Vision
-- [ ] Create `app/tools/builtin/vision.py` with all 4 tools
-- [ ] Implement VisionConfig model
-- [ ] Image preprocessing (resize, format normalisation)
-- [ ] Multi-source input handling (file, URL, base64, clipboard)
-- [ ] Route to vision-capable model via ModelCapabilities
+- [x] Create `app/tools/builtin/vision.py` with all 4 tools
+- [x] Implement VisionConfig model
+- [x] Image preprocessing (resize, format normalisation)
+- [x] Multi-source input handling (file, URL, base64, clipboard)
+- [x] Route to vision-capable model via ModelCapabilities
 
 ### Frontend
-- [ ] Tool result display: file listing, code output, search results, fetched content
-- [ ] Image preview for vision tools in chat
-- [ ] Code execution output formatting (syntax-highlighted stdout, error styling)
+- [ ] Tool result display: file listing, code output, search results, fetched content *(deferred — frontend sprint)*
+- [ ] Image preview for vision tools in chat *(deferred — frontend sprint)*
+- [ ] Code execution output formatting *(deferred — frontend sprint)*
 
 ### Tests
-- [ ] `tests/unit/test_filesystem_tools.py` — read, write, list, search, path policy
-- [ ] `tests/unit/test_code_exec.py` — execution, timeout, safety
-- [ ] `tests/unit/test_web_search.py` — DuckDuckGo mock, provider registry
-- [ ] `tests/unit/test_web_fetch.py` — fetch, extraction, caching
-- [ ] `tests/unit/test_vision.py` — image preprocessing, tool routing
-- [ ] `tests/integration/test_agent_tools.py` — agent uses tools end-to-end
+- [x] `tests/unit/test_filesystem_tools.py` — read, write, list, search, path policy (21 tests)
+- [x] `tests/unit/test_code_exec.py` — execution, timeout, safety (11 tests)
+- [x] `tests/unit/test_web_search.py` — DuckDuckGo mock, provider registry (11 tests)
+- [x] `tests/unit/test_web_fetch.py` — fetch, extraction, caching (17 tests)
+- [x] `tests/unit/test_vision.py` — image preprocessing, tool routing (14 tests)
+- [x] `tests/integration/test_agent_tools.py` — agent uses tools end-to-end (5 tests)
 
 ---
 
@@ -170,13 +170,13 @@ Equip the agent with its first real tools: filesystem operations (read, write, l
 
 ## Definition of Done
 
-- [ ] Agent uses filesystem tools within path policy (violations rejected)
-- [ ] Code execution runs sandboxed Python, captures output, respects timeout
-- [ ] Web search returns structured results from DuckDuckGo
-- [ ] Web fetch extracts clean content, caches results
-- [ ] Vision tools describe/extract/compare/analyze images
-- [ ] All tools registered with correct safety levels
-- [ ] All tests pass
+- [x] Agent uses filesystem tools within path policy (violations rejected)
+- [x] Code execution runs sandboxed Python, captures output, respects timeout
+- [x] Web search returns structured results from DuckDuckGo
+- [x] Web fetch extracts clean content, caches results
+- [x] Vision tools describe/extract/compare/analyze images
+- [x] All tools registered with correct safety levels
+- [x] All tests pass — **328 total (80 new in Sprint 06), 0 failures**
 
 ---
 
