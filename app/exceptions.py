@@ -138,6 +138,19 @@ class SessionNotFoundError(NotFoundError):
 # ── Database errors ───────────────────────────────────────────────────────────
 
 
+class AgentNotFoundError(NotFoundError):
+    """The requested agent ID does not exist in the database.
+
+    HTTP equivalent: 404 Not Found.
+    """
+
+    def __init__(self, agent_id: str) -> None:
+        super().__init__(resource="Agent", id=agent_id)
+
+
+# ── Database errors ───────────────────────────────────────────────────────────
+
+
 class DatabaseError(TequilaError):
     """Low-level database operation failed in an unrecoverable way.
 

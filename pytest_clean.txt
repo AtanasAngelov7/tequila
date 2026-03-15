@@ -1,0 +1,68 @@
+﻿........................................................................ [ 49%]
+........................................................................ [ 99%]
+.                                                                        [100%]
+============================== warnings summary ===============================
+tests/integration/test_api_sessions.py: 34 warnings
+tests/integration/test_websocket.py: 4 warnings
+tests/unit/test_session_store.py: 23 warnings
+tests/unit/test_session_title.py: 13 warnings
+  C:\Users\aiang\PycharmProjects\AtanasAngelov\tequila\app\sessions\store.py:118: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now_iso = datetime.utcnow().isoformat()
+
+tests/integration/test_api_sessions.py::test_list_sessions_filter_status
+tests/integration/test_api_sessions.py::test_archive_session
+tests/integration/test_api_sessions.py::test_unarchive_session
+tests/unit/test_session_store.py::test_list_filter_by_status
+tests/unit/test_session_store.py::test_archive
+tests/unit/test_session_store.py::test_unarchive
+  C:\Users\aiang\PycharmProjects\AtanasAngelov\tequila\app\sessions\store.py:381: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now_iso = datetime.utcnow().isoformat()
+
+tests/integration/test_api_sessions.py::test_update_session_title
+tests/integration/test_api_sessions.py::test_update_session_metadata
+tests/unit/test_session_store.py::test_update_title
+tests/unit/test_session_store.py::test_update_summary
+tests/unit/test_session_store.py::test_update_metadata
+tests/unit/test_session_title.py::test_manual_rename
+tests/unit/test_session_title.py::test_rename_does_not_change_other_fields
+  C:\Users\aiang\PycharmProjects\AtanasAngelov\tequila\app\sessions\store.py:288: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    "now": datetime.utcnow().isoformat(),
+
+tests/integration/test_api_sessions.py::test_unarchive_session
+tests/unit/test_session_store.py::test_unarchive
+  C:\Users\aiang\PycharmProjects\AtanasAngelov\tequila\app\sessions\store.py:404: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now_iso = datetime.utcnow().isoformat()
+
+tests/integration/test_api_sessions.py::test_create_and_list_messages
+tests/integration/test_api_sessions.py::test_message_increments_count
+tests/integration/test_api_sessions.py::test_message_increments_count
+tests/integration/test_api_sessions.py::test_sort_by_message_count_desc
+tests/integration/test_api_sessions.py::test_sort_by_message_count_desc
+tests/integration/test_api_sessions.py::test_sort_by_message_count_desc
+tests/integration/test_api_sessions.py::test_sort_by_message_count_desc
+tests/integration/test_websocket.py::test_ws_message_send
+tests/integration/test_websocket.py::test_ws_reconnect_replay
+  C:\Users\aiang\PycharmProjects\AtanasAngelov\tequila\app\sessions\messages.py:52: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now_iso = datetime.utcnow().isoformat()
+
+tests/integration/test_api_sessions.py: 7 warnings
+tests/integration/test_websocket.py: 2 warnings
+tests/unit/test_session_store.py: 1 warning
+  C:\Users\aiang\PycharmProjects\AtanasAngelov\tequila\app\sessions\store.py:333: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now_iso = datetime.utcnow().isoformat()
+
+tests/integration/test_setup_wizard.py::test_setup_wizard_anthropic_bad_key
+tests/integration/test_setup_wizard.py::test_setup_wizard_openai_bad_key
+tests/integration/test_setup_wizard.py::test_setup_wizard_missing_key
+  C:\Users\aiang\PycharmProjects\AtanasAngelov\tequila\.venv\Lib\site-packages\fastapi\routing.py:324: DeprecationWarning: 'HTTP_422_UNPROCESSABLE_ENTITY' is deprecated. Use 'HTTP_422_UNPROCESSABLE_CONTENT' instead.
+    return await dependant.call(**values)
+
+tests/unit/test_session_store.py::test_mark_idle
+tests/unit/test_session_store.py::test_mark_idle_already_idle
+tests/unit/test_session_store.py::test_mark_idle_already_idle
+tests/unit/test_session_store.py::test_run_idle_check
+  C:\Users\aiang\PycharmProjects\AtanasAngelov\tequila\app\sessions\store.py:356: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now_iso = datetime.utcnow().isoformat()
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+145 passed, 115 warnings in 211.36s (0:03:31)

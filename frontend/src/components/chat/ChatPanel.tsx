@@ -1,4 +1,3 @@
-import React from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';

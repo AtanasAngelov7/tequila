@@ -1,4 +1,3 @@
-import React from 'react';
 import { useUiStore } from '../stores/uiStore';
 import { applyTheme } from '../lib/theme';
 import type { Theme } from '../types';

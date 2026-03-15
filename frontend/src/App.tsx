@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppLayout from './components/layout/AppLayout';
 import ChatPanel from './components/chat/ChatPanel';
 import SetupWizard from './pages/SetupWizard';
 import DiagnosticsPage from './pages/DiagnosticsPage';
+import AgentsPage from './pages/AgentsPage';
 import { wsClient } from './api/ws';
 import { shortcutManager } from './lib/shortcuts';
 import { applyTheme, watchSystemTheme } from './lib/theme';
@@ -94,6 +95,14 @@ function MainApp() {
         element={
           <AppLayout>
             <DiagnosticsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/agents"
+        element={
+          <AppLayout>
+            <AgentsPage />
           </AppLayout>
         }
       />

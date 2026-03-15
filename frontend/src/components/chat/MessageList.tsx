@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 
 const roleColors: Record<string, string> = {

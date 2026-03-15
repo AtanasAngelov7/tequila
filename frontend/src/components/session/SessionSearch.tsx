@@ -5,7 +5,7 @@
  * Filter state lives in the Zustand uiStore (ephemeral, not persisted) and
  * is passed to chatStore.loadSessions() whenever any value changes.
  */
-import React, { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 import { useUiStore } from '../../stores/uiStore';
 import { useChatStore } from '../../stores/chatStore';
 
@@ -30,26 +30,6 @@ export default function SessionSearch() {
 
   // Debounce timer ref
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const reload = useCallback(
-    (overrides?: Partial<{
-      q: string;
-      status: string;
-      kind: string;
-      sort: string;
-      order: string;
-    }>) => {
-      const filters = {
-        q: (overrides?.q ?? sessionSearch) || undefined,
-        status: (overrides?.status ?? sessionStatus) || undefined,
-        kind: (overrides?.kind ?? sessionKind) || undefined,
-        sort: overrides?.sort ?? sessionSort,
-        order: overrides?.order ?? sessionOrder,
-      };
-      loadSessions(filters);
-    },
-    [sessionSearch, sessionStatus, sessionKind, sessionSort, sessionOrder, loadSessions],
-  );
 
   const handleSearch = (value: string) => {
     setSessionSearch(value);

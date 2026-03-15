@@ -1,4 +1,3 @@
-import React from 'react';
 import { useUiStore } from '../stores/uiStore';
 
 const SHORTCUTS = [

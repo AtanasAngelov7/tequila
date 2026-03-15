@@ -6,7 +6,6 @@
  * ● yellow — connecting
  * ● red    — disconnected
  */
-import React from 'react';
 import { useWsStore } from '../stores/wsStore';
 
 export default function ConnectionStatus() {

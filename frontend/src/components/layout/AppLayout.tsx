@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useUiStore } from '../../stores/uiStore';
 import SessionList from '../session/SessionList';
 import ThemeToggle from '../ThemeToggle';
@@ -11,6 +12,20 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const { sidebarOpen, toggleSidebar } = useUiStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const navLinkStyle = (path: string): React.CSSProperties => ({
+    display: 'block',
+    padding: '8px 16px',
+    fontSize: 13,
+    cursor: 'pointer',
+    backgroundColor: location.pathname === path ? 'var(--color-primary-muted, rgba(99,102,241,0.15))' : 'transparent',
+    color: location.pathname === path ? 'var(--color-primary, #6366f1)' : 'var(--color-on-surface)',
+    borderLeft: location.pathname === path ? '3px solid var(--color-primary, #6366f1)' : '3px solid transparent',
+    textDecoration: 'none',
+    fontWeight: location.pathname === path ? 600 : 400,
+  });
 
   return (
     <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
@@ -55,6 +70,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
           {/* Session list fills remaining space */}
           <div style={{ flex: 1, overflow: 'auto' }}>
             <SessionList />
+          </div>
+          {/* Bottom navigation links */}
+          <div style={{ borderTop: '1px solid var(--color-border)', flexShrink: 0 }}>
+            <div style={navLinkStyle('/')} role="button" tabIndex={0} onClick={() => navigate('/')}>
+              💬 Chat
+            </div>
+            <div style={navLinkStyle('/agents')} role="button" tabIndex={0} onClick={() => navigate('/agents')}>
+              🤖 Agents
+            </div>
+            <div style={navLinkStyle('/diagnostics')} role="button" tabIndex={0} onClick={() => navigate('/diagnostics')}>
+              🔍 Diagnostics
+            </div>
           </div>
         </aside>
       )}

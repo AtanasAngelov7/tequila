@@ -105,6 +105,24 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_message_store(db_conn.get_app_db())
     logger.info("SessionStore and MessageStore ready.")
 
+    # 8b. Initialise AgentStore (Sprint 04).
+    from app.agent.store import init_agent_store
+    init_agent_store(db_conn.get_app_db())
+    logger.info("AgentStore ready.")
+
+    # 8c. Register LLM providers in ProviderRegistry (Sprint 04).
+    from app.providers.registry import get_registry
+    from app.providers.anthropic import AnthropicProvider
+    from app.providers.openai import OpenAIProvider
+    from app.providers.ollama import OllamaProvider
+
+    registry = get_registry()
+    registry.register(AnthropicProvider())
+    registry.register(OpenAIProvider())
+    registry.register(OllamaProvider())
+    provider_health = await registry.health_check_all()
+    logger.info("ProviderRegistry ready", extra={"providers": provider_health})
+
     # 9. Start background idle-detection task (§3.7).
     _idle_task = asyncio.create_task(idle_detection_task())
 
@@ -211,7 +229,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(TequilaError, _tequila_exception_handler)  # type: ignore[arg-type]
 
     # ── Routers ───────────────────────────────────────────────────────────────
-    from app.api.routers import system, logs, sessions, messages, setup
+    from app.api.routers import system, logs, sessions, messages, setup, agents, providers
     from app.api import ws
 
     app.include_router(system.router)
@@ -219,6 +237,8 @@ def create_app() -> FastAPI:
     app.include_router(sessions.router)
     app.include_router(messages.router)
     app.include_router(setup.router)
+    app.include_router(agents.router)
+    app.include_router(providers.router)
     app.include_router(ws.router)
 
     # ── Static frontend (placeholder) ─────────────────────────────────────────
