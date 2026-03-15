@@ -170,6 +170,13 @@ class ET:
     ESCALATION_TRIGGERED: str = "escalation.triggered"
     """Sub-agent escalation handoff initiated (§4.2a)."""
 
+    # Tool approval (§11.2)
+    APPROVAL_REQUEST: str = "approval.request"
+    """Tool execution requires user approval — emitted before execution pauses."""
+
+    APPROVAL_RESPONSE: str = "approval.response"
+    """User decision on a pending approval request (approve / deny)."""
+
     # Budget / cost
     BUDGET_TURN_COST: str = "budget.turn_cost"
     """Per-turn LLM cost recorded (§23.2)."""

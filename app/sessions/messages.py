@@ -1,11 +1,11 @@
-"""Message store — insert and query session messages (§3.4).
+"""Message store — insert and query session messages (§3.4 full — Sprint 05).
 
-Sprint 02 provides the minimal persistence layer needed for echo-back chat.
-The full message model (tool_calls, branching, provenance, feedback, costs)
-is added in Sprint 05 alongside the agent turn loop.
+Supports the complete Message model: tool calls, branching, provenance,
+feedback, content blocks, and cost metadata.
 """
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from datetime import datetime
@@ -19,6 +19,16 @@ from app.exceptions import NotFoundError
 from app.sessions.models import Message
 
 logger = logging.getLogger(__name__)
+
+# All columns to SELECT (avoids SELECT * surprises after schema changes)
+_MSG_COLS = (
+    "id, session_id, role, content, "
+    "content_blocks, tool_calls, tool_call_id, file_ids, "
+    "parent_id, active, provenance, compressed, compressed_source_ids, "
+    "turn_cost_id, feedback_rating, feedback_note, feedback_at, "
+    "model, input_tokens, output_tokens, "
+    "created_at, updated_at"
+)
 
 
 class MessageStore:
@@ -39,13 +49,19 @@ class MessageStore:
         session_id: str,
         role: str,
         content: str = "",
+        content_blocks: list[dict[str, Any]] | None = None,
+        tool_calls: list[dict[str, Any]] | None = None,
+        tool_call_id: str | None = None,
+        file_ids: list[str] | None = None,
+        parent_id: str | None = None,
+        active: bool = True,
+        provenance: str = "user_input",
+        model: str | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        turn_cost_id: str | None = None,
     ) -> Message:
-        """Persist a new message and return the model.
-
-        Also stamps ``messages.updated_at`` and updates the session's
-        ``message_count + last_message_at`` via the SessionStore helper
-        (:meth:`~app.sessions.store.SessionStore.update_last_message`).
-        """
+        """Persist a new message and return the hydrated model."""
         from app.sessions.store import get_session_store
 
         message_id = str(uuid.uuid4())
@@ -56,6 +72,22 @@ class MessageStore:
             "session_id": session_id,
             "role": role,
             "content": content,
+            "content_blocks": json.dumps(content_blocks or []),
+            "tool_calls": json.dumps(tool_calls) if tool_calls is not None else None,
+            "tool_call_id": tool_call_id,
+            "file_ids": json.dumps(file_ids or []),
+            "parent_id": parent_id,
+            "active": 1 if active else 0,
+            "provenance": provenance,
+            "compressed": 0,
+            "compressed_source_ids": json.dumps([]),
+            "turn_cost_id": turn_cost_id,
+            "feedback_rating": None,
+            "feedback_note": None,
+            "feedback_at": None,
+            "model": model,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
             "created_at": now_iso,
             "updated_at": now_iso,
         }
@@ -63,11 +95,25 @@ class MessageStore:
         async with write_transaction(self._db):
             await self._db.execute(
                 """
-                INSERT INTO messages (id, session_id, role, content, created_at, updated_at)
-                VALUES (:id, :session_id, :role, :content, :created_at, :updated_at)
+                INSERT INTO messages (
+                    id, session_id, role, content,
+                    content_blocks, tool_calls, tool_call_id, file_ids,
+                    parent_id, active, provenance, compressed, compressed_source_ids,
+                    turn_cost_id, feedback_rating, feedback_note, feedback_at,
+                    model, input_tokens, output_tokens,
+                    created_at, updated_at
+                ) VALUES (
+                    :id, :session_id, :role, :content,
+                    :content_blocks, :tool_calls, :tool_call_id, :file_ids,
+                    :parent_id, :active, :provenance, :compressed, :compressed_source_ids,
+                    :turn_cost_id, :feedback_rating, :feedback_note, :feedback_at,
+                    :model, :input_tokens, :output_tokens,
+                    :created_at, :updated_at
+                )
                 """,
                 row,
             )
+
         logger.debug(
             "Message inserted",
             extra={"message_id": message_id, "session_id": session_id, "role": role},
@@ -88,13 +134,9 @@ class MessageStore:
     # ── Read ──────────────────────────────────────────────────────────────────
 
     async def get(self, message_id: str) -> Message:
-        """Fetch a single message by ID.
-
-        Raises :class:`~app.exceptions.NotFoundError` when absent.
-        """
+        """Fetch a single message by ID."""
         async with self._db.execute(
-            "SELECT id, session_id, role, content, created_at, updated_at "
-            "FROM messages WHERE id = ?",
+            f"SELECT {_MSG_COLS} FROM messages WHERE id = ?",
             (message_id,),
         ) as cur:
             row = await cur.fetchone()
@@ -110,15 +152,11 @@ class MessageStore:
         offset: int = 0,
         active_only: bool = True,
     ) -> list[Message]:
-        """Return messages for *session_id* ordered oldest-first.
-
-        *active_only* filters to ``active = 1`` rows (defaults to ``True`` in
-        Sprint 02; full branching support added in Sprint 05).
-        """
+        """Return messages for *session_id* ordered oldest-first."""
         active_clause = "AND active = 1" if active_only else ""
         async with self._db.execute(
             f"""
-            SELECT id, session_id, role, content, created_at, updated_at
+            SELECT {_MSG_COLS}
             FROM messages
             WHERE session_id = ?
             {active_clause}
@@ -128,7 +166,76 @@ class MessageStore:
             (session_id, limit, offset),
         ) as cur:
             rows = await cur.fetchall()
-            return [Message.from_row(row_to_dict(r)) for r in rows]
+        return [Message.from_row(row_to_dict(r)) for r in rows]
+
+    async def get_active_chain(self, session_id: str) -> list[Message]:
+        """Return all active messages for *session_id* in chronological order.
+
+        Used by prompt assembly to load session history.
+        """
+        return await self.list_by_session(session_id, limit=1000, active_only=True)
+
+    # ── Update ────────────────────────────────────────────────────────────────
+
+    async def update_feedback(
+        self,
+        message_id: str,
+        *,
+        rating: str | None,
+        note: str | None = None,
+    ) -> Message:
+        """Set or clear feedback on a message.
+
+        Pass ``rating=None`` to remove feedback.
+        """
+        now_iso = datetime.utcnow().isoformat() if rating else None
+        async with write_transaction(self._db):
+            await self._db.execute(
+                """
+                UPDATE messages
+                SET feedback_rating = ?, feedback_note = ?, feedback_at = ?,
+                    updated_at = ?
+                WHERE id = ?
+                """,
+                (rating, note, now_iso, datetime.utcnow().isoformat(), message_id),
+            )
+        return await self.get(message_id)
+
+    async def deactivate_from(
+        self,
+        session_id: str,
+        *,
+        from_message_id: str,
+    ) -> int:
+        """Mark *from_message_id* and all later active messages in *session_id*
+        as ``active=False``.
+
+        Returns the number of rows updated.
+        Used by branching (§3.5) for regenerate and edit-and-resubmit.
+        """
+        # Get the created_at of the pivot message
+        async with self._db.execute(
+            "SELECT created_at FROM messages WHERE id = ? AND session_id = ?",
+            (from_message_id, session_id),
+        ) as cur:
+            pivot = await cur.fetchone()
+        if pivot is None:
+            raise NotFoundError(resource="Message", id=from_message_id)
+        pivot_ts = pivot[0]
+
+        now_iso = datetime.utcnow().isoformat()
+        async with write_transaction(self._db):
+            result = await self._db.execute(
+                """
+                UPDATE messages
+                SET active = 0, updated_at = ?
+                WHERE session_id = ?
+                  AND active = 1
+                  AND created_at >= ?
+                """,
+                (now_iso, session_id, pivot_ts),
+            )
+        return result.rowcount
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
@@ -144,13 +251,11 @@ def init_message_store(db: aiosqlite.Connection) -> MessageStore:
 
 
 def get_message_store() -> MessageStore:
-    """Return the initialised message store singleton.
-
-    Raises :class:`RuntimeError` if :func:`init_message_store` has not been called.
-    """
+    """Return the initialised message store singleton."""
     if _message_store is None:
         raise RuntimeError(
             "MessageStore has not been initialised. "
             "Call init_message_store() during application startup."
         )
     return _message_store
+

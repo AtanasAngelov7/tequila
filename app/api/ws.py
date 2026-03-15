@@ -186,7 +186,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             await send_json(_response(frame_id, ok=False, error=str(exc)))
 
     async def handle_message_send(frame_id: str, params: dict[str, Any]) -> None:
-        """Persist message and echo it back (no LLM in Sprint 02)."""
+        """Persist message and trigger the agent turn loop (Sprint 05)."""
         if not active_session_id:
             await send_json(
                 _response(frame_id, ok=False, error="No active session. Send session.create first.")
@@ -204,6 +204,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 session_id=active_session_id,
                 role=role,
                 content=content,
+                provenance="user_input" if role == "user" else "assistant_response",
             )
             msg_payload = {
                 "id": message.id,
@@ -215,11 +216,70 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             await send_json(_response(frame_id, ok=True, payload=msg_payload))
             # Push the persisted message as a server event
             await send_json(_push("message.created", msg_payload))
+
+            # Trigger the turn loop for user messages (Sprint 05)
+            if role == "user" and active_session_key:
+                try:
+                    from app.agent.turn_loop import get_turn_loop
+                    turn_loop = get_turn_loop()
+                    asyncio.create_task(
+                        turn_loop.run_turn_from_api(
+                            session_id=active_session_id,
+                            session_key=active_session_key,
+                            user_content=content,
+                        ),
+                        name=f"turn_loop_{message.id[:8]}",
+                    )
+                except RuntimeError:
+                    pass  # Turn loop not initialised (test / early startup)
+
         except Exception as exc:
             logger.exception("message.send failed")
             await send_json(_response(frame_id, ok=False, error=str(exc)))
 
+    async def handle_approval_respond(frame_id: str, params: dict[str, Any]) -> None:
+        """User responds to a pending approval request."""
+        tool_call_id: str = params.get("tool_call_id", "")
+        approved: bool = bool(params.get("approved", False))
+        allow_all: bool = bool(params.get("allow_all", False))
+
+        if not active_session_key:
+            await send_json(_response(frame_id, ok=False, error="No active session."))
+            return
+
+        try:
+            from app.tools.executor import get_tool_executor
+            executor = get_tool_executor()
+
+            if allow_all:
+                executor.set_allow_all(active_session_key, True)
+
+            if tool_call_id:
+                executor.resolve_approval(active_session_key, tool_call_id, approved)
+
+            await send_json(_response(frame_id, ok=True, payload={"acknowledged": True}))
+        except Exception as exc:
+            logger.exception("approval.respond failed")
+            await send_json(_response(frame_id, ok=False, error=str(exc)))
+
     # ── Main receive loop ─────────────────────────────────────────────────────
+
+    # Per-connection gateway event forwarder (Sprint 05).
+    # Filters by the active session_key and forwards all gateway events
+    # as server push frames to this WebSocket client.
+    async def _gateway_forwarder(event: Any) -> None:
+        if active_session_key and event.session_key == active_session_key:
+            await send_json(_push(event.event_type, event.payload))
+
+    # Register on the gateway (if available)
+    _gateway_registered = False
+    try:
+        from app.gateway.router import get_router as _get_router
+        _gr = _get_router()
+        _gr.on("*", _gateway_forwarder)
+        _gateway_registered = True
+    except RuntimeError:
+        pass  # Gateway not started in tests / early startup
 
     try:
         while True:
@@ -234,7 +294,7 @@ async def websocket_endpoint(ws: WebSocket) -> None:
 
             frame_id: str = frame.get("id", "")
             method: str = frame.get("method", "")
-            params: dict[str, Any] = frame.get("params", {})
+            params: dict[str, Any] = frame.get("params", frame.get("payload", {}))
 
             # Require connect before any other method (except pong)
             if not connected and method not in ("connect", "pong"):
@@ -253,6 +313,8 @@ async def websocket_endpoint(ws: WebSocket) -> None:
                 await handle_session_resume(frame_id, params)
             elif method == "message.send":
                 await handle_message_send(frame_id, params)
+            elif method == "approval.respond":
+                await handle_approval_respond(frame_id, params)
             else:
                 await send_json(
                     _response(frame_id, ok=False, error=f"Unknown method: {method!r}")
@@ -268,3 +330,11 @@ async def websocket_endpoint(ws: WebSocket) -> None:
             await heartbeat_task
         except asyncio.CancelledError:
             pass
+
+        # Deregister gateway forwarder
+        if _gateway_registered:
+            try:
+                from app.gateway.router import get_router as _get_router2
+                _get_router2().off("*", _gateway_forwarder)
+            except RuntimeError:
+                pass

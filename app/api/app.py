@@ -123,6 +123,12 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     provider_health = await registry.health_check_all()
     logger.info("ProviderRegistry ready", extra={"providers": provider_health})
 
+    # 8d. Initialise TurnLoop and register on gateway (Sprint 05).
+    from app.gateway.router import get_router
+    from app.agent.turn_loop import init_turn_loop
+    init_turn_loop(get_router())
+    logger.info("TurnLoop initialised.")
+
     # 9. Start background idle-detection task (§3.7).
     _idle_task = asyncio.create_task(idle_detection_task())
 

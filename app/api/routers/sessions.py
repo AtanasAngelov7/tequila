@@ -1,4 +1,4 @@
-"""REST API for session management (§3.2, §3.7, §13.1).
+"""REST API for session management (§3.2, §3.7, §13.1) — Sprint 05.
 
 Endpoints:
   POST   /api/sessions                    — create session
@@ -6,8 +6,10 @@ Endpoints:
   GET    /api/sessions/{session_id}       — retrieve single session
   PATCH  /api/sessions/{session_id}       — update title / summary / metadata
   DELETE /api/sessions/{session_id}       — permanently delete
-  POST   /api/sessions/{session_id}/archive    — archive session
-  POST   /api/sessions/{session_id}/unarchive  — restore from archive
+  POST   /api/sessions/{session_id}/archive       — archive session
+  POST   /api/sessions/{session_id}/unarchive     — restore from archive
+  POST   /api/sessions/{session_id}/regenerate    — regenerate last response
+  POST   /api/sessions/{session_id}/edit          — edit user message + resubmit
 """
 from __future__ import annotations
 
@@ -198,3 +200,89 @@ async def unarchive_session(
     store = get_session_store()
     session = await store.unarchive(session_id)
     return _session_to_response(session)
+
+
+# ── Branching & regeneration (§3.5, Sprint 05) ────────────────────────────────
+
+
+class RegenerateRequest(BaseModel):
+    message_id: str
+    """The assistant message ID to regenerate from."""
+
+
+class EditRequest(BaseModel):
+    message_id: str
+    """The user message ID to edit."""
+    content: str
+    """Replacement message content."""
+
+
+class BranchResponse(BaseModel):
+    status: str = "started"
+    session_id: str
+
+
+@router.post("/{session_id}/regenerate", response_model=BranchResponse, status_code=202)
+async def regenerate_response(
+    session_id: str,
+    body: RegenerateRequest,
+    _token: None = Depends(require_gateway_token),
+) -> BranchResponse:
+    """Deactivate *message_id* and all later messages, then re-run the turn loop.
+
+    The turn runs asynchronously; the response is returned immediately with
+    ``status="started"``.  Subscribe to the session's WebSocket stream for the
+    new assistant response.
+    """
+    from app.exceptions import NotFoundError, ValidationError
+    from fastapi import HTTPException
+    import asyncio
+
+    session = await get_session_store().get_by_id(session_id)
+
+    from app.sessions.branching import regenerate
+    try:
+        asyncio.create_task(
+            regenerate(
+                session_id=session_id,
+                session_key=session.session_key,
+                message_id=body.message_id,
+            )
+        )
+    except (NotFoundError, ValidationError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return BranchResponse(status="started", session_id=session_id)
+
+
+@router.post("/{session_id}/edit", response_model=BranchResponse, status_code=202)
+async def edit_and_resubmit(
+    session_id: str,
+    body: EditRequest,
+    _token: None = Depends(require_gateway_token),
+) -> BranchResponse:
+    """Edit a user message and resubmit the conversation from that point.
+
+    Deactivates *message_id* and all later messages, then starts a new turn
+    with *content* as the edited user message.
+    """
+    from app.exceptions import NotFoundError, ValidationError
+    from fastapi import HTTPException
+    import asyncio
+
+    session = await get_session_store().get_by_id(session_id)
+
+    from app.sessions.branching import edit_and_resubmit as _edit
+    try:
+        asyncio.create_task(
+            _edit(
+                session_id=session_id,
+                session_key=session.session_key,
+                message_id=body.message_id,
+                new_content=body.content,
+            )
+        )
+    except (NotFoundError, ValidationError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return BranchResponse(status="started", session_id=session_id)

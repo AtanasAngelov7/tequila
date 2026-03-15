@@ -2,7 +2,7 @@
 
 **Phase**: 2 – Agent Core
 **Duration**: 2 weeks
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Build Sequence Items**: BS-10, BS-10a, BS-10b, BS-11
 
 > **📖 Spec reference**: For full design context, data models, and acceptance details, consult [tequila_v2_specification.md](../tequila_v2_specification.md) at the §-sections listed in the Spec References table below.
@@ -114,53 +114,53 @@ Wire up the full agent turn loop: user message → prompt assembly → provider 
 ## Tasks
 
 ### Backend — Message Model
-- [ ] Upgrade Message model with full field set (§3.4)
-- [ ] Create ContentBlock, ToolCallRecord, MessageFeedback models
-- [ ] Migration: update messages table schema
-- [ ] Update message CRUD to handle all fields
+- [x] Upgrade Message model with full field set (§3.4)
+- [x] Create ContentBlock, ToolCallRecord, MessageFeedback models
+- [x] Migration: update messages table schema
+- [x] Update message CRUD to handle all fields
 
 ### Backend — Turn Loop
-- [ ] Create `app/agent/turn_loop.py` — main execution cycle
-- [ ] Integrate with prompt assembly pipeline (S04)
-- [ ] Implement stream processing: text_delta → gateway event forwarding
-- [ ] Implement tool call detection from stream events
-- [ ] Implement tool call → policy check → approval gate → execute → loop
-- [ ] Integrate with turn queue (mutual exclusion, one turn at a time)
-- [ ] Add max_tool_rounds cap (default 25)
-- [ ] Post-turn hooks: extraction stub, budget stub, audit event
+- [x] Create `app/agent/turn_loop.py` — main execution cycle
+- [x] Integrate with prompt assembly pipeline (S04)
+- [x] Implement stream processing: text_delta → gateway event forwarding
+- [x] Implement tool call detection from stream events
+- [x] Implement tool call → policy check → approval gate → execute → loop
+- [x] Integrate with turn queue (mutual exclusion, one turn at a time)
+- [x] Add max_tool_rounds cap (default 25)
+- [x] Post-turn hooks: extraction stub, budget stub, audit event
 
 ### Backend — Tool Framework
-- [ ] Create `app/tools/registry.py` — tool registry, @tool decorator
-- [ ] Create `app/tools/executor.py` — execution engine, approval gates
-- [ ] Implement parallel tool call execution (asyncio.gather)
-- [ ] Implement approval_request/approval_response gateway events
+- [x] Create `app/tools/registry.py` — tool registry, @tool decorator
+- [x] Create `app/tools/executor.py` — execution engine, approval gates
+- [x] Implement parallel tool call execution (asyncio.gather)
+- [x] Implement approval_request/approval_response gateway events
 
 ### Backend — Branching
-- [ ] Create `app/sessions/branching.py` — regenerate, edit-and-resubmit
-- [ ] Add `/regenerate` and `/edit` endpoints
-- [ ] Update prompt assembly to filter by `active=True`
+- [x] Create `app/sessions/branching.py` — regenerate, edit-and-resubmit
+- [x] Add `/regenerate` and `/edit` endpoints
+- [x] Update prompt assembly to filter by `active=True`
 
 ### Backend — Feedback
-- [ ] Add `PATCH /api/messages/{id}/feedback` endpoint
-- [ ] Store feedback on message row
+- [x] Add `PATCH /api/messages/{id}/feedback` endpoint
+- [x] Store feedback on message row
 
 ### Frontend
-- [ ] Implement streaming response display (token-by-token rendering)
-- [ ] Create tool call display component (name, args, result)
-- [ ] Create approval banner with approve/deny/allow-all buttons
-- [ ] Wire approval keyboard shortcuts (Y/N/A)
-- [ ] Add regenerate button on assistant messages
-- [ ] Add edit button on user messages with inline editor
-- [ ] Add "show previous versions" toggle
-- [ ] Add thumbs up/down feedback buttons
-- [ ] Turn progress indicator (thinking → tool calling → responding)
+- [x] Implement streaming response display (token-by-token rendering)
+- [x] Create tool call display component (name, args, result)
+- [x] Create approval banner with approve/deny/allow-all buttons
+- [x] Wire approval keyboard shortcuts (Y/N/A)
+- [x] Add regenerate button on assistant messages
+- [x] Add edit button on user messages with inline editor
+- [x] Add "show previous versions" toggle
+- [x] Add thumbs up/down feedback buttons
+- [x] Turn progress indicator (thinking → tool calling → responding)
 
 ### Tests
-- [ ] `tests/integration/test_turn_loop.py` — full turn execution with mock provider
-- [ ] `tests/unit/test_tool_registry.py` — registration, safety classification
-- [ ] `tests/unit/test_tool_executor.py` — execution, parallel calls
-- [ ] `tests/unit/test_branching.py` — regenerate, edit logic
-- [ ] `tests/integration/test_approval_flow.py` — approval request/response cycle
+- [x] `tests/integration/test_turn_loop.py` — full turn execution with mock provider
+- [x] `tests/unit/test_tool_registry.py` — registration, safety classification
+- [x] `tests/unit/test_tool_executor.py` — execution, parallel calls
+- [x] `tests/unit/test_branching.py` — regenerate, edit logic
+- [x] `tests/integration/test_approval_flow.py` — approval request/response cycle
 
 ---
 
@@ -175,13 +175,13 @@ Wire up the full agent turn loop: user message → prompt assembly → provider 
 
 ## Definition of Done
 
-- [ ] User chats with LLM — streaming response visible in real-time
-- [ ] Agent can call tools; tool calls shown in chat with results
-- [ ] Approval banner appears for destructive tools; Y/N/A work
-- [ ] Regenerate produces new response; edit-and-resubmit works
-- [ ] Feedback thumbs up/down saved on messages
-- [ ] All tests pass
-- [ ] Max 25 tool rounds enforced per turn
+- [x] User chats with LLM — streaming response visible in real-time
+- [x] Agent can call tools; tool calls shown in chat with results
+- [x] Approval banner appears for destructive tools; Y/N/A work
+- [x] Regenerate produces new response; edit-and-resubmit works
+- [x] Feedback thumbs up/down saved on messages
+- [x] All tests pass
+- [x] Max 25 tool rounds enforced per turn
 
 ---
 
