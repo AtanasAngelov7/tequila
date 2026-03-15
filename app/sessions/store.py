@@ -52,6 +52,15 @@ def remove_turn_queue(session_key: str) -> None:
     _turn_queues.pop(session_key, None)
 
 
+def active_turn_count() -> int:
+    """Return the number of sessions that currently have a non-empty turn queue.
+
+    Used by the ``GET /api/system/status`` health endpoint without exposing the
+    private ``_turn_queues`` dict to external callers.
+    """
+    return sum(1 for q in _turn_queues.values() if not q.empty())
+
+
 # ── SessionStore ──────────────────────────────────────────────────────────────
 
 
@@ -115,7 +124,7 @@ class SessionStore:
                 title = "New Session"
 
         policy_obj = SessionPolicy(**(policy or {}))
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
 
         row: dict[str, Any] = {
             "session_id": session_id,
@@ -286,7 +295,7 @@ class SessionStore:
             params: dict[str, Any] = {
                 "session_id": session_id,
                 "expected_version": session.version,
-                "now": datetime.utcnow().isoformat(),
+                "now": datetime.now(timezone.utc).isoformat(),
             }
 
             if title is not None:
@@ -337,7 +346,7 @@ class SessionStore:
 
     async def update_last_message(self, session_id: str) -> None:
         """Atomically increment message_count and stamp last_message_at (§20.3a)."""
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
 
         async with write_transaction(self._db):
             await self._db.execute(
@@ -360,7 +369,7 @@ class SessionStore:
         Returns ``True`` when the transition happened, ``False`` when the
         session was already idle/archived (idempotent).
         """
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
         before = self._db.total_changes
 
         async with write_transaction(self._db):
@@ -385,7 +394,7 @@ class SessionStore:
         if session.status == "archived":
             return session
 
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
 
         async with write_transaction(self._db):
             await self._db.execute(
@@ -396,6 +405,13 @@ class SessionStore:
                 """,
                 {"id": session_id, "now": now_iso},
             )
+
+        # Evict the runtime context budget for this session (TD-12)
+        try:
+            from app.agent.context import evict_budget
+            evict_budget(session_id)
+        except Exception:
+            logger.warning("Failed to evict context budget for session %s", session_id, exc_info=True)
 
         return await self.get_by_id(session_id)
 
@@ -408,7 +424,7 @@ class SessionStore:
         if session.status != "archived":
             return session
 
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
 
         async with write_transaction(self._db):
             await self._db.execute(
@@ -437,6 +453,12 @@ class SessionStore:
                 "DELETE FROM sessions WHERE session_id = ?", (session_id,)
             )
         remove_turn_queue(session_id)
+        # Evict the runtime context budget for this session (TD-12)
+        try:
+            from app.agent.context import evict_budget
+            evict_budget(session_id)
+        except Exception:
+            logger.warning("Failed to evict context budget for session %s", session_id, exc_info=True)
 
     # ── Idle detection ────────────────────────────────────────────────────────
 

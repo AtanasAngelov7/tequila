@@ -256,9 +256,9 @@ class ToolExecutor:
             tool_name or '(all)',
         )
 
-    def get_session_approvals(self, session_key: str) -> set[str]:
-        """Return the set of tools permanently approved for *session_key*."""
-        return frozenset(self._session_approvals.get(session_key, set()))  # type: ignore[return-value]
+    def get_session_approvals(self, session_key: str) -> frozenset[str]:
+        """Return the set of tools permanently approved for *session_key* (immutable)."""
+        return frozenset(self._session_approvals.get(session_key, set()))
 
     def clear_session_state(self, session_key: str) -> None:
         """Remove all state (turn + session) for *session_key* on session close."""
@@ -278,30 +278,28 @@ class ToolExecutor:
     ) -> None:
         """Write an approval / policy decision to the ``audit_log`` table.
 
+        Uses the canonical ``write_audit_event`` helper so writes use the
+        0001 schema column names (TD-01 fix).
+
         Failures are silently swallowed so that audit errors never block tool
         execution.
         """
-        import datetime
-        import json
-        import uuid
-
         try:
-            from app.db.connection import get_app_db, write_transaction
+            from app.audit.log import AuditEvent, write_audit_event
+            from app.db.connection import get_app_db
 
+            detail_payload: dict[str, Any] = {"tool_name": tool_name, **(details or {})}
+            event = AuditEvent(
+                actor=actor,
+                action=event_type,
+                resource_type="tool",
+                resource_id=tool_name,
+                outcome=decision,
+                detail=detail_payload,
+                session_key=session_key,
+            )
             db = get_app_db()
-            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
-            row_id = str(uuid.uuid4())
-            details_json = json.dumps(details or {})
-
-            async with write_transaction(db):
-                await db.execute(
-                    """
-                    INSERT INTO audit_log
-                        (id, created_at, event_type, session_key, tool_name, decision, actor, details_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (row_id, now, event_type, session_key, tool_name, decision, actor, details_json),
-                )
+            await write_audit_event(db, event)
 
             logger.debug(
                 "Audit: %s/%s → %s (session=%s)", event_type, tool_name, decision, session_key
@@ -435,7 +433,3 @@ def get_tool_executor() -> ToolExecutor:
     return _executor
 
 
-def reset_tool_executor() -> None:
-    """Reset the singleton — used in tests."""
-    global _executor
-    _executor = None

@@ -13,7 +13,8 @@ from typing import Any
 import pytest
 
 from app.sessions.policy import SessionPolicy, SessionPolicyPresets
-from app.tools.executor import ToolExecutor, reset_tool_executor
+from app.tools.executor import ToolExecutor
+from tests.reset_helpers import reset_tool_executor
 from app.tools.registry import ToolDefinition, ToolRegistry
 
 

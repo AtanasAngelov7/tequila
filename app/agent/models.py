@@ -1,12 +1,14 @@
 """Sprint 04 — Agent data models (§4.1, §4.1a, §4.2a, §4.7).
 
 This module defines all Pydantic models for the agent subsystem:
-- ``SessionPolicy`` — tool / channel permission matrix for a session
-- ``MemoryScope`` — what memory partitions an agent can access
-- ``SoulConfig`` — personality, system-prompt template, and behaviour rules
+- ``MemoryScope``      — what memory partitions an agent can access
+- ``SoulConfig``       — personality, system-prompt template, and behaviour rules
 - ``EscalationConfig`` — sub-agent handoff configuration
-- ``ContextBudget`` — per-category token allocations for prompt assembly
-- ``AgentConfig`` — the top-level agent record stored in the ``agents`` table
+- ``ContextBudget``    — per-category token allocations for prompt assembly
+- ``AgentConfig``      — the top-level agent record stored in the ``agents`` table
+
+``SessionPolicy`` is the canonical model from ``app.sessions.policy`` and is
+re-exported here for backwards compatibility.
 """
 from __future__ import annotations
 
@@ -16,6 +18,12 @@ from datetime import datetime, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
+
+# SessionPolicy is the canonical model from sessions/policy.py.
+# Re-exported here so that existing imports of the form
+#   ``from app.agent.models import SessionPolicy``
+# continue to work after TD-02 consolidation.
+from app.sessions.policy import SessionPolicy  # noqa: F401 — re-export
 
 
 # ── DEFAULT SYSTEM PROMPT TEMPLATE ────────────────────────────────────────────
@@ -51,40 +59,6 @@ DEFAULT_SYSTEM_PROMPT: str = """{{ persona }}
 ## Available tools
 {{ tools }}
 """
-
-
-# ── SESSION POLICY (§3.7) ─────────────────────────────────────────────────────
-
-
-class SessionPolicy(BaseModel):
-    """Permission matrix for a session — enforced by the gateway."""
-
-    allowed_channels: list[str] = ["*"]
-    """Delivery channels the agent may use (``*`` = all)."""
-
-    allowed_tools: list[str] = ["*"]
-    """Tool names the agent may invoke (``*`` = all)."""
-
-    allowed_paths: list[str] = ["*"]
-    """Filesystem path whitelist (``*`` = all)."""
-
-    can_spawn_agents: bool = True
-    """Whether this session may spawn sub-agents."""
-
-    can_send_inter_session: bool = True
-    """Whether this session may send messages to other sessions."""
-
-    max_tokens_per_run: int | None = None
-    """Cap on total tokens consumed per turn. ``None`` = unlimited."""
-
-    max_tool_rounds: int = 25
-    """Maximum tool-call iterations per turn."""
-
-    require_confirmation: list[str] = []
-    """Tool names that require explicit user approval before execution."""
-
-    auto_approve: list[str] = []
-    """Tools that bypass the confirmation gate even when in ``require_confirmation``."""
 
 
 # ── MEMORY SCOPE (§5.2) ───────────────────────────────────────────────────────
@@ -179,11 +153,17 @@ class EscalationConfig(BaseModel):
     """Display a UI notification when escalation occurs."""
 
 
-# ── CONTEXT BUDGET (§4.7) ─────────────────────────────────────────────────────
+# ── CONTEXT BUDGET CONFIG (§4.7) ───────────────────────────────────────────────────
 
 
-class ContextBudget(BaseModel):
-    """Per-category token budget for prompt assembly (§4.3a)."""
+class ContextBudgetConfig(BaseModel):
+    """Per-category token budget *configuration* for prompt assembly (§4.3a).
+
+    This is a Pydantic config model holding static slot sizes.  It is stored
+    inside ``AgentConfig`` and serialised to the ``agents`` table.  It is
+    distinct from ``app.agent.context.ContextBudget``, which is the runtime
+    engine that counts tokens and drives compression.
+    """
 
     max_context_tokens: int = 200_000
     """Provider model's context window size."""
@@ -280,7 +260,7 @@ class AgentConfig(BaseModel):
     is_admin: bool = False
     """Admin agents can modify other agents' configs and see all sessions."""
 
-    context_budget: ContextBudget = Field(default_factory=ContextBudget)
+    context_budget: ContextBudgetConfig = Field(default_factory=ContextBudgetConfig)
     """Per-category token budgets for prompt assembly (§4.5)."""
 
     escalation: EscalationConfig = Field(default_factory=EscalationConfig)

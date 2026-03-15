@@ -18,8 +18,8 @@ from app.providers.circuit_breaker import (
     CircuitOpenError,
     CircuitState,
     get_circuit_breaker,
-    reset_circuit_registry,
 )
+from tests.reset_helpers import reset_circuit_registry
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────

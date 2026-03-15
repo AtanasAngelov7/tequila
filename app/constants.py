@@ -43,3 +43,8 @@ MAX_CONCURRENT_SUBAGENTS: int = 3
 
 MAX_OCC_RETRIES: int = 3
 """Maximum optimistic-concurrency retry attempts before raising ConflictError (§20.3b)."""
+
+# ── Agent defaults ────────────────────────────────────────────────────────────
+
+DEFAULT_MODEL: str = "anthropic:claude-sonnet-4-5"
+"""System-wide fallback model used when an agent has no ``default_model`` set."""

@@ -19,7 +19,6 @@ The ``inbound.message`` event's ``payload`` dict must contain:
 ``session_id``   — session identifier (required)
 ``content``      — message text (required)
 ``user_name``    — display name for prompt assembly (optional)
-``message_id``   — pre-created message id (optional; if absent we create one)
 """
 from __future__ import annotations
 
@@ -32,6 +31,7 @@ from app.agent.context import get_or_create_budget
 from app.agent.models import AgentConfig
 from app.agent.prompt_assembly import AssemblyContext, assemble_prompt
 from app.agent.store import AgentStore, get_agent_store
+from app.constants import DEFAULT_MODEL
 from app.exceptions import NotFoundError
 from app.gateway.events import ET, EventSource, GatewayEvent, StreamPayload
 from app.gateway.router import GatewayRouter, get_router
@@ -83,7 +83,6 @@ class TurnLoop:
         session_id: str = payload.get("session_id", "")
         content: str = payload.get("content", "")
         user_name: str = payload.get("user_name", "")
-        pre_message_id: str | None = payload.get("message_id")
 
         if not session_id:
             logger.error("handle_inbound: missing session_id in event payload")
@@ -97,7 +96,6 @@ class TurnLoop:
             session_id=session_id,
             user_content=content,
             user_name=user_name,
-            pre_message_id=pre_message_id,
         )
 
     # ── Public entry point (for API / branching) ──────────────────────────────
@@ -109,7 +107,6 @@ class TurnLoop:
         session_key: str,
         user_content: str,
         user_name: str = "",
-        pre_message_id: str | None = None,
     ) -> None:
         """Start a turn from the API layer (e.g. POST /messages or /regenerate)."""
         await self._run_full_turn(
@@ -117,7 +114,6 @@ class TurnLoop:
             session_id=session_id,
             user_content=user_content,
             user_name=user_name,
-            pre_message_id=pre_message_id,
         )
 
     # ── Core execution ────────────────────────────────────────────────────────
@@ -129,7 +125,6 @@ class TurnLoop:
         session_id: str,
         user_content: str,
         user_name: str = "",
-        pre_message_id: str | None = None,
     ) -> None:
         """Execute one full turn: user message → assistant response."""
         # ── Step 1: Load session + agent config ───────────────────────────────
@@ -141,8 +136,16 @@ class TurnLoop:
 
         try:
             agent_config = await self._agent_store.get_by_id(session.agent_id)
-        except (NotFoundError, Exception):
-            # Fall back to default agent config
+        except NotFoundError:
+            logger.info("Agent %r not found for session %s, using default config", session.agent_id, session_id)
+            from app.agent.models import AgentConfig, SoulConfig
+            agent_config = AgentConfig(
+                agent_id=session.agent_id,
+                name="assistant",
+                soul=SoulConfig(persona="a helpful assistant"),
+            )
+        except Exception:
+            logger.warning("Unexpected error loading agent %r, using default config", session.agent_id, exc_info=True)
             from app.agent.models import AgentConfig, SoulConfig
             agent_config = AgentConfig(
                 agent_id=session.agent_id,
@@ -151,7 +154,7 @@ class TurnLoop:
             )
 
         # Resolve provider from qualified model ID (e.g. "anthropic:claude-sonnet-4-5")
-        qualified_model = getattr(agent_config, "default_model", "") or "anthropic:claude-sonnet-4-5"
+        qualified_model = getattr(agent_config, "default_model", "") or DEFAULT_MODEL
         try:
             provider, model = get_provider_registry().get_provider_for_model(qualified_model)
         except Exception:
@@ -166,8 +169,6 @@ class TurnLoop:
                 content=user_content,
                 provenance="user_input",
                 active=True,
-                # Use pre-assigned id if provided (e.g. from API echo)
-                **({} if not pre_message_id else {}),  # id not injectable via insert
             )
         except Exception as exc:
             logger.error("Failed to persist user message: %s", exc)

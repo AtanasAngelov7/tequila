@@ -134,7 +134,7 @@ class OpenAIProvider(LLMProvider):
         import openai  # type: ignore[import]
         import os
 
-        resolved_key = api_key or os.environ.get("OPENAI_API_KEY", "sk-placeholder")
+        resolved_key = api_key or os.environ.get("OPENAI_API_KEY") or None
         self._client = openai.AsyncOpenAI(api_key=resolved_key, base_url=base_url)
 
     async def stream_completion(

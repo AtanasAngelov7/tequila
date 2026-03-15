@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import subprocess
 import sys
 from contextlib import asynccontextmanager
@@ -117,9 +118,15 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from app.providers.ollama import OllamaProvider
 
     registry = get_registry()
-    registry.register(AnthropicProvider())
-    registry.register(OpenAIProvider())
-    registry.register(OllamaProvider())
+    for _provider_cls in (AnthropicProvider, OpenAIProvider, OllamaProvider):
+        try:
+            registry.register(_provider_cls())
+        except Exception as _exc:
+            logger.warning(
+                "Skipping provider '%s' — could not initialise: %s",
+                getattr(_provider_cls, "provider_id", _provider_cls.__name__),
+                _exc,
+            )
     provider_health = await registry.health_check_all()
     logger.info("ProviderRegistry ready", extra={"providers": provider_health})
 
@@ -228,14 +235,12 @@ def create_app() -> FastAPI:
     )
 
     # ── CORS ──────────────────────────────────────────────────────────────────
+    _default_origins = "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
+    _cors_origins_raw = os.environ.get("TEQUILA_CORS_ORIGINS", _default_origins)
+    _cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:5173",
-            "http://localhost:5174",
-            "http://127.0.0.1:5173",
-            "http://127.0.0.1:5174",
-        ],
+        allow_origins=_cors_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

@@ -1,7 +1,7 @@
 """Sprint 04 — 9-Step prompt assembly pipeline (§4.5).
 
 ``assemble_prompt()`` builds the ordered list of messages to send to an LLM
-provider, respecting the ``ContextBudget`` limits on every category.
+provider, respecting the ``ContextBudgetConfig`` limits on every category.
 
 Steps
 -----
@@ -24,7 +24,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.agent.models import AgentConfig, ContextBudget
+from app.agent.models import AgentConfig, ContextBudgetConfig
 from app.agent.soul import render_soul_prompt
 from app.providers.base import Message, ToolDef
 
@@ -54,7 +54,14 @@ class AssemblyContext:
     # ── Token budget tracking ──────────────────────────────────────────────
     tokens_used: int = 0
 
-    def budget(self) -> ContextBudget:
+    def budget(self) -> ContextBudgetConfig:
+        """Return the static slot-size limits from config (``ContextBudgetConfig``).
+
+        This is the *configuration* object, not the runtime ``ContextBudget``
+        engine.  Use it to read token ceilings per category (e.g.
+        ``system_prompt_budget``, ``memory_recall_budget``).  For dynamic
+        remaining-token tracking, call ``remaining()`` instead.
+        """
         return self.agent_config.context_budget
 
     def remaining(self) -> int:

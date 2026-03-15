@@ -53,7 +53,7 @@ class ConflictError(TequilaError):
     http_status = 409
 
 
-class PermissionError(TequilaError):  # noqa: A001 — intentional shadow of builtin
+class AccessDeniedError(TequilaError):
     """Authentication or scope check failed.
 
     HTTP equivalent: 403 Forbidden.
@@ -135,7 +135,7 @@ class SessionNotFoundError(NotFoundError):
         super().__init__(resource="Session", id=session_key)
 
 
-# ── Database errors ───────────────────────────────────────────────────────────
+# ── Agent errors ─────────────────────────────────────────────
 
 
 class AgentNotFoundError(NotFoundError):

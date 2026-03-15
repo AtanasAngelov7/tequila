@@ -7,7 +7,8 @@ from typing import Any
 import pytest
 
 from app.agent.models import SessionPolicy
-from app.tools.executor import ApprovalDenied, ToolExecutor, reset_tool_executor
+from app.tools.executor import ApprovalDenied, ToolExecutor
+from tests.reset_helpers import reset_tool_executor
 from app.tools.registry import ToolDefinition, ToolRegistry
 
 

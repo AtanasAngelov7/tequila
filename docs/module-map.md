@@ -37,7 +37,7 @@ Every Python module under `app/` listed with its responsibility, key public expo
 | `TequilaError` | 500 | Base class |
 | `NotFoundError` | 404 | Missing DB row |
 | `ConflictError` | 409 | Duplicate key / OCC version mismatch |
-| `PermissionError` | 403 | Auth / scope check failed |
+| `AccessDeniedError` | 403 | Auth / scope check failed |
 | `ValidationError` | 422 | Domain-level validation (not Pydantic) |
 | `ConfigKeyNotFoundError` | 404 | `ConfigStore.get()` — key absent and no default |
 | `ConfigValidationError` | 422 | Config value fails type/range check |

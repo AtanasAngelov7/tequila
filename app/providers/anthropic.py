@@ -156,7 +156,7 @@ class AnthropicProvider(LLMProvider):
         import anthropic  # type: ignore[import]
         import os
 
-        resolved_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "sk-ant-placeholder")
+        resolved_key = api_key or os.environ.get("ANTHROPIC_API_KEY") or None
         self._client = anthropic.AsyncAnthropic(api_key=resolved_key)
 
     async def stream_completion(

@@ -360,7 +360,4 @@ def get_all_circuit_breakers() -> dict[str, CircuitBreaker]:
     return dict(_circuit_registry)
 
 
-def reset_circuit_registry() -> None:
-    """Clear the registry — for use in tests only."""
-    _circuit_registry.clear()
 

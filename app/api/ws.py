@@ -30,8 +30,9 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
+from app.api.deps import require_ws_gateway_token
 from app.gateway.buffer import EventBuffer
 
 logger = logging.getLogger(__name__)
@@ -81,7 +82,10 @@ def _response(
 
 
 @router.websocket("/api/ws")
-async def websocket_endpoint(ws: WebSocket) -> None:
+async def websocket_endpoint(
+    ws: WebSocket,
+    _token: None = Depends(require_ws_gateway_token),
+) -> None:
     """Main WebSocket handler."""
     await ws.accept()
     logger.info("WebSocket client connected", extra={"client": ws.client})
@@ -94,8 +98,12 @@ async def websocket_endpoint(ws: WebSocket) -> None:
     async def send_json(data: dict[str, Any]) -> None:
         try:
             await ws.send_text(json.dumps(data))
-        except Exception:
+        except WebSocketDisconnect:
             pass  # Connection already closed
+        except RuntimeError:
+            pass  # Starlette raises RuntimeError on a closed WS transport
+        except Exception:
+            logger.warning("Unexpected error in send_json", exc_info=True)
 
     # ── Heartbeat task ────────────────────────────────────────────────────────
 

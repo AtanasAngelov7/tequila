@@ -10,7 +10,8 @@ from app.agent.turn_loop import TurnLoop
 from app.gateway.router import GatewayRouter
 from app.providers.mock import MockProvider
 from app.providers.registry import get_registry
-from app.tools.executor import ToolExecutor, reset_tool_executor
+from app.tools.executor import ToolExecutor
+from tests.reset_helpers import reset_tool_executor
 from app.tools.registry import ToolDefinition, ToolRegistry
 
 

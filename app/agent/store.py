@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import aiosqlite
@@ -48,7 +48,7 @@ class AgentStore:
     ) -> AgentConfig:
         """Insert a new agent row and return a hydrated ``AgentConfig``."""
         agent_id = f"agent:{uuid.uuid4().hex[:12]}"
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
 
         soul_obj = soul or SoulConfig(persona=persona, instructions=[])
 
@@ -159,7 +159,7 @@ class AgentStore:
         Raises :class:`~app.exceptions.ConflictError` after ``MAX_OCC_RETRIES``
         version mismatches.
         """
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         fields["updated_at"] = now
 
         # Serialise Pydantic models to JSON strings where needed

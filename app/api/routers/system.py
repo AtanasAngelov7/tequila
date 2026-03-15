@@ -211,8 +211,8 @@ async def system_status(
 
     # ── Active turn count (in-memory turn queues) ─────────────────────────
     try:
-        from app.sessions.store import _turn_queues
-        active_turn_count = sum(1 for q in _turn_queues.values() if not q.empty())
+        from app.sessions.store import active_turn_count
+        active_turn_count = active_turn_count()
     except Exception:
         pass
 
@@ -252,7 +252,7 @@ async def system_status(
                 model_count=model_count,
             ))
     except Exception:
-        pass  # provider registry not yet initialised
+        logger.warning("Failed to load provider registry for status", exc_info=True)
 
     return SystemStatus(
         status=overall_status,
@@ -272,7 +272,7 @@ async def system_status(
         embedding_index_status="ready",  # stub
         scheduler_status="stopped",      # stub — Sprint 07
         pending_jobs=0,
-        config_keys=len(config._cache),
+        config_keys=config.key_count(),
     )
 
 

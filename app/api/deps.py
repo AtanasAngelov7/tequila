@@ -9,11 +9,12 @@ individual router files.
 """
 from __future__ import annotations
 
+import hmac
 import logging
 from typing import AsyncGenerator
 
 import aiosqlite
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Query, status
 
 from app.config import ConfigStore, get_settings
 from app.constants import GATEWAY_TOKEN_HEADER
@@ -89,5 +90,28 @@ async def require_gateway_token(
     if not expected:
         # Token-less local dev mode — skip auth.
         return
-    if x_gateway_token != expected:
+    if not hmac.compare_digest(x_gateway_token or "", expected):
+        raise GatewayTokenRequired()
+
+
+async def require_ws_gateway_token(
+    token: str | None = Query(default=None),
+) -> None:
+    """Validate the ``?token=`` query parameter for WebSocket connections.
+
+    Browsers cannot set custom headers on WebSocket upgrade requests, so the
+    gateway token must be passed as a query parameter instead.
+
+    If ``ServerSettings.gateway_token`` is empty, authentication is disabled
+    (local development mode) and this dependency is a no-op.
+
+    Raises:
+        GatewayTokenRequired: When a token is configured but missing/wrong.
+    """
+    settings = get_settings()
+    expected = settings.gateway_token
+    if not expected:
+        # Token-less local dev mode — skip auth.
+        return
+    if not hmac.compare_digest(token or "", expected):
         raise GatewayTokenRequired()

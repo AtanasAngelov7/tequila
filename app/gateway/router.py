@@ -11,7 +11,6 @@ A process-wide singleton is managed by ``init_router()`` / ``get_router()``.
 from __future__ import annotations
 
 import asyncio
-import itertools
 import logging
 from collections import defaultdict
 from collections.abc import Callable, Coroutine
@@ -42,7 +41,8 @@ class GatewayRouter:
     def __init__(self) -> None:
         # Mapping: event_type → list of handlers (ordered by registration time)
         self._handlers: defaultdict[str, list[EventHandler]] = defaultdict(list)
-        self._seq_counter: itertools.count[int] = itertools.count(start=1)
+        self._seq: int = 0
+        """Monotonic sequence counter.  Incremented by ``_next_seq()`` only."""
         self._running: bool = False
 
     # ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -84,16 +84,13 @@ class GatewayRouter:
 
     @property
     def seq(self) -> int:
-        """Peek at the next sequence number without consuming it."""
-        # itertools.count stores internal state; we peek via __next__ and
-        # immediately return from the counter state.
-        # Since we can't peek without consuming, we expose the running count
-        # minus 1 after the first emit.  For external use (e.g. WS seq tracking)
-        # call emit() and read the returned seq.
-        return next(self._seq_counter) - 0  # see note — callers use _next_seq()
+        """Return the last-emitted sequence number (read-only, does not advance counter)."""
+        return self._seq
 
     def _next_seq(self) -> int:
-        return next(self._seq_counter)
+        """Increment and return the next sequence number."""
+        self._seq += 1
+        return self._seq
 
     async def emit(self, event: GatewayEvent) -> int:
         """Dispatch *event* to all registered handlers and return the sequence number.

@@ -11,13 +11,18 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from app.api.deps import require_gateway_token
 from app.providers.registry import get_registry
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/providers", tags=["providers"])
+router = APIRouter(
+    prefix="/api/providers",
+    tags=["providers"],
+    dependencies=[Depends(require_gateway_token)],
+)
 
 
 @router.get("", summary="List all registered providers")

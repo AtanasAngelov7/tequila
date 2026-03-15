@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import aiosqlite
@@ -65,7 +65,7 @@ class MessageStore:
         from app.sessions.store import get_session_store
 
         message_id = str(uuid.uuid4())
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
 
         row: dict[str, Any] = {
             "id": message_id,
@@ -188,7 +188,7 @@ class MessageStore:
 
         Pass ``rating=None`` to remove feedback.
         """
-        now_iso = datetime.utcnow().isoformat() if rating else None
+        now_iso = datetime.now(timezone.utc).isoformat() if rating else None
         async with write_transaction(self._db):
             await self._db.execute(
                 """
@@ -197,7 +197,7 @@ class MessageStore:
                     updated_at = ?
                 WHERE id = ?
                 """,
-                (rating, note, now_iso, datetime.utcnow().isoformat(), message_id),
+                (rating, note, now_iso, datetime.now(timezone.utc).isoformat(), message_id),
             )
         return await self.get(message_id)
 
@@ -223,7 +223,7 @@ class MessageStore:
             raise NotFoundError(resource="Message", id=from_message_id)
         pivot_ts = pivot[0]
 
-        now_iso = datetime.utcnow().isoformat()
+        now_iso = datetime.now(timezone.utc).isoformat()
         async with write_transaction(self._db):
             result = await self._db.execute(
                 """

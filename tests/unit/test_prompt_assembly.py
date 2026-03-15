@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.agent.models import AgentConfig, ContextBudget, SoulConfig
+from app.agent.models import AgentConfig, ContextBudgetConfig, SoulConfig
 from app.agent.prompt_assembly import AssemblyContext, assemble_prompt
 from app.providers.base import ToolDef
 

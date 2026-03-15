@@ -7,7 +7,7 @@ feedback fields.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -51,8 +51,8 @@ class Session(BaseModel):
     version: int = 1
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Extension
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -241,7 +241,7 @@ class Message(BaseModel):
 
     # ── Timestamps ────────────────────────────────────────────────────────────
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime | None = None
 
     # ── Serialisation helpers ─────────────────────────────────────────────────
@@ -280,7 +280,7 @@ class Message(BaseModel):
             data["feedback"] = MessageFeedback(
                 rating=rating,
                 note=note,
-                created_at=feedback_at or datetime.utcnow(),
+                created_at=feedback_at or datetime.now(timezone.utc),
             )
         else:
             data["feedback"] = None

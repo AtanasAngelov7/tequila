@@ -61,6 +61,7 @@ class SessionResponse(BaseModel):
     updated_at: str
     version: int
     metadata: dict[str, Any]
+    policy: dict[str, Any]
 
 
 def _session_to_response(s: Session) -> SessionResponse:
@@ -79,6 +80,7 @@ def _session_to_response(s: Session) -> SessionResponse:
         updated_at=s.updated_at.isoformat(),
         version=s.version,
         metadata=s.metadata,
+        policy=s.policy.model_dump(),
     )
 
 

@@ -25,6 +25,7 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.constants import DEFAULT_HOST, DEFAULT_PORT
+from app.db.connection import write_transaction
 from app.exceptions import ConfigKeyNotFoundError, ConfigValidationError
 
 logger = logging.getLogger(__name__)
@@ -137,6 +138,10 @@ class ConfigStore:
         await self.hydrate()
         logger.info("ConfigStore reloaded.")
 
+    def key_count(self) -> int:
+        """Return the number of config keys currently in the in-memory cache."""
+        return len(self._cache)
+
     # ── Read ──────────────────────────────────────────────────────────────────
 
     def get(self, key: str, default: Any = _SENTINEL) -> Any:
@@ -218,8 +223,7 @@ class ConfigStore:
             raise ConfigValidationError(key, str(exc)) from exc
 
         # OCC update.
-        await self._db.execute("BEGIN IMMEDIATE")
-        try:
+        async with write_transaction(self._db):
             await self._db.execute(
                 """
                 UPDATE config
@@ -228,10 +232,6 @@ class ConfigStore:
                 """,
                 (encoded, key, current_version),
             )
-            await self._db.commit()
-        except Exception:
-            await self._db.rollback()
-            raise
 
         # Update cache.
         self._cache[key] = self._decode(encoded, value_type)

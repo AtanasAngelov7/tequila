@@ -260,7 +260,7 @@ def check_policy(
 
         result = check_policy(session.policy, "tool_call", tool_name="fs_write_file")
         if not result:
-            raise PermissionError(result.reason)
+            raise AccessDeniedError(result.reason)
     """
     if event_type == "tool_call":
         tool_name: str = kwargs.get("tool_name", "")

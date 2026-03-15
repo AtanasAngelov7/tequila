@@ -13,8 +13,8 @@ from app.providers.circuit_breaker import (
     GracefulDegradation,
     get_all_circuit_breakers,
     get_circuit_breaker,
-    reset_circuit_registry,
 )
+from tests.reset_helpers import reset_circuit_registry
 from app.providers.base import ProviderStreamEvent
 
 

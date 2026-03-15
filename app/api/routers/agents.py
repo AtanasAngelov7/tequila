@@ -19,16 +19,21 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.agent.models import AgentConfig, SoulConfig
 from app.agent.store import get_agent_store
+from app.api.deps import require_gateway_token
 from app.exceptions import AgentNotFoundError, ConflictError
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/agents", tags=["agents"])
+router = APIRouter(
+    prefix="/api/agents",
+    tags=["agents"],
+    dependencies=[Depends(require_gateway_token)],
+)
 
 
 # ── Request / Response models ─────────────────────────────────────────────────

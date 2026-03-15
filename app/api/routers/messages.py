@@ -8,6 +8,7 @@ Endpoints:
 """
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -19,6 +20,7 @@ from app.sessions.messages import get_message_store
 from app.sessions.models import Message
 from app.sessions.store import get_session_store
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["messages"])
 
 
@@ -178,8 +180,7 @@ async def create_message(
                 )
             )
         except Exception:
-            # Turn loop not yet wired — ignore for backward compat
-            pass
+            logger.warning("Turn loop trigger failed — message persisted but turn not started", exc_info=True)
 
     return _message_to_response(message)
 

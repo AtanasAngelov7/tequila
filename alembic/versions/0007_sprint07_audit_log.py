@@ -1,15 +1,20 @@
-"""Sprint 07 — audit_log table for approval-decision auditing (§11.2).
+"""Sprint 07 — audit_log schema alignment — approval-decision indexes (§11.2).
 
-Revision ID: 0007_sprint07_audit_log
-Revises: 0006_sprint06_web_cache
+Revision ID: 0007
+Revises: 0006
 Create Date: 2026-03-15
+
+Note: The audit_log table itself was created by migration 0001 with the full
+general-purpose schema.  This migration only adds the two performance indexes
+used by the Sprint 07 approval flow (session_key, created_at).  The Sprint 07
+CREATE TABLE statement is kept as a no-op IF NOT EXISTS guard.
 """
 from __future__ import annotations
 
 from alembic import op
 
 # revision identifiers, used by Alembic
-revision: str = "0007_sprint07_audit_log"
+revision: str = "0007"
 down_revision: str | None = "0006"
 branch_labels: str | None = None
 depends_on: str | None = None

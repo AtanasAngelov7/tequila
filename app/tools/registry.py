@@ -8,7 +8,7 @@ Register a tool via the ``@tool`` decorator::
 
     @tool(description="Return the current UTC time.", safety="read_only")
     def get_current_time() -> str:
-        return datetime.utcnow().isoformat()
+        return datetime.now(timezone.utc).isoformat()
 
 Access registrations via the singleton::
 

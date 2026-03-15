@@ -1,11 +1,11 @@
-"""Sprint 04 — Unit tests for ContextBudget (§4.5)."""
+"""Sprint 04 — Unit tests for ContextBudgetConfig (config model) and ContextBudget (runtime engine) (§4.5)."""
 from __future__ import annotations
 
-from app.agent.models import ContextBudget
+from app.agent.models import ContextBudgetConfig
 
 
 def test_history_budget_arithmetic():
-    budget = ContextBudget()
+    budget = ContextBudgetConfig()
     expected = (
         budget.max_context_tokens
         - budget.reserved_for_response
@@ -22,33 +22,33 @@ def test_history_budget_arithmetic():
 
 
 def test_history_budget_positive():
-    budget = ContextBudget()
+    budget = ContextBudgetConfig()
     assert budget.history_budget > 0
 
 
 def test_custom_context_window():
-    budget = ContextBudget(max_context_tokens=8_000, reserved_for_response=512)
+    budget = ContextBudgetConfig(max_context_tokens=8_000, reserved_for_response=512)
     assert budget.history_budget < 8_000
     assert budget.history_budget >= 0
 
 
 def test_default_max_context_tokens():
-    budget = ContextBudget()
+    budget = ContextBudgetConfig()
     assert budget.max_context_tokens == 200_000
 
 
 def test_default_reserved_for_response():
-    budget = ContextBudget()
+    budget = ContextBudgetConfig()
     assert budget.reserved_for_response == 4_096
 
 
 def test_min_recent_messages_default():
-    budget = ContextBudget()
+    budget = ContextBudgetConfig()
     assert budget.min_recent_messages >= 4
 
 
 def test_compression_threshold_range():
-    budget = ContextBudget()
+    budget = ContextBudgetConfig()
     assert 0 < budget.compression_threshold < 1
 
 
@@ -311,3 +311,5 @@ def test_evict_budget():
     evict_budget("test-session-evict")
     b2 = get_or_create_budget("test-session-evict", "gpt-4o")
     assert b1 is not b2
+
+
