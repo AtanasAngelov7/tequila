@@ -31,8 +31,8 @@
 | **[S06](sprint_06.md)** | 2 – Agent Core | Core tools (filesystem, web, vision) | ✅ Done | §16.1–16.3, §16.7, §17.1–17.2, §17.4, §17.6 |
 | **[S07](sprint_07.md)** | 2 – Agent Core | Context management, policies, approvals | ✅ Done | §4.3a, §4.7, §11.2, §19.1–19.3, §20.3c |
 | **[S08](sprint_08.md)** | 3 – Multi-Agent | Session tools, sub-agents, workflows | ✅ Done | §3.3, §10.1–10.3, §20.7 |
-| **[S09](sprint_09.md)** | 4 – Memory (I) | Vault, embeddings, memory data model | ⬜ Not Started | §5.1–5.4, §5.10, §5.13, §20.3b |
-| **[S10](sprint_10.md)** | 4 – Memory (II) | Extraction, recall, knowledge sources | ⬜ Not Started | §5.5–5.6, §5.14, §20.5 |
+| **[S09](sprint_09.md)** | 4 – Memory (I) | Vault, embeddings, memory data model | ✅ Done | §5.1–5.4, §5.10, §5.13, §20.3b |
+| **[S10](sprint_10.md)** | 4 – Memory (II) | Extraction, recall, knowledge sources | ✅ Done | §5.5–5.6, §5.14, §20.5 |
 | **[S11](sprint_11.md)** | 4 – Memory (III) | Memory tools, lifecycle, graph | ⬜ Not Started | §5.7–5.9, §5.11–5.12, §20.5 |
 | **[S12](sprint_12.md)** | 5 – Plugins (I) | Plugin system, auth, Telegram, email | ⬜ Not Started | §6.1, §8.0–8.1, §8.6–8.9, §20.4 |
 | **[S13](sprint_13.md)** | 5 – Plugins (II) | Documents, browser, MCP, scheduler | ⬜ Not Started | §7.1–7.3, §8.0, §8.6–8.7, §17.1, §17.3, §17.5–17.6, §21.4, §20.8 |
@@ -41,7 +41,7 @@
 | **[S15](sprint_15.md)** | 6 – Polish (II) | Full UI, file cleanup, packaging | ⬜ Not Started | §9.1–9.2b, §21.6–21.7, §29.1–29.5 |
 | **[S16](sprint_16.md)** | 7 – Future | Image gen, additional connectors, auto-update | ⬜ Not Started | §8.6 (future), §29.5 |
 
-**Progress**: 8 / 17 sprints complete — Phase 1 (S01–S03) ✅, Phase 2 (S04–S07) ✅, and Phase 3 Sprint 08 ✅ complete.
+**Progress**: 9 / 17 sprints complete — Phase 1 (S01–S03) ✅, Phase 2 (S04–S07) ✅, Phase 3 (S08) ✅, and Phase 4 Sprint 09 ✅ complete.
 
 ---
 
@@ -50,8 +50,8 @@
 ```
 Phase 1: Foundation     → S01 ✅, S02 ✅, S03 ✅      (6 weeks) ← PHASE 1 COMPLETE
 Phase 2: Agent Core     → S04 ✅, S05 ✅, S06 ✅, S07 ✅  (8 weeks) ← PHASE 2 COMPLETE
-Phase 3: Multi-Agent    → S08 ⬜                      (2 weeks)
-Phase 4: Memory         → S09 ⬜, S10 ⬜, S11 ⬜      (6 weeks)
+Phase 3: Multi-Agent    → S08 ✅                      (2 weeks) ← PHASE 3 COMPLETE
+Phase 4: Memory         → S09 ✅, S10 ✅, S11 ⬜      (6 weeks)
 Phase 5: Plugins        → S12 ⬜, S13 ⬜              (4 weeks)
 Phase 6: Polish         → S14a ⬜, S14b ⬜, S15 ⬜    (6 weeks)
 Phase 7: Future         → S16 ⬜                     (2 weeks, open-ended)

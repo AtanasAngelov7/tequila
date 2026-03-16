@@ -146,6 +146,42 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_workflow_store(db_conn.get_app_db())
     logger.info("WorkflowStore initialised.")
 
+    # 8h. Initialise VaultStore (Sprint 09).
+    from app.knowledge.vault import init_vault_store
+    init_vault_store(db_conn.get_app_db())
+    logger.info("VaultStore initialised.")
+
+    # 8i. Initialise EmbeddingStore (Sprint 09).
+    from app.knowledge.embeddings import init_embedding_store
+    init_embedding_store(db_conn.get_app_db())
+    logger.info("EmbeddingStore initialised.")
+
+    # 8j. Initialise MemoryStore (Sprint 09).
+    from app.memory.store import init_memory_store
+    init_memory_store(db_conn.get_app_db())
+    logger.info("MemoryStore initialised.")
+
+    # 8k. Initialise EntityStore (Sprint 09).
+    from app.memory.entity_store import init_entity_store
+    init_entity_store(db_conn.get_app_db())
+    logger.info("EntityStore initialised.")
+
+    # 8l. Initialise KnowledgeSourceRegistry (Sprint 10).
+    from app.knowledge.sources.registry import init_knowledge_source_registry
+    kb_registry = init_knowledge_source_registry(db_conn.get_app_db())
+    await kb_registry.start()
+    logger.info("KnowledgeSourceRegistry initialised.")
+
+    # 8m. Initialise ExtractionPipeline (Sprint 10).
+    from app.memory.extraction import init_extraction_pipeline
+    init_extraction_pipeline()
+    logger.info("ExtractionPipeline initialised.")
+
+    # 8n. Initialise RecallPipeline (Sprint 10).
+    from app.memory.recall import init_recall_pipeline
+    init_recall_pipeline()
+    logger.info("RecallPipeline initialised.")
+
     # 8f. Register all built-in tools (Sprint 06).
     from app.tools.builtin import register_all_builtin_tools
     register_all_builtin_tools()
@@ -256,6 +292,8 @@ def create_app() -> FastAPI:
 
     # ── Routers ───────────────────────────────────────────────────────────────
     from app.api.routers import system, logs, sessions, messages, setup, agents, providers
+    from app.api.routers import vault, memory, entities
+    from app.api.routers import knowledge_sources
     from app.api import ws
     from app.workflows import api as workflows_api
 
@@ -267,6 +305,10 @@ def create_app() -> FastAPI:
     app.include_router(agents.router)
     app.include_router(providers.router)
     app.include_router(workflows_api.router)
+    app.include_router(vault.router)
+    app.include_router(memory.router)
+    app.include_router(entities.router)
+    app.include_router(knowledge_sources.router)
     app.include_router(ws.router)
 
     # ── Static frontend (placeholder) ─────────────────────────────────────────

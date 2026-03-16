@@ -631,6 +631,304 @@ Package marker.
 
 ---
 
+## Sprint 09 — Memory I: Vault, Embeddings, Memory Data Model, Entity Model *(§5.1–§5.4, §5.10, §5.13)*
+
+### `app/knowledge/vault.py` *(Sprint 09)*
+
+**Responsibility**: Markdown note CRUD backed by disk (`.md` files) + SQLite metadata. Supports wiki-links, hashtag tags, full-text search, graph generation, and disk-sync.
+
+**Key exports:**
+
+| Symbol | Kind | Notes |
+|--------|------|-------|
+| `VaultNote` | Pydantic model | id, title, slug, filename, content, content_hash, wikilinks, tags, timestamps |
+| `VaultGraph` | Pydantic model | nodes `[{id, title, slug}]`, edges `[{from_id, to_id}]` |
+| `SyncResult` | Pydantic model | added, updated, deleted counts |
+| `VaultStore` | Class | `create_note()`, `get_note()`, `get_note_by_slug()`, `list_notes()`, `update_note()`, `delete_note()`, `get_graph()`, `sync_from_disk()` |
+| `init_vault_store(db, vault_path)` | Function | Singleton initialiser |
+| `get_vault_store()` | Function | Singleton accessor |
+
+**Spec ref**: §5.1, §5.10
+
+---
+
+### `app/knowledge/embeddings.py` *(Sprint 09)*
+
+**Responsibility**: Provider-agnostic vector embedding engine with SQLite storage and cosine similarity search.
+
+**Key exports:**
+
+| Symbol | Kind | Notes |
+|--------|------|-------|
+| `EmbeddingProvider` | ABC | `embed(texts)`, `dimensions()`, `model_id()` |
+| `LocalEmbeddingProvider` | Class | `all-MiniLM-L6-v2` (384 dims); sentence-transformers lazy-loaded on first call |
+| `EmbeddingStore` | ABC | `add()`, `add_batch()`, `search()`, `delete()`, `reindex()` |
+| `SQLiteEmbeddingStore` | Class | BLOB vector storage; numpy brute-force cosine similarity; in-memory cache; upsert via `ON CONFLICT` |
+| `EmbeddingItem` | Pydantic model | source_type, source_id, model_id, vector, dimensions |
+| `EmbeddingSearchResult` | Pydantic model | item + score |
+| `ReindexResult` | Pydantic model | indexed_count, duration_s, model_id |
+| `init_embedding_store(db, provider)` | Function | Singleton initialiser |
+| `get_embedding_store()` | Function | Singleton accessor |
+
+**Spec ref**: §5.2, §5.13
+
+---
+
+### `app/memory/models.py` *(Sprint 09)*
+
+**Responsibility**: `MemoryExtract` Pydantic model for all seven memory types with per-type defaults, OCC versioning field, and provenance tracking.
+
+**Key exports:**
+
+| Symbol | Kind | Notes |
+|--------|------|-------|
+| `MEMORY_TYPES` | Literal | `"identity"`, `"preference"`, `"fact"`, `"experience"`, `"task"`, `"relationship"`, `"skill"` |
+| `MemoryExtract` | Pydantic model | All §5.3 fields; validators clamp confidence/decay to [0,1]; `version` for OCC |
+| `with_type_defaults(**kwargs)` | classmethod | Applies per-type `always_recall` and `recall_weight` defaults |
+| `from_row(row)` | classmethod | Deserialises aiosqlite `Row` |
+| `_TYPE_DEFAULTS` | dict | Per-type defaults: identity→`{always_recall:True, recall_weight:1.5}`, etc. |
+
+**Spec ref**: §5.3
+
+---
+
+### `app/memory/store.py` *(Sprint 09)*
+
+**Responsibility**: CRUD operations for `memory_extracts` table; OCC update guard with 3-retry; entity link management.
+
+**Key exports:**
+
+| Symbol | Kind | Notes |
+|--------|------|-------|
+| `MemoryStore` | Class | `create()`, `get()` (touches last_accessed), `list()`, `update()` (OCC 3-retry), `delete()`, `soft_delete()`, `link_entity()`, `unlink_entity()` |
+| `init_memory_store(db)` | Function | Singleton initialiser |
+| `get_memory_store()` | Function | Singleton accessor |
+
+**Spec ref**: §5.3, §20.3b
+
+---
+
+### `app/memory/entities.py` *(Sprint 09)*
+
+**Responsibility**: `Entity` Pydantic model and regex-based NER for extracting entity mentions from text.
+
+**Key exports:**
+
+| Symbol | Kind | Notes |
+|--------|------|-------|
+| `ENTITY_TYPES` | Literal | `"person"`, `"organization"`, `"project"`, `"location"`, `"tool"`, `"concept"`, `"event"`, `"date"` |
+| `Entity` | Pydantic model | id, name, entity_type, aliases, summary, properties, reference_count, status, merged_into, timestamps; `matches(name)` method |
+| `extract_entity_mentions(text)` | Function | Regex NER; strips code blocks; returns `[{name, entity_type}]`; heuristic types (Inc/Ltd → organization, Dr/Mr → person) |
+| `_NER_STOPWORDS` | frozenset | Common English words excluded from NER |
+
+**Spec ref**: §5.4
+
+---
+
+### `app/memory/entity_store.py` *(Sprint 09)*
+
+**Responsibility**: CRUD for the `entities` table; alias resolution; entity–memory linking; NER-to-DB pipeline.
+
+**Key exports:**
+
+| Symbol | Kind | Notes |
+|--------|------|-------|
+| `EntityStore` | Class | `create()`, `get()`, `list()`, `resolve(name)` (canonical + alias scan), `update()`, `add_alias()`, `delete()`, `soft_delete()`, `increment_reference()`, `get_memories(entity_id)`, `extract_and_link(text, memory_id)` |
+| `init_entity_store(db)` | Function | Singleton initialiser |
+| `get_entity_store()` | Function | Singleton accessor |
+
+**Spec ref**: §5.4
+
+---
+
+### `app/api/routers/vault.py` *(Sprint 09)*
+
+**Responsibility**: REST API for vault note management and disk sync (§5.1).
+
+**Routes:**
+
+| Method | Path | Status | Notes |
+|--------|------|--------|-------|
+| `GET` | `/api/vault/notes` | 200 | List notes (search, limit, offset) |
+| `POST` | `/api/vault/notes` | 201 | Create note → writes .md to disk |
+| `GET` | `/api/vault/notes/{note_id}` | 200/404 | Note detail |
+| `PUT` | `/api/vault/notes/{note_id}` | 200/404 | Update title/content/tags |
+| `DELETE` | `/api/vault/notes/{note_id}` | 204/404 | Delete note + disk file |
+| `GET` | `/api/vault/graph` | 200 | Wiki-link graph `{nodes, edges}` |
+| `POST` | `/api/vault/sync` | 200 | Scan disk for external adds/edits/deletes |
+
+**Spec ref**: §5.1
+
+---
+
+### `app/api/routers/memory.py` *(Sprint 09)*
+
+**Responsibility**: REST API for memory extract CRUD and reindex trigger (§5.3).
+
+**Routes:**
+
+| Method | Path | Status | Notes |
+|--------|------|--------|-------|
+| `GET` | `/api/memory` | 200 | List extracts (type, scope, agent_id, always_recall_only) |
+| `POST` | `/api/memory` | 201 | Create memory extract |
+| `GET` | `/api/memory/{memory_id}` | 200/404 | Extract detail |
+| `PATCH` | `/api/memory/{memory_id}` | 200/404 | Partial update (OCC guard) |
+| `DELETE` | `/api/memory/{memory_id}` | 204/404 | Hard delete |
+| `POST` | `/api/memory/reindex` | 200 | Trigger embedding reindex |
+
+**Spec ref**: §5.3
+
+---
+
+### `app/api/routers/entities.py` *(Sprint 09)*
+
+**Responsibility**: REST API for entity CRUD, alias management, memory graph, and NER extraction (§5.4).
+
+**Routes:**
+
+| Method | Path | Status | Notes |
+|--------|------|--------|-------|
+| `GET` | `/api/entities` | 200 | List entities (type, status, search) |
+| `POST` | `/api/entities` | 201 | Create entity |
+| `GET` | `/api/entities/{entity_id}` | 200/404 | Entity detail |
+| `PATCH` | `/api/entities/{entity_id}` | 200/404 | Partial update |
+| `DELETE` | `/api/entities/{entity_id}` | 204/404 | Hard delete |
+| `POST` | `/api/entities/{entity_id}/aliases` | 200/404 | Add alias |
+| `GET` | `/api/entities/{entity_id}/memories` | 200/404 | Memory IDs linked to entity |
+| `POST` | `/api/entities/ner` | 200 | NER extraction → `{mentions: [{name, entity_type}]}` |
+
+**Spec ref**: §5.4
+
+---
+
+### `alembic/versions/0009_sprint09_memory.py` *(Sprint 09)*
+
+| Table | Key Columns |
+|-------|------------|
+| `vault_notes` | `id`, `title`, `slug` (UNIQUE), `filename` (UNIQUE), `content_hash`, `wikilinks` JSON, `tags` JSON, timestamps |
+| `embeddings` | `id`, `source_type`, `source_id` (UNIQUE pair), `model_id`, `vector` BLOB, `dimensions`, `text_hash` |
+| `memory_extracts` | `id`, `content`, `memory_type`, `always_recall`, `recall_weight`, `pinned`, `version` (OCC), `entity_ids` JSON, `scope`, `agent_id`, `status`, `confidence`, `decay_rate`, timestamps |
+| `entities` | `id`, `name`, `entity_type`, `aliases` JSON, `summary`, `properties` JSON, `reference_count`, `status`, `merged_into`, timestamps |
+| `memory_entity_links` | (`memory_id` FK, `entity_id` FK) composite PK, cascade delete |
+
+---
+
+## Sprint 10 — Memory II: Extraction, Recall & Knowledge Sources *(§5.5–§5.7, §5.14)*
+
+### `app/memory/extraction.py` *(Sprint 10)*
+
+**Responsibility**: Background extraction pipeline — periodically scans recent session messages and extracts `MemoryExtract` records via LLM structured output.
+
+**Key exports:**
+
+| Symbol | Type | Purpose |
+|--------|------|---------|
+| `ExtractionConfig` | Pydantic model | `trigger_interval_messages`, `max_messages_per_run`, `model_override` |
+| `ExtractionPipeline` | class | `run(session_id, messages)` — async extraction job |
+| `init_extraction_pipeline(config?)` | fn | Creates and stores singleton |
+| `get_extraction_pipeline()` | fn | Returns singleton; raises `RuntimeError` if not init |
+
+**Spec ref**: §5.5
+
+---
+
+### `app/memory/recall.py` *(Sprint 10)*
+
+**Responsibility**: Three-stage recall pipeline — loads always-recall memories (Stage 1), runs similarity + FTS + entity-expansion + KB federation search per turn (Stage 2), prefetches candidates in background (Stage 3).
+
+**Key exports:**
+
+| Symbol | Type | Purpose |
+|--------|------|---------|
+| `RecallConfig` | Pydantic model | Budget + threshold + entity bonus + KB top-k settings |
+| `RecallPipeline` | class | `load_always_recall()`, `recall_for_turn()`, `prefetch_background()` |
+| `init_recall_pipeline(config?)` | fn | Creates singleton |
+| `get_recall_pipeline()` | fn | Returns singleton; raises `RuntimeError` if not init |
+
+**Spec ref**: §5.6
+
+---
+
+### `app/knowledge/sources/` *(Sprint 10)*
+
+Package containing knowledge source models, adapters, and registry.
+
+#### `app/knowledge/sources/models.py`
+
+| Symbol | Purpose |
+|--------|---------|
+| `QueryMode` | Enum: `text`, `vector`, `hybrid` |
+| `KnowledgeSource` | Pydantic model; `source_id`, `name`, `backend`, `status`, `auto_recall`, `connection`, `allowed_agents` etc. |
+| `KnowledgeChunk` | Retrieved chunk: `source_id`, `content`, `score`, `metadata` |
+
+#### `app/knowledge/sources/adapters/`
+
+| Module | Adapter | Backend |
+|--------|---------|---------|
+| `base.py` | `KnowledgeSourceAdapter` (ABC) | Base class |
+| `chroma.py` | `ChromaAdapter` | ChromaDB |
+| `pgvector.py` | `PgVectorAdapter` | PostgreSQL + pgvector |
+| `faiss.py` | `FAISSAdapter` | FAISS index |
+| `http.py` | `HTTPAdapter` | Generic HTTP JSON API |
+
+#### `app/knowledge/sources/registry.py`
+
+| Symbol | Purpose |
+|--------|---------|
+| `KnowledgeSourceRegistry` | CRUD + activate/deactivate + search + federation; background health-check loop |
+| `init_knowledge_source_registry(db)` | Creates singleton |
+| `get_knowledge_source_registry()` | Returns singleton; raises `RuntimeError` if not init |
+
+**Spec ref**: §5.14
+
+---
+
+### `app/api/routers/knowledge_sources.py` *(Sprint 10)*
+
+**Responsibility**: REST CRUD + federation for knowledge sources.
+
+**Routes** (prefix `/api/knowledge-sources`):
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/` | List sources (filter by status, backend, auto_recall) |
+| `POST` | `/` | Register new source [201] |
+| `GET` | `/{id}` | Get by ID |
+| `PATCH` | `/{id}` | Update fields |
+| `DELETE` | `/{id}` | Delete [204] |
+| `POST` | `/{id}/activate` | Health-check → set active |
+| `POST` | `/{id}/deactivate` | Set disabled |
+| `POST` | `/{id}/test` | Health-check only |
+| `GET` | `/{id}/stats` | Count + status |
+| `POST` | `/search` | Federated search across sources |
+
+**Spec ref**: §5.14
+
+---
+
+### `app/tools/builtin/knowledge.py` *(Sprint 10)*
+
+**Responsibility**: Agent-callable tools for knowledge base queries.
+
+| Tool | Signature | Description |
+|------|-----------|-------------|
+| `kb_search` | `(query, source_ids?, top_k=10)` | Search KB sources, returns formatted markdown |
+| `kb_list_sources` | `(status_filter?)` | List KB sources, returns formatted markdown |
+
+Both tools have `safety="read_only"` and degrade gracefully when registry is not initialized.
+
+**Spec ref**: §5.7
+
+---
+
+### `alembic/versions/0010_sprint10_knowledge_sources.py` *(Sprint 10)*
+
+| Table | Key Columns |
+|-------|------------|
+| `knowledge_sources` | `id`, `name`, `backend`, `query_mode`, `embedding_provider`, `auto_recall`, `priority`, `max_results`, `similarity_threshold`, `connection_json`, `allowed_agents_json`, `status`, `error_message`, `consecutive_failures`, `last_health_check`, timestamps |
+
+---
+
 | File | What it covers |
 |------|----------------|
 | `test_budget.py` | Budget tracker (stub — Sprint 14) |
@@ -648,6 +946,16 @@ Package marker.
 | `unit/test_workflow_runtime.py` | Pipeline/parallel runtime — step execution, context passing, failure handling, dispatch *(Sprint 08)* |
 | `integration/test_workflow_e2e.py` | Full workflow REST API: create → run → status → cancel → delete *(Sprint 08)* |
 | `integration/test_multi_agent.py` | Session tool integration: list, history, spawn visibility, concurrency limit *(Sprint 08)* |
+| `unit/test_vault.py` | VaultStore CRUD, wikilinks, hashtag extraction, slug uniqueness, graph, disk sync *(Sprint 09)* |
+| `unit/test_embeddings.py` | SQLiteEmbeddingStore add/upsert/delete/batch/search/reindex with FakeEmbeddingProvider *(Sprint 09)* |
+| `unit/test_memory_model.py` | MemoryExtract model defaults, OCC versioning, store CRUD, type filtering *(Sprint 09)* |
+| `unit/test_entities.py` | Entity model, NER extraction, EntityStore CRUD, alias resolution, extract_and_link *(Sprint 09)* |
+| `integration/test_vault_embeddings.py` | Full API integration: vault CRUD, graph, sync, memory CRUD, entity CRUD, NER endpoint *(Sprint 09)* |
+| `unit/test_extraction.py` | ExtractionPipeline trigger config, run flow with mocked stores, entity linking, error isolation *(Sprint 10)* |
+| `unit/test_recall.py` | RecallPipeline Stage 1 (always_recall), Stage 2 (embedding+FTS+entity+KB), Stage 3 prefetch, singleton guards *(Sprint 10)* |
+| `unit/test_knowledge_sources.py` | KnowledgeSource model, QueryMode, KnowledgeChunk, HTTP adapter, registry CRUD, singleton *(Sprint 10)* |
+| `integration/test_extraction_recall.py` | Extraction + recall end-to-end via test app: KB registration, source CRUD, activate/deactivate, stats *(Sprint 10)* |
+| `integration/test_federation.py` | Federation search, mock adapter injection, agent tool registration *(Sprint 10)* |
 
 All tests use `pytest` with `asyncio_mode = "auto"`. Run: `.venv\Scripts\python.exe -m pytest tests/ -v --tb=short`
 

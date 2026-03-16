@@ -20,3 +20,4 @@ def register_all_builtin_tools() -> None:
     from app.tools.builtin import web_fetch  # noqa: F401
     from app.tools.builtin import vision  # noqa: F401
     from app.tools.builtin import sessions  # noqa: F401  # Sprint 08
+    from app.tools.builtin import knowledge  # noqa: F401  # Sprint 10

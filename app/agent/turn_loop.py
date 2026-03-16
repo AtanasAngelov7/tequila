@@ -22,6 +22,7 @@ The ``inbound.message`` event's ``payload`` dict must contain:
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import uuid
@@ -381,6 +382,35 @@ class TurnLoop:
             user_name=user_name,
             tools=tool_defs or [],
         )
+
+        # ── Sprint 10: Recall pipeline ────────────────────────────────────────
+        agent_id_str = str(agent_config.agent_id) if agent_config.agent_id else None
+        try:
+            from app.memory.recall import get_recall_pipeline
+            recall = get_recall_pipeline()
+            ctx.memory_always = await recall.load_always_recall(
+                session_id=session_id,
+                agent_id=agent_id_str,
+            )
+            ctx.memory_recall, ctx.knowledge_context = await recall.recall_for_turn(
+                user_message=current_content,
+                session_id=session_id,
+                agent_id=agent_id_str,
+                always_recall_content=ctx.memory_always,
+            )
+            # Stage 3 runs in background
+            asyncio.create_task(
+                recall.prefetch_background(
+                    user_message=current_content,
+                    session_id=session_id,
+                    agent_id=agent_id_str,
+                )
+            )
+        except RuntimeError:
+            pass  # RecallPipeline not yet initialised (tests / first startup)
+        except Exception as exc:
+            logger.debug("Recall pipeline error (graceful degradation): %s", exc)
+
         return await assemble_prompt(ctx)
 
     async def _stream_and_forward(
@@ -524,17 +554,53 @@ class TurnLoop:
         input_tokens: int,
         output_tokens: int,
     ) -> None:
-        """Run post-turn hooks — extraction check, budget, audit (stubs)."""
-        # § extraction check — stub
-        logger.debug("Post-turn: extraction stub for session %s", session_id)
+        """Run post-turn hooks — extraction trigger, budget, audit."""
+        # § Sprint 10: Trigger extraction pipeline if interval reached
+        try:
+            from app.memory.extraction import get_extraction_pipeline
+            pipeline = get_extraction_pipeline()
+            if pipeline.config.enabled:
+                # Count messages in session to determine trigger
+                messages = await self._message_store.get_active_chain(session_id)
+                msg_count = len(messages)
+                if msg_count > 0 and msg_count % pipeline.config.trigger_interval_messages == 0:
+                    # Schedule extraction as a background task (non-blocking)
+                    asyncio.create_task(
+                        self._run_extraction(session_id, messages)
+                    )
+        except RuntimeError:
+            pass  # ExtractionPipeline not yet initialised
+        except Exception as exc:
+            logger.debug("Post-turn extraction check failed: %s", exc)
 
-        # § budget tracking — stub
+        # § budget tracking
         await self._emit(session_key, ET.BUDGET_TURN_COST, {
             "session_id": session_id,
             "message_id": message_id,
             "input_tokens": input_tokens,
             "output_tokens": output_tokens,
         })
+
+    async def _run_extraction(self, session_id: str, messages: list) -> None:
+        """Run extraction pipeline in the background (Sprint 10 §5.5)."""
+        try:
+            from app.memory.extraction import get_extraction_pipeline
+            pipeline = get_extraction_pipeline()
+            msg_dicts = [
+                {"role": m.role, "content": m.content}
+                for m in messages
+                if m.role in ("user", "assistant")
+            ]
+            result = await pipeline.run(session_id=session_id, messages=msg_dicts)
+            logger.debug(
+                "Extraction complete for session %s: created=%d merged=%d skipped=%d",
+                session_id,
+                result.created,
+                result.merged,
+                result.skipped,
+            )
+        except Exception as exc:
+            logger.debug("Background extraction failed for session %s: %s", session_id, exc)
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────
