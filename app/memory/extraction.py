@@ -199,13 +199,14 @@ class ExtractionPipeline:
             return result
 
         # Apply feedback weighting: boost/penalise based on feedback_rating
+        # TD-50: use index-based mutation so the list is actually updated, not just the loop var
         weighted = list(messages)
-        for msg in weighted:
+        for i, msg in enumerate(weighted):
             rating = msg.get("feedback_rating")
             if rating == "up":
-                msg = dict(msg, _confidence_boost=0.2)
+                weighted[i] = dict(msg, _confidence_boost=0.2)
             elif rating == "down":
-                msg = dict(msg, _confidence_penalty=0.3)
+                weighted[i] = dict(msg, _confidence_penalty=0.3)
 
         # ── Step 1: Relevance classification ─────────────────────────────────
         relevant_indices = await self._step1_classify(weighted)
@@ -224,13 +225,17 @@ class ExtractionPipeline:
             return result
 
         # Apply feedback confidence adjustment
+        # TD-51: attribute all relevant_messages as sources for each candidate (best
+        # approximation without per-message-attribution from the LLM).  Use max()
+        # rather than sum() to prevent boost amplification across multiple messages.
         _adjusted: list[dict[str, Any]] = []
         for cand in candidates:
             conf = float(cand.get("confidence", 0.7))
-            # Boost/penalise based on any feedback flags in the batch
-            boosts = sum(m.get("_confidence_boost", 0.0) for m in relevant_messages)
-            penalties = sum(m.get("_confidence_penalty", 0.0) for m in relevant_messages)
-            conf = min(1.0, max(0.0, conf + boosts - penalties))
+            boost = max((m.get("_confidence_boost", 0.0) for m in relevant_messages), default=0.0)
+            penalty = max(
+                (m.get("_confidence_penalty", 0.0) for m in relevant_messages), default=0.0
+            )
+            conf = min(1.0, max(0.0, conf + boost - penalty))
             if conf < self.config.min_confidence:
                 result.skipped += 1
                 continue

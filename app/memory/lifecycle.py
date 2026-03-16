@@ -22,6 +22,7 @@ Singletons:
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import math
 from datetime import datetime, timedelta, timezone
@@ -110,6 +111,7 @@ class MemoryLifecycleManager:
         self._audit = audit_log
         self.decay_cfg = decay_cfg or MemoryDecayConfig()
         self.consol_cfg = consol_cfg or ConsolidationConfig()
+        self._run_lock: asyncio.Lock = asyncio.Lock()  # TD-109: prevent concurrent lifecycle passes
 
     # ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -217,13 +219,13 @@ class MemoryLifecycleManager:
         batch = self.consol_cfg.batch_size
         examined = 0
         archived = 0
-        offset = 0
+        last_id = ""  # TD-65: cursor-based pagination to avoid skipping on mutations
 
         while True:
             memories = await self._mem.list(
                 status="active",
                 limit=batch,
-                offset=offset,
+                after_id=last_id,
             )
             if not memories:
                 break
@@ -243,7 +245,7 @@ class MemoryLifecycleManager:
                     reason=f"decay_score {mem.decay_score:.4f} < threshold {threshold}",
                 )
                 archived += 1
-            offset += batch
+            last_id = memories[-1].id
 
         logger.info("Archive pass: examined=%d archived=%d", examined, archived)
         return {"examined": examined, "archived": archived}
@@ -261,14 +263,14 @@ class MemoryLifecycleManager:
         batch = self.consol_cfg.batch_size
         examined = 0
         expired = 0
-        offset = 0
+        last_id = ""  # TD-65: cursor-based pagination
 
         while True:
             memories = await self._mem.list(
                 memory_type="task",
                 status="active",
                 limit=batch,
-                offset=offset,
+                after_id=last_id,
             )
             if not memories:
                 break
@@ -290,7 +292,7 @@ class MemoryLifecycleManager:
                     reason=f"task expired at {mem.expires_at.isoformat()}",
                 )
                 expired += 1
-            offset += batch
+            last_id = memories[-1].id
 
         logger.info("Expire-tasks pass: examined=%d expired=%d", examined, expired)
         return {"examined": examined, "expired": expired}
@@ -320,13 +322,13 @@ class MemoryLifecycleManager:
         examined = 0
         merged = 0
         merged_ids: set[str] = set()
-        offset = 0
+        last_id = ""  # TD-65: cursor-based pagination
 
         while True:
             memories = await self._mem.list(
                 status="active",
                 limit=batch,
-                offset=offset,
+                after_id=last_id,
             )
             if not memories:
                 break
@@ -390,7 +392,7 @@ class MemoryLifecycleManager:
                     merged += 1
                     # Ensure we don't process the victim later
                     break
-            offset += batch
+            last_id = memories[-1].id
 
         logger.info("Merge pass: examined=%d merged=%d", examined, merged)
         return {"examined": examined, "merged": merged}
@@ -437,6 +439,10 @@ class MemoryLifecycleManager:
     async def run_all(self) -> dict[str, Any]:
         """Run the full lifecycle pass in order.
 
+        If a pass is already in progress (concurrent scheduler tick), the call
+        returns immediately with ``{"skipped": True}`` rather than running two
+        passes in parallel (TD-109).
+
         Order:
         1. decay
         2. expire_tasks
@@ -446,15 +452,19 @@ class MemoryLifecycleManager:
 
         Returns a dict of all sub-pass results.
         """
-        logger.info("MemoryLifecycleManager: starting full run.")
-        results: dict[str, Any] = {}
-        results["decay"] = await self.run_decay()
-        results["expire_tasks"] = await self.run_expire_tasks()
-        results["archive"] = await self.run_archive()
-        results["merge"] = await self.run_merge()
-        results["orphan_report"] = await self.run_orphan_report()
-        logger.info("MemoryLifecycleManager: full run complete — %s", results)
-        return results
+        if self._run_lock.locked():
+            logger.info("MemoryLifecycleManager: lifecycle pass already in progress, skipping.")
+            return {"skipped": True, "reason": "already_running"}
+        async with self._run_lock:
+            logger.info("MemoryLifecycleManager: starting full run.")
+            results: dict[str, Any] = {}
+            results["decay"] = await self.run_decay()
+            results["expire_tasks"] = await self.run_expire_tasks()
+            results["archive"] = await self.run_archive()
+            results["merge"] = await self.run_merge()
+            results["orphan_report"] = await self.run_orphan_report()
+            logger.info("MemoryLifecycleManager: full run complete — %s", results)
+            return results
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

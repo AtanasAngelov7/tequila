@@ -14,6 +14,7 @@ Key design decisions:
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -219,9 +220,9 @@ class VaultStore:
 
         # Write file to disk first
         note_path = self._note_path(filename)
-        if note_path.exists():
+        if await asyncio.to_thread(note_path.exists):
             raise ConflictError(f"Vault file '{filename}' already exists on disk.")
-        note_path.write_text(content, encoding="utf-8")
+        await asyncio.to_thread(note_path.write_text, content, encoding="utf-8")
 
         # Persist metadata
         try:
@@ -238,7 +239,7 @@ class VaultStore:
                     ),
                 )
         except Exception:
-            note_path.unlink(missing_ok=True)
+            await asyncio.to_thread(note_path.unlink, missing_ok=True)
             raise
 
         return VaultNote(
@@ -262,7 +263,8 @@ class VaultStore:
         content = ""
         if include_content:
             note_path = self._note_path(d["filename"])
-            content = note_path.read_text(encoding="utf-8") if note_path.exists() else ""
+            if await asyncio.to_thread(note_path.exists):
+                content = await asyncio.to_thread(note_path.read_text, encoding="utf-8")
         return VaultNote.from_row(d, content=content)
 
     async def get_note_by_slug(self, slug: str, *, include_content: bool = True) -> VaultNote:
@@ -279,7 +281,8 @@ class VaultStore:
         content = ""
         if include_content:
             note_path = self._note_path(d["filename"])
-            content = note_path.read_text(encoding="utf-8") if note_path.exists() else ""
+            if await asyncio.to_thread(note_path.exists):
+                content = await asyncio.to_thread(note_path.read_text, encoding="utf-8")
         return VaultNote.from_row(d, content=content)
 
     async def list_notes(
@@ -314,7 +317,8 @@ class VaultStore:
             content = ""
             if include_content:
                 p = self._note_path(d["filename"])
-                content = p.read_text(encoding="utf-8") if p.exists() else ""
+                if await asyncio.to_thread(p.exists):
+                    content = await asyncio.to_thread(p.read_text, encoding="utf-8")
             notes.append(VaultNote.from_row(d, content=content))
         return notes
 
@@ -346,7 +350,9 @@ class VaultStore:
 
         # Update file content if content changed
         if new_content != note.content:
-            self._note_path(note.filename).write_text(new_content, encoding="utf-8")
+            await asyncio.to_thread(
+                self._note_path(note.filename).write_text, new_content, encoding="utf-8"
+            )
 
         async with write_transaction(self._db):
             await self._db.execute(
@@ -370,7 +376,7 @@ class VaultStore:
         note = await self.get_note(note_id, include_content=False)
         async with write_transaction(self._db):
             await self._db.execute("DELETE FROM vault_notes WHERE id = ?", (note_id,))
-        self._note_path(note.filename).unlink(missing_ok=True)
+        await asyncio.to_thread(self._note_path(note.filename).unlink, missing_ok=True)
 
     # ── Graph ─────────────────────────────────────────────────────────────────
 
@@ -433,10 +439,15 @@ class VaultStore:
 
         now = _now_iso()
 
+        # ── Collect changes (T4/TD-75: batch into single transaction) ─────────
+        inserts: list[tuple] = []
+        updates: list[tuple] = []
+        deletes: list[str] = []
+
         # Added or updated
         for filename in fs_files:
             path = self._note_path(filename)
-            content = path.read_text(encoding="utf-8")
+            content = await asyncio.to_thread(path.read_text, encoding="utf-8")
             h = _content_hash(content)
 
             if filename not in db_by_filename:
@@ -447,40 +458,46 @@ class VaultStore:
                 slug = await self._unique_slug(slug)
                 wikilinks = _parse_wikilinks(content)
                 auto_tags = _parse_tags(content)
-                async with write_transaction(self._db):
+                inserts.append((note_id, title, slug, filename, h,
+                                json.dumps(wikilinks), json.dumps(auto_tags), now, now))
+                result.added += 1
+            else:
+                row = db_by_filename[filename]
+                if row["content_hash"] != h:
+                    wikilinks = _parse_wikilinks(content)
+                    auto_tags = _parse_tags(content)
+                    updates.append((h, json.dumps(wikilinks), json.dumps(auto_tags), now, row["id"]))
+                    result.updated += 1
+
+        # Deleted
+        for filename, row in db_by_filename.items():
+            if filename not in fs_files:
+                deletes.append(row["id"])
+                result.deleted += 1
+
+        # ── Execute all changes in a single transaction ────────────────────────
+        if inserts or updates or deletes:
+            async with write_transaction(self._db):
+                for params in inserts:
                     await self._db.execute(
                         """
                         INSERT INTO vault_notes
                             (id, title, slug, filename, content_hash, wikilinks, tags, created_at, updated_at)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
-                        (note_id, title, slug, filename, h,
-                         json.dumps(wikilinks), json.dumps(auto_tags), now, now),
+                        params,
                     )
-                result.added += 1
-            else:
-                row = db_by_filename[filename]
-                if row["content_hash"] != h:
-                    # Content changed externally
-                    wikilinks = _parse_wikilinks(content)
-                    auto_tags = _parse_tags(content)
-                    async with write_transaction(self._db):
-                        await self._db.execute(
-                            """
-                            UPDATE vault_notes
-                               SET content_hash = ?, wikilinks = ?, tags = ?, updated_at = ?
-                             WHERE id = ?
-                            """,
-                            (h, json.dumps(wikilinks), json.dumps(auto_tags), now, row["id"]),
-                        )
-                    result.updated += 1
-
-        # Deleted
-        for filename, row in db_by_filename.items():
-            if filename not in fs_files:
-                async with write_transaction(self._db):
-                    await self._db.execute("DELETE FROM vault_notes WHERE id = ?", (row["id"],))
-                result.deleted += 1
+                for params in updates:
+                    await self._db.execute(
+                        """
+                        UPDATE vault_notes
+                           SET content_hash = ?, wikilinks = ?, tags = ?, updated_at = ?
+                         WHERE id = ?
+                        """,
+                        params,
+                    )
+                for note_id in deletes:
+                    await self._db.execute("DELETE FROM vault_notes WHERE id = ?", (note_id,))
 
         if result.added or result.updated or result.deleted:
             logger.info(

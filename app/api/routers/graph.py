@@ -13,6 +13,7 @@ POST   /api/graph/rebuild              — rebuild semantic-similarity edges
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -34,6 +35,9 @@ router = APIRouter(
     tags=["graph"],
     dependencies=[Depends(require_gateway_token)],
 )
+
+# TD-108: Prevent concurrent graph rebuild operations
+_rebuild_lock = asyncio.Lock()
 
 
 # ── Request models ────────────────────────────────────────────────────────────
@@ -100,49 +104,59 @@ async def get_graph_stats() -> dict:
 async def get_orphans(
     limit: int = Query(default=100, le=500),
 ) -> dict:
-    """Return a list of memory/entity IDs that appear in no graph edges.
+    """Return a list of memory/entity IDs that appear in no graph edges (TD-100).
 
-    NOTE: This endpoint searches *memory* and *entity* stores for active IDs
-    not appearing in any edge.  Results are approximate for large graphs.
+    Uses SQL subqueries instead of loading all edges into Python.
     """
     gs = get_graph_store()
 
-    # Collect all node IDs present in edges
-    edges = await gs.list_edges(limit=10_000)
-    connected: set[str] = set()
-    for e in edges:
-        connected.add(e.source_id)
-        connected.add(e.target_id)
-
     orphans: list[str] = []
-    # Check memories
+
+    # Memory orphans via SQL — no Python-side set operations (TD-100)
     try:
-        from app.memory.store import get_memory_store
-        ms = get_memory_store()
-        mems = await ms.list(status="active", limit=limit * 2)
-        for m in mems:
-            if m.memory_id not in connected:
-                orphans.append(m.memory_id)
-                if len(orphans) >= limit:
-                    break
-    except RuntimeError:
+        async with gs._db.execute(
+            """
+            SELECT m.id
+            FROM memory_extracts m
+            WHERE m.status = 'active'
+              AND m.id NOT IN (
+                  SELECT source_id FROM graph_edges
+                  UNION
+                  SELECT target_id FROM graph_edges
+              )
+            LIMIT ?
+            """,
+            (limit,),
+        ) as cur:
+            rows = await cur.fetchall()
+        orphans.extend(r[0] for r in rows)
+    except Exception:
         pass
 
-    # Check entities if still under limit
-    if len(orphans) < limit:
+    # Entity orphans if limit not reached
+    remaining = limit - len(orphans)
+    if remaining > 0:
         try:
-            from app.memory.entity_store import get_entity_store
-            es = get_entity_store()
-            entities = await es.list(limit=limit * 2)
-            for e in entities:
-                if e.entity_id not in connected and e.entity_id not in orphans:
-                    orphans.append(e.entity_id)
-                    if len(orphans) >= limit:
-                        break
-        except RuntimeError:
+            async with gs._db.execute(
+                """
+                SELECT e.id
+                FROM entities e
+                WHERE e.status = 'active'
+                  AND e.id NOT IN (
+                      SELECT source_id FROM graph_edges
+                      UNION
+                      SELECT target_id FROM graph_edges
+                  )
+                LIMIT ?
+                """,
+                (remaining,),
+            ) as cur:
+                rows = await cur.fetchall()
+            orphans.extend(r[0] for r in rows if r[0] not in orphans)
+        except Exception:
             pass
 
-    return {"orphan_ids": orphans, "count": len(orphans)}
+    return {"orphan_ids": orphans[:limit], "count": len(orphans[:limit])}
 
 
 @router.get("/node/{node_id}", response_model=dict)
@@ -233,10 +247,16 @@ async def rebuild_graph(
     """Rebuild semantic-similarity edges in the knowledge graph.
 
     This is a potentially expensive operation.  Results are upserted — existing
-    edges are overwritten with updated similarity weights.
+    edges are overwritten with updated similarity weights.  Only one rebuild may
+    run at a time; concurrent requests receive HTTP 429.
     """
-    gs = get_graph_store()
-    count = await gs.rebuild_semantic_edges(threshold=threshold)
+    # TD-108: Guard against concurrent rebuilds
+    if _rebuild_lock.locked():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=429, detail="Rebuild already in progress")
+    async with _rebuild_lock:
+        gs = get_graph_store()
+        count = await gs.rebuild_semantic_edges(threshold=threshold)
     return {"edges_upserted": count, "threshold": threshold}
 
 

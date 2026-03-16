@@ -62,7 +62,17 @@ class EntityStore:
                 ),
             )
 
-        return await self.get(entity_id)
+        # Construct entity from input data instead of an extra DB round-trip (TD-118)
+        return Entity(
+            id=entity_id,
+            name=name,
+            entity_type=entity_type,  # type: ignore[arg-type]
+            aliases=clean_aliases,
+            summary=summary,
+            properties=clean_props,
+            first_seen=datetime.fromisoformat(now),
+            last_referenced=datetime.fromisoformat(now),
+        )
 
     # ── Read ──────────────────────────────────────────────────────────────────
 
@@ -124,15 +134,19 @@ class EntityStore:
         if row:
             return Entity.from_row(row_to_dict(row))
 
-        # Search aliases (stored as JSON array — scan all active entities)
+        # Match aliases via SQL json_each() — no full table scan (TD-64)
         async with self._db.execute(
-            "SELECT * FROM entities WHERE status = 'active'"
+            """
+            SELECT e.*
+            FROM entities e, json_each(e.aliases) AS j
+            WHERE LOWER(j.value) = ? AND e.status = 'active'
+            LIMIT 1
+            """,
+            (target,),
         ) as cur:
-            rows = await cur.fetchall()
-        for row in rows:
-            entity = Entity.from_row(row_to_dict(row))
-            if any(a.lower() == target for a in entity.aliases):
-                return entity
+            row = await cur.fetchone()
+        if row:
+            return Entity.from_row(row_to_dict(row))
         return None
 
     # ── Update ────────────────────────────────────────────────────────────────
@@ -148,30 +162,59 @@ class EntityStore:
         status: str | None = None,
         merged_into: str | None = None,
     ) -> Entity:
-        """Update selected fields on *entity_id*."""
-        entity = await self.get(entity_id)
-        new_name = name if name is not None else entity.name
-        new_aliases = aliases if aliases is not None else entity.aliases
-        new_summary = summary if summary is not None else entity.summary
-        new_props = properties if properties is not None else entity.properties
-        new_status = status if status is not None else entity.status
-        new_merged = merged_into if merged_into is not None else entity.merged_into
-        now = _now_iso()
+        """Update selected fields on *entity_id*.
 
-        async with write_transaction(self._db):
-            await self._db.execute(
-                """
-                UPDATE entities
-                   SET name = ?, aliases = ?, summary = ?, properties = ?,
-                       status = ?, merged_into = ?, updated_at = ?
-                 WHERE id = ?
-                """,
-                (
-                    new_name, json.dumps(new_aliases), new_summary,
-                    json.dumps(new_props), new_status, new_merged, now, entity_id,
-                ),
-            )
-        return await self.get(entity_id)
+        Uses an optimistic concurrency guard: the UPDATE includes
+        ``WHERE updated_at = <snapshot>`` so a concurrent modification
+        is detected.  Retries up to 3 times on conflict (TD-83).
+        """
+        _MAX_RETRIES = 3
+        for attempt in range(1, _MAX_RETRIES + 1):
+            entity = await self.get(entity_id)
+            snapshot_updated_at = entity.updated_at.isoformat() if entity.updated_at else None
+            new_name = name if name is not None else entity.name
+            new_aliases = aliases if aliases is not None else entity.aliases
+            new_summary = summary if summary is not None else entity.summary
+            new_props = properties if properties is not None else entity.properties
+            new_status = status if status is not None else entity.status
+            new_merged = merged_into if merged_into is not None else entity.merged_into
+            now = _now_iso()
+
+            async with write_transaction(self._db):
+                await self._db.execute(
+                    """
+                    UPDATE entities
+                       SET name = ?, aliases = ?, summary = ?, properties = ?,
+                           status = ?, merged_into = ?, updated_at = ?
+                     WHERE id = ?
+                       AND (updated_at = ? OR (updated_at IS NULL AND ? IS NULL))
+                    """,
+                    (
+                        new_name, json.dumps(new_aliases), new_summary,
+                        json.dumps(new_props), new_status, new_merged, now,
+                        entity_id, snapshot_updated_at, snapshot_updated_at,
+                    ),
+                )
+                # Check if the UPDATE hit a row
+                async with self._db.execute("SELECT changes()") as cur:
+                    row = await cur.fetchone()
+                    affected = row[0] if row else 0
+
+            if affected > 0:
+                return await self.get(entity_id)
+
+            if attempt < _MAX_RETRIES:
+                logger.debug(
+                    "EntityStore.update conflict on %s (attempt %d/%d) — retrying",
+                    entity_id, attempt, _MAX_RETRIES,
+                )
+            else:
+                logger.warning(
+                    "EntityStore.update: gave up after %d retries on %s",
+                    _MAX_RETRIES, entity_id,
+                )
+                # Return best-effort current state rather than raising
+                return await self.get(entity_id)
 
     async def add_alias(self, entity_id: str, alias: str) -> Entity:
         """Add *alias* to *entity_id*'s alias list if not already present."""

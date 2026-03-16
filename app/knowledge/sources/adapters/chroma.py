@@ -4,6 +4,7 @@ Optional dependency: ``chromadb``.  Import errors are deferred to first use.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -19,6 +20,7 @@ class ChromaAdapter(KnowledgeSourceAdapter):
     def __init__(self, source: KnowledgeSource) -> None:
         super().__init__(source)
         self._client: Any = None
+        self._collection: Any = None  # cached collection object (TD-93)
 
     def _ensure_client(self) -> None:
         """Lazily initialise the Chroma client on first use."""
@@ -46,20 +48,24 @@ class ChromaAdapter(KnowledgeSourceAdapter):
             )
 
     def _get_collection(self) -> Any:
+        """Return the cached collection, fetching once on first call (TD-93)."""
+        if self._collection is not None:
+            return self._collection
         self._ensure_client()
         cfg = self.source.connection
         collection_name = cfg.get("collection", "default")
         tenant = cfg.get("tenant", "default_tenant")
         database = cfg.get("database", "default_database")
         try:
-            return self._client.get_or_create_collection(
+            self._collection = self._client.get_or_create_collection(
                 name=collection_name,
                 tenant=tenant,
                 database=database,
             )
         except TypeError:
             # Older chromadb versions don't accept tenant/database
-            return self._client.get_or_create_collection(name=collection_name)
+            self._collection = self._client.get_or_create_collection(name=collection_name)
+        return self._collection
 
     async def search(
         self,
@@ -69,7 +75,9 @@ class ChromaAdapter(KnowledgeSourceAdapter):
     ) -> list[KnowledgeChunk]:
         try:
             collection = self._get_collection()
-            results = collection.query(
+            # Chroma's collection.query() is synchronous — offload to thread (TD-86)
+            results = await asyncio.to_thread(
+                collection.query,
                 query_texts=[query],
                 n_results=top_k,
                 include=["documents", "metadatas", "distances"],
@@ -96,7 +104,7 @@ class ChromaAdapter(KnowledgeSourceAdapter):
     async def health_check(self) -> bool:
         try:
             self._ensure_client()
-            self._client.heartbeat()
+            await asyncio.to_thread(self._client.heartbeat)
             return True
         except Exception as exc:
             logger.warning("ChromaAdapter health check failed: %s", exc)
@@ -105,6 +113,6 @@ class ChromaAdapter(KnowledgeSourceAdapter):
     async def count(self) -> int:
         try:
             collection = self._get_collection()
-            return collection.count()
+            return await asyncio.to_thread(collection.count)
         except Exception:
             return 0

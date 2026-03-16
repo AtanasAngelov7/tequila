@@ -102,9 +102,10 @@ async def test_load_always_recall_with_memory_stores(test_app: AsyncClient):
     )
 
     pipeline = get_recall_pipeline()
-    result = await pipeline.load_always_recall(session_id="sess-1")
+    result, rows = await pipeline.load_always_recall(session_id="sess-1")
     # Should contain the preference memory
     assert "dark mode" in result or result == ""  # may be empty if embedding not available
+    assert isinstance(rows, list)
 
 
 # ── RecallPipeline — recall_for_turn ─────────────────────────────────────────

@@ -4,8 +4,12 @@ Uses ``httpx`` (already a project dependency).
 """
 from __future__ import annotations
 
+import asyncio
+import ipaddress
 import logging
+import socket
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -13,6 +17,37 @@ from app.knowledge.sources.adapters.base import KnowledgeSourceAdapter
 from app.knowledge.sources.models import KnowledgeChunk, KnowledgeSource
 
 logger = logging.getLogger(__name__)
+
+# TD-44: Blocked private/loopback/link-local networks
+_BLOCKED_NETS = [
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("::1/128"),
+]
+
+
+async def _validate_url(url: str) -> str:
+    """Raise ValueError if *url* uses an unsafe scheme or resolves to a private IP."""
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Unsupported URL scheme: {parsed.scheme!r}")
+    hostname = parsed.hostname or ""
+    if not hostname:
+        raise ValueError("URL has no hostname")
+    try:
+        resolved_ip = await asyncio.to_thread(socket.gethostbyname, hostname)
+        addr = ipaddress.ip_address(resolved_ip)
+    except socket.gaierror as exc:
+        raise ValueError(f"Cannot resolve hostname: {hostname!r}") from exc
+    except ValueError as exc:
+        raise ValueError(f"Invalid IP address resolved for {hostname!r}") from exc
+    for net in _BLOCKED_NETS:
+        if addr in net:
+            raise ValueError(f"URL resolves to blocked network {net}: {addr}")
+    return url
 
 
 def _get_nested(obj: Any, path: str) -> Any:
@@ -49,6 +84,13 @@ class HTTPAdapter(KnowledgeSourceAdapter):
 
         if not url:
             logger.warning("HTTPAdapter: no URL configured for source %s", self.source.source_id)
+            return []
+
+        # TD-44: SSRF protection — validate before making the request
+        try:
+            url = await _validate_url(url)
+        except ValueError as exc:
+            logger.warning("HTTPAdapter: SSRF check rejected URL for source %s: %s", self.source.source_id, exc)
             return []
 
         payload = {query_param: query, "top_k": top_k}
@@ -95,6 +137,11 @@ class HTTPAdapter(KnowledgeSourceAdapter):
         cfg = self.source.connection
         url: str = cfg.get("url", "")
         if not url:
+            return False
+        # TD-44: SSRF protection
+        try:
+            url = await _validate_url(url)
+        except ValueError:
             return False
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:

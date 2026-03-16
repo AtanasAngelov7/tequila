@@ -35,6 +35,8 @@ logger = logging.getLogger(__name__)
 
 # parent_session_key → set of sub-agent session keys currently tracked
 _active: dict[str, set[str]] = {}
+# per-parent lock to make the count-check + register atomic (TD-58)
+_spawn_locks: dict[str, asyncio.Lock] = {}
 
 
 def active_sub_agent_count(parent_session_key: str) -> int:
@@ -50,6 +52,13 @@ def _unregister(parent: str, sub_key: str) -> None:
     bucket = _active.get(parent)
     if bucket:
         bucket.discard(sub_key)
+
+
+def _get_spawn_lock(parent: str) -> asyncio.Lock:
+    """Return (lazily creating) the per-parent spawn lock."""
+    if parent not in _spawn_locks:
+        _spawn_locks[parent] = asyncio.Lock()
+    return _spawn_locks[parent]
 
 
 # ── Core functions ─────────────────────────────────────────────────────────────
@@ -92,40 +101,41 @@ async def spawn_sub_agent(
     RuntimeError
         When the per-parent concurrency cap is reached.
     """
-    # ── Concurrency limit check ───────────────────────────────────────────────
+    # ── Concurrency limit check (atomic via per-parent lock — TD-58) ─────────
     parent = parent_session_key or "_global"
-    if active_sub_agent_count(parent) >= MAX_CONCURRENT_SUBAGENTS:
-        raise RuntimeError(
-            f"Concurrency limit ({MAX_CONCURRENT_SUBAGENTS}) reached for "
-            f"parent session {parent!r}.  Wait for a sub-agent to finish."
+    async with _get_spawn_lock(parent):
+        if active_sub_agent_count(parent) >= MAX_CONCURRENT_SUBAGENTS:
+            raise RuntimeError(
+                f"Concurrency limit ({MAX_CONCURRENT_SUBAGENTS}) reached for "
+                f"parent session {parent!r}.  Wait for a sub-agent to finish."
+            )
+
+        # ── Build a unique session key ────────────────────────────────────────
+        short_id = str(uuid.uuid4()).replace("-", "")[:8]
+        sub_session_key = f"agent:{agent_id}:sub:{short_id}"
+
+        # ── Resolve policy ────────────────────────────────────────────────────
+        from app.sessions.policy import SessionPolicyPresets
+        policy = SessionPolicyPresets.by_name(policy_preset).model_dump()
+
+        # ── Create the session ────────────────────────────────────────────────
+        from app.sessions.store import get_session_store
+        store = get_session_store()
+        await store.create(
+            session_key=sub_session_key,
+            kind="agent",
+            agent_id=agent_id,
+            parent_session_key=parent_session_key,
+            policy=policy,
+            title=f"sub:{agent_id}:{short_id}",
+        )
+        logger.info(
+            "Sub-agent session created: %s (parent=%s, agent=%s)",
+            sub_session_key, parent_session_key, agent_id,
         )
 
-    # ── Build a unique session key ────────────────────────────────────────────
-    short_id = str(uuid.uuid4()).replace("-", "")[:8]
-    sub_session_key = f"agent:{agent_id}:sub:{short_id}"
-
-    # ── Resolve policy ────────────────────────────────────────────────────────
-    from app.sessions.policy import SessionPolicyPresets
-    policy = SessionPolicyPresets.by_name(policy_preset).model_dump()
-
-    # ── Create the session ────────────────────────────────────────────────────
-    from app.sessions.store import get_session_store
-    store = get_session_store()
-    await store.create(
-        session_key=sub_session_key,
-        kind="agent",
-        agent_id=agent_id,
-        parent_session_key=parent_session_key,
-        policy=policy,
-        title=f"sub:{agent_id}:{short_id}",
-    )
-    logger.info(
-        "Sub-agent session created: %s (parent=%s, agent=%s)",
-        sub_session_key, parent_session_key, agent_id,
-    )
-
-    # ── Track concurrency ─────────────────────────────────────────────────────
-    _register(parent, sub_session_key)
+        # ── Track concurrency ────────────────────────────────────────────────
+        _register(parent, sub_session_key)
 
     # ── Emit initial message to trigger the turn loop ─────────────────────────
     if initial_message:
@@ -144,24 +154,31 @@ async def spawn_sub_agent(
         router.emit_nowait(event)
         logger.debug("Initial message emitted for sub-agent session %s", sub_session_key)
 
-    # ── Schedule auto-archive ─────────────────────────────────────────────────
-    if auto_archive_minutes > 0:
-        asyncio.create_task(
-            _auto_archive(parent, sub_session_key, delay_s=auto_archive_minutes * 60),
-            name=f"auto_archive:{sub_session_key}",
-        )
+    # ── Schedule auto-archive (always — to ensure _unregister is called; TD-70) ──
+    # When auto_archive_minutes=0 we still schedule with delay_s=0 so the entry
+    # is cleaned up after the current turn without an indefinite leak.
+    delay_s = auto_archive_minutes * 60 if auto_archive_minutes > 0 else 0
+    asyncio.create_task(
+        _auto_archive(parent, sub_session_key, delay_s=delay_s),
+        name=f"auto_archive:{sub_session_key}",
+    )
 
     return sub_session_key
 
 
 async def _auto_archive(parent: str, sub_session_key: str, delay_s: float) -> None:
-    """Background task: archive *sub_session_key* after *delay_s* seconds."""
+    """Background task: archive *sub_session_key* after *delay_s* seconds.
+
+    Always calls ``_unregister`` in its ``finally`` block so that the entry in
+    ``_active`` is cleaned up even when *delay_s* is 0 (TD-70).
+    """
     await asyncio.sleep(delay_s)
     try:
-        from app.sessions.store import get_session_store
-        store = get_session_store()
-        await store.archive(sub_session_key)
-        logger.info("Sub-agent session auto-archived: %s", sub_session_key)
+        if delay_s > 0:
+            from app.sessions.store import get_session_store
+            store = get_session_store()
+            await store.archive(sub_session_key)
+            logger.info("Sub-agent session auto-archived: %s", sub_session_key)
     except Exception:
         logger.warning(
             "Failed to auto-archive sub-agent session %s", sub_session_key, exc_info=True

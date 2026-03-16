@@ -101,22 +101,31 @@ class MemoryStore:
     # ── Read ──────────────────────────────────────────────────────────────────
 
     async def get(self, memory_id: str) -> MemoryExtract:
-        """Return the memory with *memory_id*, touching ``last_accessed``."""
+        """Return the memory with *memory_id* (read-only — no side effects).
+
+        Use ``touch()`` after ``get()`` if you want to bump the access
+        timestamp and counter (TD-62).
+        """
         async with self._db.execute(
             "SELECT * FROM memory_extracts WHERE id = ?", (memory_id,)
         ) as cur:
             row = await cur.fetchone()
         if row is None:
             raise NotFoundError(resource="MemoryExtract", id=memory_id)
-        mem = MemoryExtract.from_row(row_to_dict(row))
-        # Update access tracking
+        return MemoryExtract.from_row(row_to_dict(row))
+
+    async def touch(self, memory_id: str) -> None:
+        """Bump ``last_accessed`` and ``access_count`` for *memory_id* (TD-62).
+
+        Safe to call concurrently — the UPDATE is a single atomic statement.
+        Silently no-ops if *memory_id* does not exist.
+        """
         now = _now_iso()
         async with write_transaction(self._db):
             await self._db.execute(
                 "UPDATE memory_extracts SET last_accessed = ?, access_count = access_count + 1 WHERE id = ?",
                 (now, memory_id),
             )
-        return mem
 
     async def list(
         self,
@@ -129,8 +138,17 @@ class MemoryStore:
         search: str | None = None,
         limit: int = 50,
         offset: int = 0,
+        after_id: str | None = None,
     ) -> list[MemoryExtract]:
-        """Return memory records matching the given filters."""
+        """Return memory records matching the given filters.
+
+        Parameters
+        ----------
+        after_id:
+            When set, only return records with ``id > after_id``, ordered by
+            ``id ASC``.  Use for cursor-based pagination (TD-65) — avoids
+            skipping items when rows are mutated during iteration.
+        """
         clauses = ["status = ?"]
         params: list = [status]
 
@@ -150,14 +168,24 @@ class MemoryStore:
             params.append(f"%{search}%")
 
         where = " AND ".join(clauses)
-        params += [limit, offset]
 
-        async with self._db.execute(
-            f"SELECT * FROM memory_extracts WHERE {where} "
-            f"ORDER BY recall_weight DESC, updated_at DESC LIMIT ? OFFSET ?",
-            params,
-        ) as cur:
-            rows = await cur.fetchall()
+        if after_id is not None:
+            # Cursor-based pagination: order by id, skip rows already seen
+            params_q = params + [after_id, limit]
+            async with self._db.execute(
+                f"SELECT * FROM memory_extracts WHERE {where} AND id > ? "
+                f"ORDER BY id ASC LIMIT ?",
+                params_q,
+            ) as cur:
+                rows = await cur.fetchall()
+        else:
+            params_q = params + [limit, offset]
+            async with self._db.execute(
+                f"SELECT * FROM memory_extracts WHERE {where} "
+                f"ORDER BY recall_weight DESC, updated_at DESC LIMIT ? OFFSET ?",
+                params_q,
+            ) as cur:
+                rows = await cur.fetchall()
 
         return [MemoryExtract.from_row(row_to_dict(r)) for r in rows]
 
@@ -254,12 +282,17 @@ class MemoryStore:
             await self.update(memory_id, entity_ids=mem.entity_ids + [entity_id])
 
     async def unlink_entity(self, memory_id: str, entity_id: str) -> None:
-        """Remove the ``memory_entity_links`` row."""
+        """Remove the ``memory_entity_links`` row and update the entity_ids JSON column."""
         async with write_transaction(self._db):
             await self._db.execute(
                 "DELETE FROM memory_entity_links WHERE memory_id = ? AND entity_id = ?",
                 (memory_id, entity_id),
             )
+        # TD-63: also remove entity_id from the JSON column (mirrors link_entity's behaviour)
+        mem = await self.get(memory_id)
+        updated_ids = [eid for eid in mem.entity_ids if eid != entity_id]
+        if updated_ids != mem.entity_ids:
+            await self.update(memory_id, entity_ids=updated_ids)
 
 
 # ── Module-level singleton ────────────────────────────────────────────────────

@@ -37,6 +37,7 @@ from app.constants import MAX_CONCURRENT_SUBAGENTS
 from app.gateway.events import ET, GatewayEvent
 from app.gateway.router import get_router
 from app.sessions.messages import get_message_store
+from app.sessions.store import get_session_store
 from app.workflows.models import Workflow, WorkflowRun, WorkflowStep
 from app.workflows.store import get_workflow_store
 
@@ -107,7 +108,10 @@ async def _run_step(
 
         # Collect result — last assistant message in the step session
         msg_store = get_message_store()
-        messages = await msg_store.list_by_session(sub_key, limit=50, active_only=True)
+        # TD-47: sub_key is a session_key string; list_by_session needs session_id (UUID)
+        session_store = get_session_store()
+        session = await session_store.get_by_key(sub_key)
+        messages = await msg_store.list_by_session(session.session_id, limit=50, active_only=True)
         assistant_msgs = [m for m in messages if m.role == "assistant"]
         if assistant_msgs:
             return assistant_msgs[-1].content
@@ -142,13 +146,15 @@ async def run_pipeline(
     run: WorkflowRun,
     *,
     parent_session_key: str | None = None,
+    cancel_event: asyncio.Event | None = None,
 ) -> WorkflowRun:
     """Execute *workflow* in pipeline mode, updating *run* in the store.
 
     Steps execute sequentially.  Each step's output is passed as ``{context}``
     to the next step's prompt template.
 
-    Returns the updated ``WorkflowRun`` (either ``completed`` or ``failed``).
+    Returns the updated ``WorkflowRun`` (either ``completed``, ``failed``, or
+    ``cancelled`` when *cancel_event* is set between steps).
     """
     store = get_workflow_store()
 
@@ -156,6 +162,10 @@ async def run_pipeline(
     context = ""
 
     for step in workflow.steps:
+        # Check for cancellation before executing each step (TD-48)
+        if cancel_event is not None and cancel_event.is_set():
+            logger.info("Pipeline run %s cancelled before step %r", run.id, step.id)
+            return await store.update_run_status(run.id, status="cancelled")
         run = await store.update_run_status(run.id, status="running", current_step=step.id)
         try:
             result = await _run_step_with_retry(step, context, parent_session_key)
@@ -186,15 +196,22 @@ async def run_parallel(
     run: WorkflowRun,
     *,
     parent_session_key: str | None = None,
+    cancel_event: asyncio.Event | None = None,
 ) -> WorkflowRun:
     """Execute *workflow* in parallel mode, updating *run* in the store.
 
     All steps launch simultaneously (bounded by ``MAX_CONCURRENT_SUBAGENTS``).
     Collected results are written when all tasks finish.
 
-    Returns the updated ``WorkflowRun`` (either ``completed`` or ``failed``).
+    Returns the updated ``WorkflowRun`` (either ``completed``, ``failed``, or
+    ``cancelled`` when *cancel_event* is already set at start).
     """
     store = get_workflow_store()
+
+    # Check for pre-cancellation before launching tasks (TD-48)
+    if cancel_event is not None and cancel_event.is_set():
+        logger.info("Parallel run %s cancelled before starting", run.id)
+        return await store.update_run_status(run.id, status="cancelled")
 
     run = await store.update_run_status(run.id, status="running")
 
@@ -243,15 +260,24 @@ async def execute_workflow(
     run: WorkflowRun,
     *,
     parent_session_key: str | None = None,
+    cancel_event: asyncio.Event | None = None,
 ) -> WorkflowRun:
     """Dispatch *workflow* to the appropriate mode handler.
 
     This is the single entry point used by ``/api/workflows/{id}/run``.
     """
     if workflow.mode == "pipeline":
-        return await run_pipeline(workflow, run, parent_session_key=parent_session_key)
+        return await run_pipeline(
+            workflow, run,
+            parent_session_key=parent_session_key,
+            cancel_event=cancel_event,
+        )
     elif workflow.mode == "parallel":
-        return await run_parallel(workflow, run, parent_session_key=parent_session_key)
+        return await run_parallel(
+            workflow, run,
+            parent_session_key=parent_session_key,
+            cancel_event=cancel_event,
+        )
     else:
         return await get_workflow_store().update_run_status(
             run.id,

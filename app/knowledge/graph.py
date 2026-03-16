@@ -20,6 +20,7 @@ import asyncio
 import json
 import logging
 import uuid
+from collections import deque
 from datetime import datetime, timezone
 from typing import Any
 
@@ -392,10 +393,9 @@ class GraphStore:
 
         # Approximate total unique nodes from source+target
         async with self._db.execute(
-            "SELECT source_id FROM graph_edges UNION SELECT target_id FROM graph_edges"
+            "SELECT COUNT(*) FROM (SELECT source_id AS nid FROM graph_edges UNION SELECT target_id AS nid FROM graph_edges)"
         ) as cur:
-            node_rows = await cur.fetchall()
-        total_nodes = len(node_rows)
+            total_nodes = (await cur.fetchone())[0]
 
         # Most connected nodes (by degree)
         async with self._db.execute(
@@ -447,16 +447,19 @@ class GraphStore:
 
         for source_type in target_types:
             try:
-                rows = await self._db.execute_fetchall(
-                    "SELECT id FROM embeddings WHERE source_type = ?",
+                async with self._db.execute(
+                    "SELECT source_id FROM embeddings WHERE source_type = ?",
                     (source_type,),
-                )
-                node_ids = [row_to_dict(r)["id"] for r in rows]
+                ) as cur:
+                    rows = await cur.fetchall()
+                node_ids = [row_to_dict(r)["source_id"] for r in rows]
             except Exception as exc:  # noqa: BLE001
                 logger.warning("GraphStore: failed to fetch %s embedding IDs: %s", source_type, exc)
                 continue
 
-            # Process in batches to avoid holding write lock too long (§20.5)
+            # Collect edges to insert, then batch-insert per §20.5 (TD-107)
+            edges_to_insert: list[tuple] = []
+
             for i in range(0, len(node_ids), batch_size):
                 batch = node_ids[i : i + batch_size]
                 for nid in batch:
@@ -470,19 +473,37 @@ class GraphStore:
                         for hit in results:
                             if hit.source_id == nid:
                                 continue
-                            edge = await self.add_edge(
-                                source_id=nid,
-                                source_type=source_type,
-                                target_id=hit.source_id,
-                                target_type=source_type,
-                                edge_type="semantic_similar",
-                                weight=hit.score,
-                                metadata={"similarity": hit.score},
-                            )
-                            if edge:
-                                created += 1
+                            edges_to_insert.append((
+                                nid, source_type, hit.source_id, source_type,
+                                "semantic_similar", hit.similarity,
+                                json.dumps({"similarity": hit.similarity}),
+                            ))
                     except Exception as exc:  # noqa: BLE001
                         logger.debug("Semantic edge skip %s: %s", nid, exc)
+
+            # Batch upsert collected edges in groups of 500 (TD-107)
+            BATCH_INSERT = 500
+            now = datetime.now(timezone.utc).isoformat()
+            for i in range(0, len(edges_to_insert), BATCH_INSERT):
+                chunk = edges_to_insert[i : i + BATCH_INSERT]
+                try:
+                    async with write_transaction(self._db):
+                        await self._db.executemany(
+                            """
+                            INSERT INTO graph_edges
+                                (source_id, source_type, target_id, target_type,
+                                 edge_type, weight, metadata, created_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            ON CONFLICT(source_id, target_id, edge_type)
+                            DO UPDATE SET
+                                weight   = excluded.weight,
+                                metadata = excluded.metadata
+                            """,
+                            [(*e, now) for e in chunk],
+                        )
+                    created += len(chunk)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("GraphStore: batch edge insert failed: %s", exc)
 
         logger.info("GraphStore: rebuilt semantic edges, %d upserted.", created)
         return created
@@ -504,12 +525,12 @@ class GraphStore:
             return [from_id]
 
         visited: set[str] = {from_id}
-        queue: list[list[str]] = [[from_id]]
+        queue: deque[list[str]] = deque([[from_id]])  # O(1) popleft (TD-128)
 
         for _ in range(max_depth):
             if not queue:
                 break
-            path = queue.pop(0)
+            path = queue.popleft()  # O(1) — was queue.pop(0) which is O(n)
             current = path[-1]
             edges = await self.get_neighbors(current, limit=100)
             for edge in edges:

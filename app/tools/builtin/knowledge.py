@@ -124,7 +124,7 @@ async def kb_list_sources(
     for src in sources:
         auto = " [auto-recall]" if src.auto_recall else ""
         lines.append(
-            f"  - {src.name} (id={src.id}, backend={src.backend}, "
+            f"  - {src.name} (id={src.source_id}, backend={src.backend}, "
             f"status={src.status}{auto})"
         )
         if src.description:

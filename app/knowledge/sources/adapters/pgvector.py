@@ -5,12 +5,23 @@ Optional dependencies: ``asyncpg``, ``pgvector``.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from app.knowledge.sources.adapters.base import KnowledgeSourceAdapter
 from app.knowledge.sources.models import KnowledgeChunk, KnowledgeSource
 
 logger = logging.getLogger(__name__)
+
+# TD-43: SQL identifier validation (defense-in-depth)
+_IDENT_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$")
+
+
+def _validate_ident(name: str, label: str) -> str:
+    """Raise ValueError if *name* is not a safe SQL identifier."""
+    if not _IDENT_RE.match(name):
+        raise ValueError(f"Invalid SQL identifier for {label}: {name!r}")
+    return name
 
 
 class PgVectorAdapter(KnowledgeSourceAdapter):
@@ -51,10 +62,10 @@ class PgVectorAdapter(KnowledgeSourceAdapter):
 
             pool = await self._ensure_pool()
             cfg = self.source.connection
-            table = cfg.get("table", "documents")
-            content_col = cfg.get("content_column", "content")
-            emb_col = cfg.get("embedding_column", "embedding")
-            meta_cols = cfg.get("metadata_columns", [])
+            table = _validate_ident(cfg.get("table", "documents"), "table")
+            content_col = _validate_ident(cfg.get("content_column", "content"), "content_column")
+            emb_col = _validate_ident(cfg.get("embedding_column", "embedding"), "embedding_column")
+            meta_cols = [_validate_ident(c, f"meta_col[{i}]") for i, c in enumerate(cfg.get("metadata_columns", []))]
 
             meta_select = ", ".join(meta_cols) if meta_cols else ""
             meta_clause = f", {meta_select}" if meta_select else ""
@@ -103,8 +114,22 @@ class PgVectorAdapter(KnowledgeSourceAdapter):
         try:
             pool = await self._ensure_pool()
             cfg = self.source.connection
-            table = cfg.get("table", "documents")
+            table = _validate_ident(cfg.get("table", "documents"), "table")
             async with pool.acquire() as conn:
                 return await conn.fetchval(f"SELECT COUNT(*) FROM {table}")
         except Exception:
             return 0
+
+    async def deactivate(self) -> None:
+        """Close the asyncpg connection pool (TD-94).
+
+        Called by the registry when this source is removed or disabled so
+        that database connections are released promptly.
+        """
+        if self._pool is not None:
+            try:
+                await self._pool.close()
+            except Exception:
+                logger.warning("PgVectorAdapter: error closing pool for source %s", self.source.source_id, exc_info=True)
+            finally:
+                self._pool = None

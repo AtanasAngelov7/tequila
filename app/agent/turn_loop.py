@@ -388,7 +388,7 @@ class TurnLoop:
         try:
             from app.memory.recall import get_recall_pipeline
             recall = get_recall_pipeline()
-            ctx.memory_always = await recall.load_always_recall(
+            ctx.memory_always, _always_memories = await recall.load_always_recall(
                 session_id=session_id,
                 agent_id=agent_id_str,
             )
@@ -397,6 +397,7 @@ class TurnLoop:
                 session_id=session_id,
                 agent_id=agent_id_str,
                 always_recall_content=ctx.memory_always,
+                always_memories=_always_memories,
             )
             # Stage 3 runs in background
             asyncio.create_task(

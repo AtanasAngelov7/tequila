@@ -248,6 +248,20 @@ async def memory_search(
         from app.knowledge.embeddings import get_embedding_store
         emb = get_embedding_store()
         hits = await emb.search(query, source_types=["memory"], limit=limit, threshold=threshold)
+        # TD-101: apply memory_type post-filter on embedding results
+        # EmbeddingSearchResult only has source_id; need to load the memory to check type.
+        if memory_type and hits:
+            from app.memory.store import get_memory_store as _ms
+            mem_store = _ms()
+            filtered: list[Any] = []
+            for h in hits:
+                try:
+                    mem = await mem_store.get(h.source_id)
+                    if mem.memory_type == memory_type:
+                        filtered.append(h)
+                except Exception:  # noqa: BLE001
+                    pass
+            hits = filtered
         results = hits
     except RuntimeError:
         pass
@@ -571,23 +585,43 @@ async def entity_merge(
         source = await store.get(source_entity_id)
         target = await store.get(target_entity_id)
 
+        failures: list[str] = []
+
         # Transfer aliases
         for alias in (source.aliases or []):
             try:
                 await store.add_alias(target_entity_id, alias)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                failures.append(f"alias '{alias}': {exc}")
+                logger.warning(
+                    "entity_merge: failed to transfer alias %r from %s to %s",
+                    alias, source_entity_id, target_entity_id, exc_info=True,
+                )
 
         # Re-link all memories from source → target
+        # TD-49: if any re-link fails, report it and leave both entities intact
         source_memory_ids = await store.get_memories(source_entity_id)
+        relink_failed = False
         for mid in source_memory_ids:
             try:
                 from app.memory.store import get_memory_store
                 ms = get_memory_store()
                 await ms.link_entity(mid, target_entity_id)
                 await ms.unlink_entity(mid, source_entity_id)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as exc:  # noqa: BLE001
+                failures.append(f"memory '{mid}': {exc}")
+                logger.warning(
+                    "entity_merge: failed to re-link memory %s", mid, exc_info=True,
+                )
+                relink_failed = True
+
+        if relink_failed:
+            # Do not delete source — leave both alive for manual resolution
+            partial_msg = "; ".join(failures)
+            return (
+                f"Entity merge partially failed — source entity {source_entity_id} "
+                f"was NOT deleted. Failures: {partial_msg}"
+            )
 
         # Update source to point to target (merged_into)
         await store.update(source_entity_id, merged_into=target_entity_id, status="merged")
@@ -605,10 +639,13 @@ async def entity_merge(
         reason=reason or f"merged into {target_entity_id}",
         metadata={"survivor_id": target_entity_id},
     )
-    return (
+    base_msg = (
         f"Entity {source_entity_id} ({source.name}) merged into "
         f"{target_entity_id} ({target.name})."
     )
+    if failures:
+        return base_msg + f" Partial failures: {'; '.join(failures)}"
+    return base_msg
 
 
 # ── entity_update ─────────────────────────────────────────────────────────────

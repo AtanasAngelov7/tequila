@@ -174,9 +174,23 @@ class WorkflowStore:
         step_results: dict[str, str] | None = None,
         error: str | None = None,
     ) -> WorkflowRun:
-        """Update run status, progress, and results in one write."""
+        """Update run status, progress, and results in one write.
+
+        If the run is already in a terminal state (``completed``, ``failed``,
+        ``cancelled``) the write is skipped to avoid overwriting the terminal
+        status — implementing an optimistic concurrency guard (TD-59).
+        """
         now = datetime.now(timezone.utc).isoformat()
         run = await self.get_run(run_id)
+
+        _TERMINAL = frozenset({"completed", "failed", "cancelled"})
+        if run.status in _TERMINAL and status not in _TERMINAL:
+            # Non-terminal transition rejected — return current state unchanged
+            logger.debug(
+                "update_run_status: run %s is already %r; ignoring transition to %r",
+                run_id, run.status, status,
+            )
+            return run
 
         merged_results = dict(run.step_results)
         if step_results:
@@ -196,7 +210,7 @@ class WorkflowStore:
                 UPDATE workflow_runs
                 SET status = ?, current_step = ?, step_results_json = ?,
                     error = ?, started_at = ?, completed_at = ?
-                WHERE id = ?
+                WHERE id = ? AND status NOT IN ('completed', 'failed', 'cancelled')
                 """,
                 (
                     status,

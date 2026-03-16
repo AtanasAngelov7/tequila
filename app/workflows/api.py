@@ -28,6 +28,9 @@ from app.workflows.store import get_workflow_store
 
 logger = logging.getLogger(__name__)
 
+# run_id → asyncio.Event that signals cancellation to the executing workflow
+_cancel_events: dict[str, asyncio.Event] = {}
+
 router = APIRouter(
     prefix="/api/workflows",
     tags=["workflows"],
@@ -200,16 +203,21 @@ async def trigger_run(
 
     run = await store.create_run(workflow_id)
 
+    cancel_event = asyncio.Event()
+    _cancel_events[run.id] = cancel_event
+
     async def _execute() -> None:
         from app.workflows.runtime import execute_workflow
         try:
-            await execute_workflow(wf, run)
+            await execute_workflow(wf, run, cancel_event=cancel_event)
         except Exception:
             logger.exception("Workflow run %s failed unexpectedly", run.id)
             try:
                 await store.update_run_status(run.id, status="failed", error="Internal error")
             except Exception:
                 pass
+        finally:
+            _cancel_events.pop(run.id, None)
 
     background_tasks.add_task(_execute)
     return _run_dict(run)
@@ -257,6 +265,10 @@ async def cancel_run(workflow_id: str, run_id: str) -> dict[str, Any]:
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Run is already in terminal state: {run.status}",
             )
+        # Signal the running workflow to stop
+        event = _cancel_events.get(run_id)
+        if event is not None:
+            event.set()
         updated = await store.update_run_status(run_id, status="cancelled")
         return _run_dict(updated)
     except NotFoundError:

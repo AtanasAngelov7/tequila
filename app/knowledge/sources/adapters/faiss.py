@@ -14,6 +14,21 @@ from app.knowledge.sources.models import KnowledgeChunk, KnowledgeSource
 
 logger = logging.getLogger(__name__)
 
+# TD-45: Restrict FAISS file access to within the data directory
+_DATA_DIR = Path("data").resolve()
+
+
+def _validate_path(raw_path: str, label: str) -> Path:
+    """Raise ValueError if *raw_path* resolves outside the allowed data directory."""
+    resolved = Path(raw_path).resolve()
+    try:
+        resolved.relative_to(_DATA_DIR)
+    except ValueError:
+        raise ValueError(
+            f"Path for {label} ({raw_path!r}) is outside the allowed data directory."
+        )
+    return resolved
+
 
 class FAISSAdapter(KnowledgeSourceAdapter):
     """Adapter for a local FAISS index file."""
@@ -35,12 +50,18 @@ class FAISSAdapter(KnowledgeSourceAdapter):
             ) from exc
 
         cfg = self.source.connection
-        index_path = Path(cfg.get("index_path", "data/faiss/index.faiss"))
-        meta_path = Path(cfg.get("metadata_path", "data/faiss/metadata.json"))
+        index_path = _validate_path(
+            cfg.get("index_path", "data/faiss/index.faiss"), "index_path"
+        )
+        meta_path_raw = cfg.get("metadata_path", "data/faiss/metadata.json")
+        meta_path = _validate_path(meta_path_raw, "metadata_path") if meta_path_raw else None
 
         self._index = faiss.read_index(str(index_path))
-        with open(meta_path) as f:
-            self._metadata = json.load(f)
+        if meta_path is not None:
+            with open(meta_path) as f:
+                self._metadata = json.load(f)
+        else:
+            self._metadata = []
 
     async def search(
         self,
@@ -65,8 +86,10 @@ class FAISSAdapter(KnowledgeSourceAdapter):
             for dist, idx in zip(distances[0], indices[0]):
                 if idx < 0 or idx >= len(self._metadata):
                     continue
-                # FAISS inner product → score directly; L2 → convert
-                score = float(dist)
+                # TD-54: L2 distance — lower = more similar.  Convert to 0–1 similarity.
+                # (For inner-product indices the raw score can be used directly, but
+                # the default index built by FaissAdapter is always L2.)
+                score = 1.0 / (1.0 + float(dist))
                 if score < threshold:
                     continue
                 meta = self._metadata[idx]

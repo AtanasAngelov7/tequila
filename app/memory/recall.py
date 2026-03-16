@@ -97,10 +97,12 @@ class RecallPipeline:
         self,
         session_id: str,
         agent_id: str | None = None,
-    ) -> str:
+    ) -> tuple[str, list[dict]]:
         """Stage 1: load always-recall memories for session initialisation.
 
-        Returns a formatted string ready for ``AssemblyContext.memory_always``.
+        Returns a tuple of:
+        - formatted string ready for ``AssemblyContext.memory_always``
+        - raw list of memory dicts for deduplication in Stage 2 (TD-52)
         """
         cfg = self._config
         rows: list[dict] = []
@@ -141,10 +143,10 @@ class RecallPipeline:
 
         except Exception as exc:
             logger.warning("load_always_recall failed: %s", exc)
-            return ""
+            return "", []
 
         if not rows:
-            return ""
+            return "", []
 
         block = _format_memory_block(rows)
         # Trim to token budget
@@ -153,7 +155,7 @@ class RecallPipeline:
             approx_chars = cfg.max_always_recall_tokens * 4
             block = block[:approx_chars]
 
-        return block
+        return block, rows
 
     # ── Stage 2 ───────────────────────────────────────────────────────────────
 
@@ -163,10 +165,17 @@ class RecallPipeline:
         session_id: str,
         agent_id: str | None = None,
         always_recall_content: str = "",
+        always_memories: list[dict] | None = None,
     ) -> tuple[str, str]:
         """Stage 2: per-turn recall.
 
         Embeds the user message and retrieves relevant memories + knowledge.
+
+        Parameters
+        ----------
+        always_memories:
+            Raw list of always-recall memory dicts from Stage 1 (TD-52: used for
+            exact-string deduplication instead of substring check on formatted block).
 
         Returns
         -------
@@ -234,8 +243,8 @@ class RecallPipeline:
         except Exception as exc:
             logger.debug("Entity expansion failed: %s", exc)
 
-        # 2d — Deduplicate against always_recall content
-        candidates = _dedup_against_always(candidates, always_recall_content)
+        # 2d — Deduplicate against always_recall content (TD-52: exact set membership)
+        candidates = _dedup_against_always(candidates, always_memories or [])
 
         # 2e — Score, rank, budget-fit
         candidates.sort(key=lambda c: c.get("_score", 0.0), reverse=True)
@@ -344,8 +353,8 @@ class RecallPipeline:
             )
             for mem in results:
                 try:
-                    # get() already bumps last_accessed + access_count
-                    await mem_store.get(mem.id)
+                    # touch() bumps last_accessed + access_count (TD-62: get() no longer does this)
+                    await mem_store.touch(mem.id)
                 except Exception:
                     pass  # silently skip access tracking failures
 
@@ -356,11 +365,18 @@ class RecallPipeline:
 # ── Dedup helpers ─────────────────────────────────────────────────────────────
 
 
-def _dedup_against_always(candidates: list[dict], always_content: str) -> list[dict]:
-    """Remove candidates whose content already appears verbatim in always_content."""
-    if not always_content:
+def _dedup_against_always(
+    candidates: list[dict], always_memories: list[dict]
+) -> list[dict]:
+    """Remove candidates whose content exactly matches a memory in always_memories.
+
+    TD-52: uses set membership (exact string equality) instead of substring
+    ``in`` check against the formatted string block.
+    """
+    if not always_memories:
         return candidates
-    return [c for c in candidates if c.get("content", "") not in always_content]
+    always_content_set = {item.get("content", "") for item in always_memories}
+    return [c for c in candidates if c.get("content", "") not in always_content_set]
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────

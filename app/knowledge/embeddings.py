@@ -12,6 +12,7 @@ Singletons:
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -82,10 +83,10 @@ class LocalEmbeddingProvider(EmbeddingProvider):
         return self._model
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        """Embed *texts* synchronously (CPU-bound; runs in the calling thread)."""
+        """Embed *texts* using the loaded model (offloaded to thread pool, TD-61)."""
         model = self._load()
-        # sentence-transformers encode() is synchronous
-        vectors = model.encode(texts, convert_to_numpy=True)
+        # model.encode() is CPU-bound — offload to thread pool to avoid blocking the event loop
+        vectors = await asyncio.to_thread(model.encode, texts, convert_to_numpy=True)
         return [v.tolist() for v in vectors]
 
     def dimensions(self) -> int:
@@ -206,8 +207,9 @@ class SQLiteEmbeddingStore(EmbeddingStore):
     ) -> None:
         self._db = db
         self._provider = provider
-        # In-memory vector cache: source_type → list of (source_id, ndarray)
-        self._cache: dict[str, list[tuple[str, Any]]] | None = None
+        # In-memory vector cache; keyed by frozenset of source_types filter (TD-78)
+        # None means uninitialised; {} would mean "empty cache"
+        self._cache: dict[tuple | None, dict[str, list[tuple[str, Any]]]] | None = None
 
     # ── Cache helpers ─────────────────────────────────────────────────────────
 
@@ -217,11 +219,19 @@ class SQLiteEmbeddingStore(EmbeddingStore):
     async def _load_vectors(
         self, source_types: list[str] | None = None
     ) -> dict[str, list[tuple[str, Any]]]:
-        """Load vectors from DB into a dict keyed by source_type."""
+        """Load vectors from DB into a dict keyed by source_type.
+
+        Results are cached per filter key (TD-78).
+        """
         import numpy as np  # type: ignore[import-untyped]
 
-        if self._cache is not None and source_types is None:
-            return self._cache
+        # Hashable cache key derived from the filter (TD-78)
+        cache_key: tuple[str, ...] | None = (
+            tuple(sorted(source_types)) if source_types is not None else None
+        )
+
+        if self._cache is not None and cache_key in self._cache:
+            return self._cache[cache_key]
 
         if source_types:
             placeholders = ",".join("?" * len(source_types))
@@ -244,8 +254,9 @@ class SQLiteEmbeddingStore(EmbeddingStore):
             vec = np.frombuffer(d["vector"], dtype=np.float32)
             result.setdefault(stype, []).append((sid, vec))
 
-        if source_types is None:
-            self._cache = result
+        if self._cache is None:
+            self._cache = {}
+        self._cache[cache_key] = result
         return result
 
     # ── EmbeddingStore interface ──────────────────────────────────────────────
@@ -391,8 +402,8 @@ class SQLiteEmbeddingStore(EmbeddingStore):
             for row in rows:
                 d = row_to_dict(row)
                 p = vd / d["filename"]
-                if p.exists():
-                    text = p.read_text(encoding="utf-8")
+                if await asyncio.to_thread(p.exists):
+                    text = await asyncio.to_thread(p.read_text, encoding="utf-8")
                     items.append(EmbeddingItem(source_type="note", source_id=d["id"], text=text))
                     result.total += 1
 

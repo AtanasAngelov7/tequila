@@ -66,6 +66,13 @@ async def test_run_step_substitutes_context():
             created_at=datetime.now(timezone.utc),
         )]
 
+    # TD-47: _run_step now calls get_session_store().get_by_key(sub_key) first
+    class FakeSession:
+        session_id = "uuid-test-99"  # fake UUID returned from get_by_key
+
+    fake_session_store = mock.MagicMock()
+    fake_session_store.get_by_key = mock.AsyncMock(return_value=FakeSession())
+
     class FakeRouter:
         def on(self, event_type, handler):
             # immediately fire done — simulates instant agent completion
@@ -89,6 +96,10 @@ async def test_run_step_substitutes_context():
     with (
         mock.patch("app.workflows.runtime.spawn_sub_agent", fake_spawn),
         mock.patch("app.workflows.runtime.get_router", return_value=FakeRouter()),
+        mock.patch(
+            "app.workflows.runtime.get_session_store",
+            return_value=fake_session_store,
+        ),
         mock.patch(
             "app.workflows.runtime.get_message_store",
             return_value=mock.MagicMock(list_by_session=fake_list_by_session),

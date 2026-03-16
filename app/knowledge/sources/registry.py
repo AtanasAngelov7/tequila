@@ -57,6 +57,7 @@ class KnowledgeSourceRegistry:
     def __init__(self, db: Any) -> None:
         self._db = db
         self._adapters: dict[str, KnowledgeSourceAdapter] = {}
+        self._adapter_lock: asyncio.Lock = asyncio.Lock()  # TD-95: guard _adapters mutations
         self._health_task: asyncio.Task[None] | None = None
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -66,9 +67,10 @@ class KnowledgeSourceRegistry:
         rows = await self._db.execute_fetchall(
             "SELECT * FROM knowledge_sources WHERE status = 'active'"
         )
-        for row in rows:
-            source = KnowledgeSource.from_row(row_to_dict(row))
-            self._adapters[source.source_id] = _make_adapter(source)
+        async with self._adapter_lock:
+            for row in rows:
+                source = KnowledgeSource.from_row(row_to_dict(row))
+                self._adapters[source.source_id] = _make_adapter(source)
         logger.info(
             "KnowledgeSourceRegistry started (%d active sources)", len(self._adapters)
         )
@@ -192,18 +194,31 @@ class KnowledgeSourceRegistry:
                 values,
             )
         source = await self.get(source_id)
-        # Refresh adapter cache if status changed
+        # Refresh adapter cache if status changed (TD-95: guarded by lock)
         if "status" in kwargs:
             if source.status == "active":
-                self._adapters[source_id] = _make_adapter(source)
+                async with self._adapter_lock:
+                    self._adapters[source_id] = _make_adapter(source)
             else:
-                self._adapters.pop(source_id, None)
+                async with self._adapter_lock:
+                    old_adapter = self._adapters.pop(source_id, None)
+                if old_adapter is not None:
+                    try:
+                        await old_adapter.deactivate()
+                    except Exception:
+                        logger.warning("Error deactivating adapter for source %s on status change", source_id, exc_info=True)
         return source
 
     async def delete(self, source_id: str) -> None:
         """Remove a source from DB and adapter cache."""
         await self.get(source_id)  # raises NotFoundError if missing
-        self._adapters.pop(source_id, None)
+        async with self._adapter_lock:
+            adapter = self._adapters.pop(source_id, None)
+        if adapter is not None:
+            try:
+                await adapter.deactivate()
+            except Exception:
+                logger.warning("Error deactivating adapter for source %s on delete", source_id, exc_info=True)
         async with write_transaction(self._db):
             await self._db.execute(
                 "DELETE FROM knowledge_sources WHERE id = ?", (source_id,)
@@ -224,7 +239,8 @@ class KnowledgeSourceRegistry:
                 error_message=None,
                 last_health_check=_now_str(),
             )
-            self._adapters[source_id] = adapter
+            async with self._adapter_lock:
+                self._adapters[source_id] = adapter
             return updated
         else:
             return await self.update(
@@ -236,7 +252,13 @@ class KnowledgeSourceRegistry:
 
     async def deactivate(self, source_id: str) -> KnowledgeSource:
         """Set status=disabled and remove from adapter cache."""
-        self._adapters.pop(source_id, None)
+        async with self._adapter_lock:
+            adapter = self._adapters.pop(source_id, None)
+        if adapter is not None:
+            try:
+                await adapter.deactivate()
+            except Exception:
+                logger.warning("Error deactivating adapter for source %s", source_id, exc_info=True)
         return await self.update(source_id, status="disabled")
 
     # ── Search ────────────────────────────────────────────────────────────────
@@ -303,10 +325,11 @@ class KnowledgeSourceRegistry:
         top_k: int,
     ) -> list[KnowledgeChunk]:
         """Search a single source with timeout + failure tracking."""
-        adapter = self._adapters.get(source.source_id)
-        if adapter is None:
-            adapter = _make_adapter(source)
-            self._adapters[source.source_id] = adapter
+        async with self._adapter_lock:
+            adapter = self._adapters.get(source.source_id)
+            if adapter is None:
+                adapter = _make_adapter(source)
+                self._adapters[source.source_id] = adapter
         try:
             coro = adapter.search(
                 query,
@@ -321,8 +344,19 @@ class KnowledgeSourceRegistry:
             )
         except Exception as exc:
             logger.warning("Knowledge source %r search error: %s", source.source_id, exc)
-        # Track failure
-        new_failures = source.consecutive_failures + 1
+        # Track failure atomically (TD-96: avoid stale read-then-write race)
+        now = _now_str()
+        async with write_transaction(self._db):
+            await self._db.execute(
+                "UPDATE knowledge_sources SET consecutive_failures = consecutive_failures + 1, updated_at = ? WHERE id = ?",
+                (now, source.source_id),
+            )
+        # Re-fetch to see the authoritative new count
+        try:
+            refreshed = await self.get(source.source_id)
+            new_failures = refreshed.consecutive_failures
+        except Exception:
+            new_failures = self.max_consecutive_failures  # safe fallback
         if new_failures >= self.max_consecutive_failures:
             logger.warning(
                 "Knowledge source %r disabled after %d consecutive failures",
@@ -331,15 +365,10 @@ class KnowledgeSourceRegistry:
             await self.update(
                 source.source_id,
                 status="error",
-                consecutive_failures=new_failures,
                 error_message=f"Auto-disabled after {new_failures} consecutive failures",
             )
-            self._adapters.pop(source.source_id, None)
-        else:
-            await self.update(
-                source.source_id,
-                consecutive_failures=new_failures,
-            )
+            async with self._adapter_lock:
+                self._adapters.pop(source.source_id, None)
         return []
 
     # ── Health monitoring ────────────────────────────────────────────────────

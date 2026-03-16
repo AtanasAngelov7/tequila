@@ -19,6 +19,14 @@ to reply.  It then reads the most recent assistant message from the session.
 
 ``sessions_spawn`` delegates to ``app.agent.sub_agent.spawn_sub_agent`` which
 enforces the per-parent concurrency limit (``MAX_CONCURRENT_SUBAGENTS``).
+
+Authorization model (TD-66)
+----------------------------
+``sessions_list``, ``sessions_history``, and ``sessions_send`` accept an
+optional ``calling_session_key`` kwarg.  When provided, the tool retrieves the
+calling session's ``SessionPolicy`` and enforces ``can_send_inter_session``.
+When omitted (e.g. from test harnesses or non-session callers), the check is
+skipped so existing callers remain unaffected.
 """
 from __future__ import annotations
 
@@ -33,6 +41,23 @@ from app.sessions.store import get_session_store
 from app.tools.registry import tool
 
 logger = logging.getLogger(__name__)
+
+
+async def _check_inter_session_policy(calling_session_key: str | None) -> str | None:
+    """Return an error message string if the calling session forbids inter-session ops.
+
+    Returns ``None`` when the operation is permitted (or when the calling session
+    key is unavailable and no check can be made).
+    """
+    if not calling_session_key:
+        return None
+    ss = get_session_store()
+    session = await ss.get_by_key(calling_session_key)
+    if session is None:
+        return None  # can't verify — allow to avoid false denials
+    if not session.policy.can_send_inter_session:
+        return "Permission denied: this session's policy prohibits inter-session operations."
+    return None
 
 
 # ── sessions_list ─────────────────────────────────────────────────────────────
@@ -59,6 +84,10 @@ logger = logging.getLogger(__name__)
                 "type": "integer",
                 "description": "Maximum number of sessions to return (default 20, max 50).",
             },
+            "calling_session_key": {
+                "type": "string",
+                "description": "The session_key of the calling session (used for policy checks).",
+            },
         },
         "required": [],
     },
@@ -67,8 +96,14 @@ async def sessions_list(
     kind: str | None = None,
     agent_id: str | None = None,
     limit: int = 20,
+    calling_session_key: str | None = None,
 ) -> str:
     """Return a JSON list of accessible sessions."""
+    # TD-66: Check inter-session policy
+    denied = await _check_inter_session_policy(calling_session_key)
+    if denied:
+        return json.dumps({"error": denied})
+
     store = get_session_store()
     limit = min(max(1, limit), 50)
     sessions = await store.list(kind=kind, agent_id=agent_id, limit=limit)
@@ -105,6 +140,10 @@ async def sessions_list(
                 "type": "integer",
                 "description": "Number of most-recent messages to return (default 20, max 100).",
             },
+            "calling_session_key": {
+                "type": "string",
+                "description": "The session_key of the calling session (used for policy checks).",
+            },
         },
         "required": ["session_key"],
     },
@@ -112,8 +151,14 @@ async def sessions_list(
 async def sessions_history(
     session_key: str,
     limit: int = 20,
+    calling_session_key: str | None = None,
 ) -> str:
     """Return a JSON list of recent messages from *session_key*."""
+    # TD-66: Check inter-session policy
+    denied = await _check_inter_session_policy(calling_session_key)
+    if denied:
+        return json.dumps({"error": denied})
+
     ss = get_session_store()
     ms = get_message_store()
     # Resolve session_key → internal UUID for the messages FK query.
@@ -160,6 +205,10 @@ async def sessions_history(
                     "0 = fire-and-forget (default).  >0 = wait for reply."
                 ),
             },
+            "calling_session_key": {
+                "type": "string",
+                "description": "The session_key of the calling session (used for policy checks).",
+            },
         },
         "required": ["session_key", "message"],
     },
@@ -168,8 +217,14 @@ async def sessions_send(
     session_key: str,
     message: str,
     timeout_s: int = 0,
+    calling_session_key: str | None = None,
 ) -> str:
     """Inject *message* into *session_key* and optionally wait for a reply."""
+    # TD-66: Check inter-session send policy
+    denied = await _check_inter_session_policy(calling_session_key)
+    if denied:
+        return json.dumps({"error": denied})
+
     router = get_router()
 
     # Build the gateway event
@@ -210,7 +265,19 @@ async def sessions_send(
     finally:
         router.off(ET.AGENT_RUN_COMPLETE, _on_complete)
 
-    # Read the last assistant message from the session
+    # Use the content from the event payload directly — avoids a DB re-read and
+    # eliminates the theoretical race where the message insert hadn't committed
+    # before this coroutine resumes after done.wait() (TD-68).
+    payload = reply.get("payload", {})
+    if payload.get("content"):
+        return json.dumps({
+            "status": "reply",
+            "session_key": session_key,
+            "content": payload["content"],
+        })
+
+    # Fallback: read from DB in case payload content is missing (shouldn't happen
+    # with a compliant turn_loop, but keeps the tool robust)
     try:
         msg_store = get_message_store()
         ss = get_session_store()

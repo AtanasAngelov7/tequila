@@ -15,16 +15,89 @@ Endpoints:
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field, HttpUrl
 
+from app.api.deps import require_gateway_token
 from app.exceptions import NotFoundError
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/knowledge-sources", tags=["knowledge-sources"])
+router = APIRouter(
+    prefix="/api/knowledge-sources",
+    tags=["knowledge-sources"],
+    dependencies=[Depends(require_gateway_token)],
+)
+
+
+# ── Per-backend connection config schemas (TD-55) ─────────────────────────────
+
+_IDENT_PATTERN = r"^[a-zA-Z_][a-zA-Z0-9_]{0,62}$"
+
+
+class PgVectorConnectionConfig(BaseModel):
+    host: str = "localhost"
+    port: int = 5432
+    database: str = ""
+    user: str = ""
+    password: str = ""
+    table: str = Field(default="documents", pattern=_IDENT_PATTERN)
+    content_col: str = Field(default="content", pattern=_IDENT_PATTERN)
+    emb_col: str = Field(default="embedding", pattern=_IDENT_PATTERN)
+    meta_cols: list[str] = Field(default_factory=list)
+
+    @classmethod
+    def validate_meta_cols(cls, values: Any) -> Any:
+        import re
+        ident_re = re.compile(_IDENT_PATTERN)
+        for col in values.get("meta_cols", []):
+            if not ident_re.match(col):
+                raise ValueError(f"Invalid SQL identifier in meta_cols: {col!r}")
+        return values
+
+
+class HttpConnectionConfig(BaseModel):
+    url: HttpUrl | None = None
+    headers: dict[str, str] = Field(default_factory=dict)
+    method: str = "POST"
+    query_param: str = "query"
+    results_path: str = "results"
+    content_field: str = "text"
+    score_field: str = "score"
+    metadata_fields: list[str] = Field(default_factory=list)
+    timeout_s: float = 10.0
+
+
+class FaissConnectionConfig(BaseModel):
+    index_path: str
+    metadata_path: str | None = None
+
+
+class ChromaConnectionConfig(BaseModel):
+    collection_name: str
+    host: str | None = None
+    port: int | None = None
+
+
+_BACKEND_CONFIG_MODELS = {
+    "pgvector": PgVectorConnectionConfig,
+    "http": HttpConnectionConfig,
+    "faiss": FaissConnectionConfig,
+    "chroma": ChromaConnectionConfig,
+}
+
+
+def _validate_connection(backend: str, connection: dict[str, Any]) -> None:
+    """Validate the connection config dict against the backend's schema."""
+    model_cls = _BACKEND_CONFIG_MODELS.get(backend)
+    if model_cls is None:
+        return
+    try:
+        model_cls(**connection)
+    except Exception as exc:
+        raise ValueError(f"Invalid connection config for backend '{backend}': {exc}") from exc
 
 
 # ── Request / Response bodies ─────────────────────────────────────────────────
@@ -33,7 +106,7 @@ router = APIRouter(prefix="/api/knowledge-sources", tags=["knowledge-sources"])
 class RegisterSourceRequest(BaseModel):
     name: str
     description: str = ""
-    backend: str  # chroma | pgvector | faiss | http
+    backend: Literal["chroma", "pgvector", "faiss", "http"]  # TD-56: validated enum
     query_mode: str = "vector"  # text | vector
     embedding_provider: str | None = None
     auto_recall: bool = False
@@ -105,6 +178,12 @@ async def list_sources(
 @router.post("", status_code=201)
 async def register_source(body: RegisterSourceRequest) -> dict:
     """Register a new knowledge source (starts as disabled)."""
+    # TD-55: validate connection config against per-backend schema
+    try:
+        _validate_connection(body.backend, body.connection)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
     registry = _get_registry()
     try:
         source = await registry.register(
@@ -146,7 +225,9 @@ async def get_source(source_id: str) -> dict:
 async def update_source(source_id: str, body: UpdateSourceRequest) -> dict:
     """Update mutable fields on a knowledge source."""
     registry = _get_registry()
-    kwargs = {k: v for k, v in body.model_dump().items() if v is not None}
+    # TD-92: use model_dump(exclude_unset=True) so explicitly-set None values are
+    # preserved (e.g. clearing allowed_agents), while unset fields are ignored.
+    kwargs = body.model_dump(exclude_unset=True)
     if not kwargs:
         raise HTTPException(status_code=422, detail="No fields to update.")
     try:
@@ -180,8 +261,9 @@ async def activate_source(source_id: str) -> dict:
         source = await registry.activate(source_id)
     except NotFoundError:
         raise HTTPException(status_code=404, detail=f"Knowledge source '{source_id}' not found.")
-    except Exception as exc:
-        raise HTTPException(status_code=503, detail=f"Activation failed: {exc}") from exc
+    except Exception:
+        logger.exception("Knowledge source activation failed for %s", source_id)
+        raise HTTPException(status_code=503, detail="Activation failed — check server logs") from None
     return _source_to_dict(source)
 
 
@@ -213,8 +295,9 @@ async def test_source(source_id: str) -> dict:
     try:
         healthy = await adapter.health_check()
         count = await adapter.count()
-    except Exception as exc:
-        return {"healthy": False, "error": str(exc), "count": -1}
+    except Exception:
+        logger.exception("Knowledge source test failed for %s", source_id)
+        return {"healthy": False, "error": "Test failed — check server logs", "count": -1}
     return {"healthy": healthy, "count": count}
 
 
@@ -261,9 +344,9 @@ async def search_sources(body: SearchRequest) -> dict:
             agent_id=body.agent_id or "",
             top_k=body.top_k,
         )
-    except Exception as exc:
-        logger.error("Knowledge source search failed: %s", exc)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except Exception:
+        logger.exception("Knowledge source search failed")
+        raise HTTPException(status_code=500, detail="Internal error — check server logs") from None
     return {
         "query": body.query,
         "results": [c.model_dump() for c in chunks],

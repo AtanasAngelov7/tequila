@@ -92,35 +92,38 @@ def test_format_knowledge_block_renders_source_prefix():
 
 
 def test_dedup_against_always():
-    """_dedup_against_always removes candidates already in always content."""
+    """_dedup_against_always removes candidates already in always_memories (exact match)."""
     from app.memory.recall import _dedup_against_always
-    always = "Alice likes blue"
+    always_memories = [
+        {"content": "Alice likes blue", "id": "a1"},
+    ]
     candidates = [
         {"content": "Alice likes blue", "id": "m1"},
         {"content": "Bob prefers red", "id": "m2"},
     ]
-    result = _dedup_against_always(candidates, always)
+    result = _dedup_against_always(candidates, always_memories)
     assert len(result) == 1
     assert result[0]["id"] == "m2"
 
 
 def test_dedup_against_always_empty_always():
-    """_dedup_against_always returns all candidates when always is empty."""
+    """_dedup_against_always returns all candidates when always list is empty."""
     from app.memory.recall import _dedup_against_always
     candidates = [{"content": "anything", "id": "x"}]
-    assert _dedup_against_always(candidates, "") == candidates
+    assert _dedup_against_always(candidates, []) == candidates
 
 
 # ── Stage 1: load_always_recall ───────────────────────────────────────────────
 
 @pytest.mark.asyncio
 async def test_load_always_recall_with_unavailable_store():
-    """load_always_recall returns empty string when store is unavailable."""
+    """load_always_recall returns (empty string, empty list) when store is unavailable."""
     with patch("app.memory.store.get_memory_store") as mock_store_fn:
         mock_store_fn.side_effect = RuntimeError("not init")
         from app.memory.recall import RecallPipeline as RP
-        r = await RP().load_always_recall("s1")
-    assert r == ""
+        block, rows = await RP().load_always_recall("s1")
+    assert block == ""
+    assert rows == []
 
 
 @pytest.mark.asyncio
@@ -139,9 +142,10 @@ async def test_load_always_recall_with_mock_store():
 
     with patch("app.memory.store.get_memory_store", return_value=mock_store):
         pipe = RecallPipeline(config=RecallConfig(always_recall_types=["preference"]))
-        result = await pipe.load_always_recall("session1")
+        block, rows = await pipe.load_always_recall("session1")
 
-    assert "dark mode" in result
+    assert "dark mode" in block
+    assert any(r["content"] == "User prefers dark mode." for r in rows)
 
 
 # ── Stage 2: recall_for_turn ──────────────────────────────────────────────────

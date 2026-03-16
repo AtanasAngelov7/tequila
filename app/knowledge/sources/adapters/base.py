@@ -28,3 +28,9 @@ class KnowledgeSourceAdapter(ABC):
     @abstractmethod
     async def count(self) -> int:
         """Return the approximate number of documents/chunks in the source."""
+    async def deactivate(self) -> None:
+        """Release any resources held by this adapter (e.g. connection pools).
+
+        Default implementation is a no-op.  Override in adapters that hold
+        long-lived resources (TD-94).
+        """
