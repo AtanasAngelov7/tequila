@@ -507,7 +507,129 @@ New migrations follow the naming pattern `NNNN_<slug>.py` where `NNNN` is the fo
 
 ---
 
-## Tests (`tests/`)
+## Sprint 08 — Multi-Agent additions
+
+### `app/agent/sub_agent.py` *(Sprint 08)*
+
+**Responsibility**: Sub-agent spawning, lifecycle management, and per-parent concurrency enforcement (§3.3, §20.7).
+
+**Key exports:**
+
+| Symbol | Notes |
+|--------|-------|
+| `spawn_sub_agent(agent_id, initial_message?, policy_preset?, parent_session_key?, auto_archive_minutes?)` | Creates a sub-agent session, applies policy preset, optionally emits an `INBOUND_MESSAGE` event, schedules auto-archive. Returns the new `session_key`. |
+| `active_sub_agent_count(parent_session_key)` | Returns the current count of tracked sub-agent sessions for the given parent. |
+| `_active` | `dict[str, set[str]]` — module-level concurrency tracker, keyed by parent session key. |
+
+**Concurrency**: Enforces `MAX_CONCURRENT_SUBAGENTS` (3) per parent; raises `RuntimeError` if limit reached.
+
+**Spec ref**: §3.3, §20.7
+
+---
+
+### `app/tools/builtin/sessions.py` *(Sprint 08)*
+
+**Responsibility**: Four session-interaction tools for agent-to-agent communication (§3.3).
+
+**Key exports (all `@tool` decorated):**
+
+| Tool | Safety | Notes |
+|------|--------|-------|
+| `sessions_list(kind?, agent_id?, limit?)` | `read_only` | Lists accessible sessions with key, kind, agent_id, title, status. |
+| `sessions_history(session_key, limit?)` | `read_only` | Returns recent messages from another session (resolves key → UUID internally). |
+| `sessions_send(session_key, message, timeout_s?)` | `side_effect` | Fire-and-forget or wait-for-reply message injection. |
+| `sessions_spawn(agent_id, initial_message?, policy_preset?)` | `side_effect` | Creates a sub-agent session via `spawn_sub_agent`. |
+
+**Spec ref**: §3.3
+
+---
+
+### `app/workflows/__init__.py` *(Sprint 08)*
+
+Package marker.
+
+---
+
+### `app/workflows/models.py` *(Sprint 08)*
+
+**Responsibility**: Pydantic domain models for workflow definitions and run state (§10.1–10.3).
+
+**Key exports:**
+
+| Symbol | Kind | Notes |
+|--------|------|-------|
+| `WorkflowStep` | Pydantic model | `id`, `agent_id`, `prompt_template`, `timeout_s`, `retry` |
+| `Workflow` | Pydantic model | `id`, `name`, `description`, `mode`, `steps`, `created_at`, `updated_at` + `from_row()` |
+| `WorkflowRun` | Pydantic model | `id`, `workflow_id`, `status`, `step_results`, `current_step`, `error`, `started_at`, `completed_at`, `created_at` + `from_row()` |
+
+**Spec ref**: §10.1, §10.2, §10.3
+
+---
+
+### `app/workflows/store.py` *(Sprint 08)*
+
+**Responsibility**: DB CRUD for `workflows` and `workflow_runs` tables.
+
+**Key exports:**
+
+| Symbol | Notes |
+|--------|-------|
+| `WorkflowStore` | Class: `create_workflow`, `get_workflow`, `list_workflows`, `update_workflow`, `delete_workflow`, `create_run`, `get_run`, `list_runs`, `update_run_status` |
+| `init_workflow_store(db)` | Initialises the process-wide singleton. |
+| `get_workflow_store()` | Returns the singleton. |
+
+**Spec ref**: §10.3
+
+---
+
+### `app/workflows/runtime.py` *(Sprint 08)*
+
+**Responsibility**: Workflow execution engine — pipeline (sequential) and parallel (fan-out) modes.
+
+**Key exports:**
+
+| Symbol | Notes |
+|--------|-------|
+| `execute_workflow(workflow, run, parent_session_key?)` | Top-level dispatch — calls `run_pipeline` or `run_parallel`. |
+| `run_pipeline(workflow, run, parent_session_key?)` | Sequential step execution; each step's output becomes `{context}` for the next. |
+| `run_parallel(workflow, run, parent_session_key?)` | Concurrent `asyncio.gather` over all steps; bounded by `MAX_CONCURRENT_SUBAGENTS` semaphore. |
+| `_run_step(step, context, parent_session_key?)` | Spawns a sub-agent, waits for `AGENT_RUN_COMPLETE`, returns last assistant message. |
+| `_run_step_with_retry(step, context, parent_session_key?)` | Wraps `_run_step` with `step.retry + 1` attempts. |
+
+**Spec ref**: §10.1, §10.2
+
+---
+
+### `app/workflows/api.py` *(Sprint 08)*
+
+**Responsibility**: REST API for workflow CRUD and run management (§10.3).
+
+**Routes:**
+
+| Method | Path | Status | Notes |
+|--------|------|--------|-------|
+| `POST` | `/api/workflows` | 201 | Create workflow definition |
+| `GET` | `/api/workflows` | 200 | List workflows (limit, offset) |
+| `GET` | `/api/workflows/{id}` | 200/404 | Workflow detail |
+| `PUT` | `/api/workflows/{id}` | 200/404 | Update workflow |
+| `DELETE` | `/api/workflows/{id}` | 204/404 | Delete workflow |
+| `POST` | `/api/workflows/{id}/run` | 202 | Trigger execution (background task) |
+| `GET` | `/api/workflows/{id}/runs` | 200 | List runs |
+| `GET` | `/api/workflows/{id}/runs/{run_id}` | 200/404 | Run detail + status |
+| `POST` | `/api/workflows/{id}/runs/{run_id}/cancel` | 200/409 | Cancel non-terminal run |
+
+**Spec ref**: §10.3
+
+---
+
+### `alembic/versions/0008_sprint08_workflows.py` *(Sprint 08)*
+
+| Table | Columns |
+|-------|---------|
+| `workflows` | `id`, `name`, `description`, `mode`, `steps_json`, `created_at`, `updated_at` |
+| `workflow_runs` | `id`, `workflow_id`, `status`, `step_results_json`, `current_step`, `error`, `started_at`, `completed_at`, `created_at` |
+
+---
 
 | File | What it covers |
 |------|----------------|
@@ -521,6 +643,11 @@ New migrations follow the naming pattern `NNNN_<slug>.py` where `NNNN` is the fo
 | `test_health_status.py` | `/api/health` and `/api/status` response structure and uptime *(Sprint 03)* |
 | `test_setup_wizard.py` | Setup wizard status + run flow, conflict guard, force re-run *(Sprint 03)* |
 | `test_session_search.py` | FTS5 search, status filter, sort/order params, pagination *(Sprint 03)* |
+| `unit/test_session_tools.py` | `sessions_list`, `sessions_history`, `sessions_send`, `sessions_spawn` tools *(Sprint 08)* |
+| `unit/test_sub_agent.py` | `spawn_sub_agent` — session creation, WORKER policy, concurrency enforcement, active tracking *(Sprint 08)* |
+| `unit/test_workflow_runtime.py` | Pipeline/parallel runtime — step execution, context passing, failure handling, dispatch *(Sprint 08)* |
+| `integration/test_workflow_e2e.py` | Full workflow REST API: create → run → status → cancel → delete *(Sprint 08)* |
+| `integration/test_multi_agent.py` | Session tool integration: list, history, spawn visibility, concurrency limit *(Sprint 08)* |
 
 All tests use `pytest` with `asyncio_mode = "auto"`. Run: `.venv\Scripts\python.exe -m pytest tests/ -v --tb=short`
 

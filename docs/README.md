@@ -1,6 +1,6 @@
 # Tequila v2 — Developer Docs
 
-**Updated**: March 14, 2026  
+**Updated**: March 15, 2026  
 **Spec**: [tequila_v2_specification.md](./application_reference/tequila_v2_specification.md)  
 **Sprint guide**: [sprints/README.md](./application_reference/sprints/README.md)
 
@@ -19,7 +19,7 @@ This directory documents the *implementation* — what is built, how the pieces 
 
 ## Quick orientation
 
-> **Sprint 03 complete — Phase 1 Foundation done.** All 145 tests pass. Setup wizard, health dashboard, session search/filter/sort, and connection status indicator are live. Phase 2 (Agent Core) ready to begin.
+> **Sprint 08 complete — Phase 3 Multi-Agent backend done.** 49 new Sprint 08 tests (all passing). Session tools, sub-agent spawning, workflow pipeline + parallel modes, and full Workflow REST API are live. See [sprint_08.md](./application_reference/sprints/sprint_08.md) for details.
 
 ---
 
@@ -30,6 +30,8 @@ This directory documents the *implementation* — what is built, how the pieces 
 | S01 | App skeleton, gateway, config, DB | ✅ Done |
 | S02 | Sessions, WebSocket, React shell | ✅ Done |
 | S03 | Setup wizard, health dashboard, session search/filter/sort | ✅ Done |
-| S04+ | … | ⬜ Not started |
+| S04–S07 | Agent Core (models, turn loop, tools, policies) | ✅ Done |
+| S08 | Multi-Agent: session tools, sub-agents, workflows | ✅ Done |
+| S09+ | … | ⬜ Not started |
 
 Full sprint plan: [sprints/README.md](./application_reference/sprints/README.md)

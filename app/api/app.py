@@ -141,6 +141,11 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_web_cache(db_conn.get_app_db())
     logger.info("WebCache initialised.")
 
+    # 8g. Initialise WorkflowStore (Sprint 08).
+    from app.workflows.store import init_workflow_store
+    init_workflow_store(db_conn.get_app_db())
+    logger.info("WorkflowStore initialised.")
+
     # 8f. Register all built-in tools (Sprint 06).
     from app.tools.builtin import register_all_builtin_tools
     register_all_builtin_tools()
@@ -252,6 +257,7 @@ def create_app() -> FastAPI:
     # ── Routers ───────────────────────────────────────────────────────────────
     from app.api.routers import system, logs, sessions, messages, setup, agents, providers
     from app.api import ws
+    from app.workflows import api as workflows_api
 
     app.include_router(system.router)
     app.include_router(logs.router)
@@ -260,6 +266,7 @@ def create_app() -> FastAPI:
     app.include_router(setup.router)
     app.include_router(agents.router)
     app.include_router(providers.router)
+    app.include_router(workflows_api.router)
     app.include_router(ws.router)
 
     # ── Static frontend (placeholder) ─────────────────────────────────────────

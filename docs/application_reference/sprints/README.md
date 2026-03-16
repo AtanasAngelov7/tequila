@@ -30,7 +30,7 @@
 | **[S05](sprint_05.md)** | 2 – Agent Core | Turn loop, message model, tool framework | ✅ Done | §3.4–3.6, §4.3, §4.6a, §11.1–11.2, §20.6 |
 | **[S06](sprint_06.md)** | 2 – Agent Core | Core tools (filesystem, web, vision) | ✅ Done | §16.1–16.3, §16.7, §17.1–17.2, §17.4, §17.6 |
 | **[S07](sprint_07.md)** | 2 – Agent Core | Context management, policies, approvals | ✅ Done | §4.3a, §4.7, §11.2, §19.1–19.3, §20.3c |
-| **[S08](sprint_08.md)** | 3 – Multi-Agent | Session tools, sub-agents, workflows | ⬜ Not Started | §3.3, §10.1–10.3, §20.7 |
+| **[S08](sprint_08.md)** | 3 – Multi-Agent | Session tools, sub-agents, workflows | ✅ Done | §3.3, §10.1–10.3, §20.7 |
 | **[S09](sprint_09.md)** | 4 – Memory (I) | Vault, embeddings, memory data model | ⬜ Not Started | §5.1–5.4, §5.10, §5.13, §20.3b |
 | **[S10](sprint_10.md)** | 4 – Memory (II) | Extraction, recall, knowledge sources | ⬜ Not Started | §5.5–5.6, §5.14, §20.5 |
 | **[S11](sprint_11.md)** | 4 – Memory (III) | Memory tools, lifecycle, graph | ⬜ Not Started | §5.7–5.9, §5.11–5.12, §20.5 |
@@ -41,7 +41,7 @@
 | **[S15](sprint_15.md)** | 6 – Polish (II) | Full UI, file cleanup, packaging | ⬜ Not Started | §9.1–9.2b, §21.6–21.7, §29.1–29.5 |
 | **[S16](sprint_16.md)** | 7 – Future | Image gen, additional connectors, auto-update | ⬜ Not Started | §8.6 (future), §29.5 |
 
-**Progress**: 7 / 17 sprints complete — Phase 1 (S01–S03) ✅ and Phase 2 (S04–S07) ✅ complete.
+**Progress**: 8 / 17 sprints complete — Phase 1 (S01–S03) ✅, Phase 2 (S04–S07) ✅, and Phase 3 Sprint 08 ✅ complete.
 
 ---
 
