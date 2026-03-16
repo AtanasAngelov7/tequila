@@ -63,7 +63,7 @@ class KnowledgeSourceRegistry:
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
     async def start(self) -> None:
-        """Load active sources and start background health-check loop."""
+        """Load active sources, start background health-check loop (TD-57)."""
         rows = await self._db.execute_fetchall(
             "SELECT * FROM knowledge_sources WHERE status = 'active'"
         )
@@ -74,6 +74,40 @@ class KnowledgeSourceRegistry:
         logger.info(
             "KnowledgeSourceRegistry started (%d active sources)", len(self._adapters)
         )
+        # Start background health monitoring (TD-57)
+        if self._health_task is None:
+            self._health_task = asyncio.create_task(
+                self._health_loop(), name="knowledge_registry_health_loop"
+            )
+
+    async def _health_loop(self) -> None:
+        """Periodically check health of all registered adapters."""
+        while True:
+            await asyncio.sleep(self.health_check_interval_s)
+            async with self._adapter_lock:
+                adapters_snapshot = dict(self._adapters)
+            for source_id, adapter in adapters_snapshot.items():
+                try:
+                    healthy = await adapter.health_check()
+                    if not healthy:
+                        logger.warning(
+                            "Source %s health check failed — marking as unhealthy", source_id
+                        )
+                except Exception:  # noqa: BLE001
+                    logger.warning(
+                        "Source %s health check raised an exception", source_id, exc_info=True
+                    )
+
+    async def stop(self) -> None:
+        """Cancel the background health-check task for clean shutdown."""
+        if self._health_task is not None:
+            self._health_task.cancel()
+            try:
+                await self._health_task
+            except asyncio.CancelledError:
+                pass
+            self._health_task = None
+            logger.info("KnowledgeSourceRegistry health loop stopped.")
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
 

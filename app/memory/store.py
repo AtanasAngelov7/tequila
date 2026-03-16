@@ -266,6 +266,23 @@ class MemoryStore:
 
     # ── Entity linkage ────────────────────────────────────────────────────────
 
+    async def _sync_entity_ids_json(self, memory_id: str) -> None:
+        """Rebuild the entity_ids JSON column from the link table (TD-112).
+
+        Makes the link table the single source of truth.
+        """
+        async with self._db.execute(
+            "SELECT entity_id FROM memory_entity_links WHERE memory_id = ?",
+            (memory_id,),
+        ) as cur:
+            rows = await cur.fetchall()
+        entity_ids = [r[0] for r in rows]
+        async with write_transaction(self._db):
+            await self._db.execute(
+                "UPDATE memory_extracts SET entity_ids = ? WHERE id = ?",
+                (json.dumps(entity_ids), memory_id),
+            )
+
     async def link_entity(self, memory_id: str, entity_id: str) -> None:
         """Create a ``memory_entity_links`` row if it doesn't already exist."""
         async with write_transaction(self._db):
@@ -276,10 +293,8 @@ class MemoryStore:
                 """,
                 (memory_id, entity_id),
             )
-        # Also update entity_ids JSON column
-        mem = await self.get(memory_id)
-        if entity_id not in mem.entity_ids:
-            await self.update(memory_id, entity_ids=mem.entity_ids + [entity_id])
+        # TD-112: rebuild JSON column from link table (single source of truth)
+        await self._sync_entity_ids_json(memory_id)
 
     async def unlink_entity(self, memory_id: str, entity_id: str) -> None:
         """Remove the ``memory_entity_links`` row and update the entity_ids JSON column."""
@@ -288,11 +303,8 @@ class MemoryStore:
                 "DELETE FROM memory_entity_links WHERE memory_id = ? AND entity_id = ?",
                 (memory_id, entity_id),
             )
-        # TD-63: also remove entity_id from the JSON column (mirrors link_entity's behaviour)
-        mem = await self.get(memory_id)
-        updated_ids = [eid for eid in mem.entity_ids if eid != entity_id]
-        if updated_ids != mem.entity_ids:
-            await self.update(memory_id, entity_ids=updated_ids)
+        # TD-112: rebuild JSON column from link table (single source of truth)
+        await self._sync_entity_ids_json(memory_id)
 
 
 # ── Module-level singleton ────────────────────────────────────────────────────

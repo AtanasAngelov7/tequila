@@ -160,11 +160,11 @@ async def sessions_history(
         return json.dumps({"error": denied})
 
     ss = get_session_store()
-    ms = get_message_store()
     # Resolve session_key → internal UUID for the messages FK query.
     session = await ss.get_by_key(session_key)
     if session is None:
-        return json.dumps([])
+        return json.dumps({"error": f"Session '{session_key}' not found"})
+    ms = get_message_store()
     limit = min(max(1, limit), 100)
     messages = await ms.list_by_session(session.session_id, limit=limit, active_only=True)
     result = [
@@ -230,7 +230,7 @@ async def sessions_send(
     # Build the gateway event
     event = GatewayEvent(
         event_type=ET.INBOUND_MESSAGE,
-        source=EventSource(kind="agent", id="sessions_send_tool"),
+        source=EventSource(kind="agent", id=f"sessions_send:{calling_session_key or 'unknown'}"),
         session_key=session_key,
         payload={
             "session_id": session_key,
@@ -291,8 +291,9 @@ async def sessions_send(
                 "session_key": session_key,
                 "content": last_msgs[-1].content,
             })
-    except Exception:
-        logger.warning("sessions_send: could not read reply from session %s", session_key, exc_info=True)
+    except (asyncio.TimeoutError, RuntimeError) as exc:
+        logger.warning("sessions_send reply read failed for session %s: %s", session_key, exc, exc_info=True)
+        return json.dumps({"status": "error", "session_key": session_key, "detail": str(exc)})
 
     return json.dumps({"status": "completed", "session_key": session_key})
 
@@ -344,6 +345,6 @@ async def sessions_spawn(
             policy_preset=policy_preset,
         )
         return json.dumps({"status": "spawned", "session_key": sub_key, "agent_id": agent_id})
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError) as exc:
         logger.warning("sessions_spawn failed: %s", exc)
         return json.dumps({"status": "error", "error": str(exc)})

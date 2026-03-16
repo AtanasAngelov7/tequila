@@ -45,8 +45,8 @@ class RecallConfig(BaseModel):
 
 
 def _estimate_tokens(text: str) -> int:
-    """Rough token estimate (4 chars ≈ 1 token)."""
-    return max(1, len(text) // 4)
+    """Rough token estimate (4 UTF-8 bytes ≈ 1 token)."""
+    return max(1, len(text.encode("utf-8")) // 4)
 
 
 def _format_memory_block(rows: list[dict]) -> str:

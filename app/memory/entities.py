@@ -127,6 +127,11 @@ _NER_STOPWORDS: frozenset[str] = frozenset({
     "Although", "If", "Unless", "Monday", "Tuesday", "Wednesday", "Thursday",
     "Friday", "Saturday", "Sunday", "January", "February", "March", "April",
     "May", "June", "July", "August", "September", "October", "November", "December",
+    # Common conversational words that generate false positives (TD-84)
+    "Yes", "No", "Ok", "Okay", "Sure", "Thanks", "Thank",
+    "Hello", "Hi", "Hey", "Bye", "Sorry", "Please",
+    "Today", "Tomorrow", "Yesterday", "Here", "There", "What", "Who", "How", "Why",
+    "Well", "Right", "Like", "Know", "Think", "See", "Need", "Want", "Let",
 })
 
 
@@ -155,8 +160,8 @@ def extract_entity_mentions(text: str) -> list[dict[str, str]]:
         m = m.strip()
         if not m or m in _NER_STOPWORDS:
             continue
-        # Skip pure numbers or single-letter words
-        if re.match(r"^\d+$", m) or (len(m) == 1 and m.isupper()):
+        # Skip pure numbers or very short tokens (TD-84: minimum 2 chars)
+        if re.match(r"^\d+$", m) or len(m) < 2:
             continue
         if m not in seen:
             seen.add(m)

@@ -1,7 +1,6 @@
 """Knowledge base agent tools — kb_search and kb_list_sources (§11, Sprint 10)."""
 from __future__ import annotations
 
-import asyncio
 import logging
 
 from app.tools.registry import tool

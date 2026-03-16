@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 class WorkflowStep(BaseModel):
     """One step in a workflow definition."""
 
-    id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
+    id: str = Field(default_factory=lambda: str(uuid.uuid4())[:16])
     """Short unique identifier for this step within the workflow."""
 
     agent_id: str

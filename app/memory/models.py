@@ -8,15 +8,20 @@ Provides:
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 from pydantic import BaseModel, Field, field_validator
+
+logger = logging.getLogger(__name__)
 
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-MEMORY_TYPES = Literal[
+# TD-121: Proper TypeAlias declarations remove the need for the previous
+# type-ignore comments on Literal field annotations.
+MEMORY_TYPES: TypeAlias = Literal[
     "identity",
     "preference",
     "fact",
@@ -26,7 +31,7 @@ MEMORY_TYPES = Literal[
     "skill",
 ]
 
-SOURCE_TYPES = Literal[
+SOURCE_TYPES: TypeAlias = Literal[
     "extraction",
     "user_created",
     "agent_created",
@@ -34,9 +39,9 @@ SOURCE_TYPES = Literal[
     "merged",
 ]
 
-MEMORY_SCOPES = Literal["global", "agent", "session"]
+MEMORY_SCOPES: TypeAlias = Literal["global", "agent", "session"]
 
-MEMORY_STATUSES = Literal["active", "archived", "deleted"]
+MEMORY_STATUSES: TypeAlias = Literal["active", "archived", "deleted"]
 
 # Per-type default recall behaviour (§5.3 table)
 _TYPE_DEFAULTS: dict[str, dict[str, Any]] = {
@@ -54,15 +59,28 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _parse_dt(val: str | None) -> datetime:
-    if not val:
-        return _now()
+def _parse_dt(val: str | datetime | None) -> datetime | None:
+    """Parse a DB datetime value to an aware UTC datetime.
+
+    - Returns ``None`` for ``None`` input (lets callers use ``or _now()`` for
+      required fields, keeping corruption visible instead of masking it).
+    - Normalises timezone-naive strings/objects to UTC (TD-136).
+    - Logs a warning and returns ``None`` for corrupt strings (TD-111).
+    """
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val if val.tzinfo is not None else val.replace(tzinfo=timezone.utc)
     try:
         if val.endswith("Z"):
             val = val[:-1] + "+00:00"
-        return datetime.fromisoformat(val)
-    except ValueError:
-        return _now()
+        dt = datetime.fromisoformat(val)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except (ValueError, TypeError):
+        logger.warning("Corrupt datetime value in DB: %r — returning None", val)
+        return None
 
 
 # ── MemoryExtract ─────────────────────────────────────────────────────────────
@@ -81,7 +99,7 @@ class MemoryExtract(BaseModel):
     content: str
     """The human-readable memory text."""
 
-    memory_type: MEMORY_TYPES  # type: ignore[valid-type]
+    memory_type: MEMORY_TYPES
     """Semantic category of this memory."""
 
     # ── Recall behaviour ──────────────────────────────────────────────────────
@@ -117,7 +135,7 @@ class MemoryExtract(BaseModel):
 
     # ── Provenance ────────────────────────────────────────────────────────────
 
-    source_type: SOURCE_TYPES = "user_created"  # type: ignore[valid-type]
+    source_type: SOURCE_TYPES = "user_created"
     """How this memory was created."""
 
     source_session_id: str | None = None
@@ -139,7 +157,7 @@ class MemoryExtract(BaseModel):
 
     # ── Scope ─────────────────────────────────────────────────────────────────
 
-    scope: MEMORY_SCOPES = "global"  # type: ignore[valid-type]
+    scope: MEMORY_SCOPES = "global"
     """Visibility scope for this memory."""
 
     agent_id: str | None = None
@@ -147,7 +165,7 @@ class MemoryExtract(BaseModel):
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
-    status: MEMORY_STATUSES = "active"  # type: ignore[valid-type]
+    status: MEMORY_STATUSES = "active"
     """Active, archived, or soft-deleted."""
 
     version: int = 1
@@ -196,9 +214,9 @@ class MemoryExtract(BaseModel):
             always_recall=bool(row.get("always_recall", 0)),
             recall_weight=float(row.get("recall_weight", 1.0)),
             pinned=bool(row.get("pinned", 0)),
-            created_at=_parse_dt(row.get("created_at")),
-            updated_at=_parse_dt(row.get("updated_at")),
-            last_accessed=_parse_dt(row.get("last_accessed")),
+            created_at=_parse_dt(row.get("created_at")) or _now(),
+            updated_at=_parse_dt(row.get("updated_at")) or _now(),
+            last_accessed=_parse_dt(row.get("last_accessed")) or _now(),
             access_count=int(row.get("access_count", 0)),
             expires_at=_parse_dt(row["expires_at"]) if row.get("expires_at") else None,
             decay_score=float(row.get("decay_score", 1.0)),

@@ -18,7 +18,7 @@ import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.deps import require_gateway_token
 from app.knowledge.graph import (
@@ -51,7 +51,7 @@ class AddEdgeRequest(BaseModel):
     edge_type: str
     weight: float = 1.0
     label: str | None = None
-    metadata: dict[str, Any] = {}
+    metadata: dict[str, Any] = Field(default_factory=dict)  # TD-130: no mutable default
 
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────

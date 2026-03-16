@@ -18,6 +18,7 @@ Tools:
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Any
 
 from app.tools.registry import tool
@@ -767,9 +768,12 @@ async def memory_extract_now(
         return "Extraction pipeline is not available."
 
     try:
-        fake_messages = [{"role": "user", "content": text}]
+        fake_messages = [{
+            "role": "user",
+            "content": text,
+        }]
         result = await pipeline.run(
-            session_id=session_id or "direct_extract",
+            session_id=session_id or f"direct_extract:{uuid.uuid4().hex[:12]}",
             messages=fake_messages,
         )
     except Exception as exc:
@@ -811,11 +815,13 @@ def _audit(
                 metadata=metadata or {},
             )
         except Exception:  # noqa: BLE001
-            pass
+            logger.warning("Audit event failed for %s", event_type, exc_info=True)
 
     try:
-        loop = _asyncio.get_event_loop()
-        if loop.is_running():
-            loop.create_task(_log())
+        loop = _asyncio.get_running_loop()
+        loop.create_task(_log())
+    except RuntimeError:
+        # No running event loop — caller is synchronous; skip the audit
+        logger.debug("_audit: no running event loop; skipping audit for %s", event_type)
     except Exception:  # noqa: BLE001
-        pass
+        logger.warning("_audit: failed to schedule audit task for %s", event_type, exc_info=True)

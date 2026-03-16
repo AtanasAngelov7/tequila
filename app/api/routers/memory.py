@@ -16,12 +16,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.api.deps import require_gateway_token
 from app.knowledge.embeddings import get_embedding_store
-from app.memory.models import MemoryExtract
+from app.memory.models import MEMORY_SCOPES, MEMORY_STATUSES, MEMORY_TYPES, SOURCE_TYPES, MemoryExtract
 from app.memory.store import get_memory_store
 
 logger = logging.getLogger(__name__)
@@ -38,18 +38,18 @@ router = APIRouter(
 
 class MemoryCreateRequest(BaseModel):
     content: str
-    memory_type: str
+    memory_type: MEMORY_TYPES
     always_recall: bool | None = None
     recall_weight: float | None = None
     pinned: bool = False
     expires_at: str | None = None
-    source_type: str = "user_created"
+    source_type: SOURCE_TYPES = "user_created"
     source_session_id: str | None = None
     source_message_id: str | None = None
     confidence: float = 1.0
     entity_ids: list[str] = []
     tags: list[str] = []
-    scope: str = "global"
+    scope: MEMORY_SCOPES = "global"
     agent_id: str | None = None
 
 
@@ -59,7 +59,7 @@ class MemoryUpdateRequest(BaseModel):
     recall_weight: float | None = None
     tags: list[str] | None = None
     entity_ids: list[str] | None = None
-    status: str | None = None
+    status: MEMORY_STATUSES | None = None
     decay_score: float | None = None
     confidence: float | None = None
 
@@ -107,7 +107,10 @@ async def create_memory(body: MemoryCreateRequest) -> dict:
                 expires_dt = expires_dt[:-1] + "+00:00"
             expires_at = datetime.fromisoformat(expires_dt)
         except ValueError:
-            pass
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid expires_at format: {body.expires_at!r}. Expected ISO 8601 datetime.",
+            )
 
     mem = await store.create(
         content=body.content,
@@ -190,18 +193,18 @@ async def get_memory_history(
         events = await audit.get_memory_history(memory_id, limit=limit)
         return [e.model_dump() for e in events]
     except RuntimeError:
-        return []
+        raise HTTPException(status_code=503, detail="Audit system not initialized")
 
 
 # Separate router for /api/memory-events (different prefix)
-_events_router = APIRouter(
+events_router = APIRouter(
     prefix="/api/memory-events",
     tags=["memory"],
     dependencies=[Depends(require_gateway_token)],
 )
 
 
-@_events_router.get("", response_model=list[dict])
+@events_router.get("", response_model=list[dict])
 async def get_memory_events(
     event_type: str | None = Query(default=None),
     actor: str | None = Query(default=None),
@@ -222,7 +225,7 @@ async def get_memory_events(
         )
         return [e.model_dump() for e in events]
     except RuntimeError:
-        return []
+        raise HTTPException(status_code=503, detail="Audit system not initialized")
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

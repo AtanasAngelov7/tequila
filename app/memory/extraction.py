@@ -23,6 +23,12 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
+# TD-131: named constant for per-message content truncation in prompt builders
+EXTRACTION_CONTENT_MAX_CHARS: int = 500
+
+# TD-113: fallback message count when classification step fails
+_MAX_FALLBACK_MESSAGES: int = 10
+
 _LLMFn = Callable[[list[dict[str, str]]], Awaitable[str]]
 
 # ── Configuration ─────────────────────────────────────────────────────────────
@@ -75,7 +81,7 @@ def _build_classify_prompt(messages: list[dict[str, Any]]) -> str:
     lines.append("\n--- Messages ---")
     for i, msg in enumerate(messages):
         role = msg.get("role", "unknown")
-        content = (msg.get("content") or "")[:500]
+        content = (msg.get("content") or "")[:EXTRACTION_CONTENT_MAX_CHARS]
         lines.append(f"[{i}] {role}: {content}")
     return "\n".join(lines)
 
@@ -96,7 +102,7 @@ def _build_extract_prompt(messages: list[dict[str, Any]]) -> str:
     lines.append("\n--- Messages ---")
     for msg in messages:
         role = msg.get("role", "unknown")
-        content = (msg.get("content") or "")[:500]
+        content = (msg.get("content") or "")[:EXTRACTION_CONTENT_MAX_CHARS]
         lines.append(f"{role}: {content}")
     return "\n".join(lines)
 
@@ -112,7 +118,7 @@ def _parse_json_response(text: str) -> list[dict[str, Any]]:
     except json.JSONDecodeError:
         pass
     # Fallback: find first [...] block
-    match = re.search(r"\[.*\]", text, re.DOTALL)
+    match = re.search(r"\[.*?\]", text, re.DOTALL)
     if match:
         try:
             obj = json.loads(match.group(0))
@@ -307,8 +313,9 @@ class ExtractionPipeline:
             return [int(i) for i in raw if isinstance(i, (int, float))]
         except Exception as exc:
             logger.warning("Extraction step 1 failed: %s", exc)
-            # Fallback: include all user/assistant messages
-            return [i for i, m in enumerate(messages) if m.get("role") in ("user", "assistant")]
+            # Fallback: cap to most-recent N messages to avoid swamping the pipeline
+            fallback = [i for i, m in enumerate(messages) if m.get("role") in ("user", "assistant")]
+            return fallback[-_MAX_FALLBACK_MESSAGES:]
 
     async def _step2_extract(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Extract structured memory candidates from relevant messages."""
@@ -366,9 +373,15 @@ class ExtractionPipeline:
     async def _step4_contradiction(
         self, candidate: dict[str, Any]
     ) -> dict[str, Any] | None:
-        """Return candidate unchanged, or None if a contradiction is unresolvable."""
-        # For now: always proceed (contradiction detection requires richer graph).
-        # Future: query for memories with conflicting claims and compare.
+        """Return candidate unchanged, or None if a contradiction is unresolvable.
+
+        TODO: Implement actual contradiction detection using embedding similarity
+        and LLM comparison. Currently a no-op placeholder (TD-87).
+        """
+        logger.debug(
+            "Contradiction detection step — not yet implemented (candidate content=%r)",
+            (candidate.get("content") or "")[:80],
+        )
         return candidate
 
     async def _step5_entity_link(
@@ -419,8 +432,11 @@ class ExtractionPipeline:
         for eid in entity_ids:
             try:
                 await mem_store.link_entity(memory.id, eid)
-            except Exception:
-                pass
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "Failed to link entity %r for memory %s",
+                    eid, memory.id, exc_info=True,
+                )
         # Embed the new memory
         try:
             from app.knowledge.embeddings import get_embedding_store

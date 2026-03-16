@@ -146,7 +146,7 @@ class HTTPAdapter(KnowledgeSourceAdapter):
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.get(url)
-                return resp.status_code < 500
+                return 200 <= resp.status_code < 300
         except Exception:
             return False
 

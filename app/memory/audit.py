@@ -22,7 +22,7 @@ import json
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 import aiosqlite
 from pydantic import BaseModel, Field
@@ -61,6 +61,13 @@ ACTOR_TYPES = Literal[
     "user",
     "system",
 ]
+
+# Derived sets for O(1) runtime validation (TD-98)
+_VALID_EVENT_TYPES: frozenset[str] = frozenset(get_args(EVENT_TYPES))
+_VALID_ACTOR_TYPES: frozenset[str] = frozenset(get_args(ACTOR_TYPES))
+
+# Sentinel for corrupt timestamps — clearly wrong epoch, not disguised as now()
+_EPOCH = datetime(2000, 1, 1, tzinfo=timezone.utc)
 
 
 # ── MemoryEvent model ─────────────────────────────────────────────────────────
@@ -111,7 +118,12 @@ class MemoryEvent(BaseModel):
                 ts = ts[:-1] + "+00:00"
             parsed_ts = datetime.fromisoformat(ts)
         except (ValueError, AttributeError):
-            parsed_ts = datetime.now(timezone.utc)
+            logger.warning(
+                "Corrupt timestamp in memory_event %s: %r — using sentinel epoch",
+                row.get("id"),
+                row.get("timestamp"),
+            )
+            parsed_ts = _EPOCH
 
         meta_raw = row.get("metadata", "{}")
         try:
@@ -165,6 +177,15 @@ class MemoryAuditLog:
 
         Returns the persisted ``MemoryEvent``.
         """
+        # TD-98: validate types at write time
+        if event_type not in _VALID_EVENT_TYPES:
+            raise ValueError(
+                f"Invalid event_type: {event_type!r}. Must be one of {sorted(_VALID_EVENT_TYPES)}"
+            )
+        if actor not in _VALID_ACTOR_TYPES:
+            raise ValueError(
+                f"Invalid actor: {actor!r}. Must be one of {sorted(_VALID_ACTOR_TYPES)}"
+            )
         event = MemoryEvent(
             id=str(uuid.uuid4()),
             memory_id=memory_id,

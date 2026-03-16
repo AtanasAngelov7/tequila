@@ -26,11 +26,33 @@ import asyncio
 import logging
 import math
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+
+
+# ── Store Protocols (TD-110) ────────────────────────────────────────
+
+
+@runtime_checkable
+class MemoryStoreProtocol(Protocol):
+    """Minimal interface that MemoryLifecycleManager requires from the memory store."""
+
+    async def list(self, **kwargs: Any) -> list[Any]: ...
+    async def get(self, memory_id: str) -> Any: ...
+    async def update(self, memory_id: str, **kwargs: Any) -> Any: ...
+    async def link_entity(self, memory_id: str, entity_id: str) -> None: ...
+    async def soft_delete(self, memory_id: str) -> Any: ...
+
+
+@runtime_checkable
+class EntityStoreProtocol(Protocol):
+    """Minimal interface that MemoryLifecycleManager requires from the entity store."""
+
+    async def list(self, **kwargs: Any) -> list[Any]: ...
+    async def get(self, entity_id: str) -> Any: ...
 
 # ── Configuration models ──────────────────────────────────────────────────────
 
@@ -99,8 +121,8 @@ class MemoryLifecycleManager:
 
     def __init__(
         self,
-        memory_store: Any,
-        entity_store: Any,
+        memory_store: MemoryStoreProtocol,
+        entity_store: EntityStoreProtocol,
         audit_log: Any | None = None,
         *,
         decay_cfg: MemoryDecayConfig | None = None,
@@ -141,8 +163,8 @@ class MemoryLifecycleManager:
             return
         try:
             await self._audit.log(**kwargs)
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("Lifecycle audit log error (non-fatal): %s", exc)
+        except Exception:  # noqa: BLE001
+            logger.warning("Lifecycle audit event failed", exc_info=True)
 
     # ── Public API ────────────────────────────────────────────────────────────
 
@@ -323,6 +345,7 @@ class MemoryLifecycleManager:
         merged = 0
         merged_ids: set[str] = set()
         last_id = ""  # TD-65: cursor-based pagination
+        consecutive_embedding_failures = 0  # TD-103: track embedding unavailability
 
         while True:
             memories = await self._mem.list(
@@ -343,8 +366,16 @@ class MemoryLifecycleManager:
                         limit=5,
                         threshold=threshold,
                     )
-                except Exception as exc:  # noqa: BLE001
-                    logger.debug("Lifecycle merge emb search failed for %s: %s", mem.id, exc)
+                    consecutive_embedding_failures = 0
+                except Exception:  # noqa: BLE001
+                    consecutive_embedding_failures += 1
+                    logger.warning(
+                        "Embedding similarity failed (consecutive: %d) for memory %s",
+                        consecutive_embedding_failures, mem.id, exc_info=True,
+                    )
+                    if consecutive_embedding_failures >= 3:
+                        logger.error("Aborting merge pass — embedding store unavailable")
+                        break
                     continue
                 for hit in hits:
                     if hit.source_id == mem.id or hit.source_id in merged_ids:

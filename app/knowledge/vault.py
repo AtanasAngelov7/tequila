@@ -181,17 +181,18 @@ class VaultStore:
 
     async def _unique_slug(self, base_slug: str, exclude_id: str | None = None) -> str:
         """Return *base_slug* (or *base_slug*-N) that is unique in the DB."""
-        slug = base_slug
-        counter = 1
-        while True:
+        _MAX_SLUG_ATTEMPTS = 100  # TD-119: guard against infinite loops
+        for i in range(_MAX_SLUG_ATTEMPTS):
+            slug = base_slug if i == 0 else f"{base_slug}-{i}"
             async with self._db.execute(
                 "SELECT id FROM vault_notes WHERE slug = ?", (slug,)
             ) as cur:
                 row = await cur.fetchone()
             if row is None or (exclude_id and row["id"] == exclude_id):
                 return slug
-            slug = f"{base_slug}-{counter}"
-            counter += 1
+        raise RuntimeError(
+            f"Could not generate unique slug after {_MAX_SLUG_ATTEMPTS} attempts for base {base_slug!r}"
+        )
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
 
@@ -330,7 +331,13 @@ class VaultStore:
         content: str | None = None,
         tags: list[str] | None = None,
     ) -> VaultNote:
-        """Update *note_id* fields.  Returns the updated note."""
+        """Update *note_id* fields.  Returns the updated note.
+
+        Note: Filenames are **not** renamed when titles change (TD-76). This is
+        intentional to preserve stable filesystem paths.  The updated title is
+        stored only in the DB.  If rename behaviour is needed in the future,
+        add it with proper conflict handling.
+        """
         note = await self.get_note(note_id)
 
         new_title = title if title is not None else note.title
@@ -372,11 +379,16 @@ class VaultStore:
         )
 
     async def delete_note(self, note_id: str) -> None:
-        """Delete *note_id* from DB and remove the file from disk."""
+        """Delete *note_id* from DB and remove the file from disk.
+
+        The file is removed first (can be retried if it fails) to avoid orphan
+        files that ``sync_from_disk`` would resurrect (TD-77).
+        """
         note = await self.get_note(note_id, include_content=False)
+        # Delete disk file first — prevents orphan resurrection via sync_from_disk
+        await asyncio.to_thread(self._note_path(note.filename).unlink, missing_ok=True)
         async with write_transaction(self._db):
             await self._db.execute("DELETE FROM vault_notes WHERE id = ?", (note_id,))
-        await asyncio.to_thread(self._note_path(note.filename).unlink, missing_ok=True)
 
     # ── Graph ─────────────────────────────────────────────────────────────────
 
@@ -428,8 +440,10 @@ class VaultStore:
         ) as cur:
             rows = await cur.fetchall()
 
+        # TD-120: cache row_to_dict result to avoid redundant calls
+        _rows_as_dicts = [row_to_dict(r) for r in rows]
         db_by_filename: dict[str, dict[str, Any]] = {
-            row_to_dict(r)["filename"]: row_to_dict(r) for r in rows
+            d["filename"]: d for d in _rows_as_dicts
         }
 
         # ── Discover fs files ─────────────────────────────────────────────────

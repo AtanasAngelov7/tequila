@@ -333,7 +333,7 @@ def create_app() -> FastAPI:
     app.include_router(workflows_api.router)
     app.include_router(vault.router)
     app.include_router(memory.router)
-    app.include_router(memory._events_router)
+    app.include_router(memory.events_router)
     app.include_router(entities.router)
     app.include_router(knowledge_sources.router)
     app.include_router(graph.router)

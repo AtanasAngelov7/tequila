@@ -73,6 +73,20 @@ class WorkflowStore:
             rows = await cur.fetchall()
         return [Workflow.from_row(row_to_dict(r)) for r in rows]
 
+    async def count_workflows(self) -> int:
+        """Return the total number of workflow definitions in the DB (TD-72)."""
+        async with self._db.execute("SELECT COUNT(*) FROM workflows") as cur:
+            row = await cur.fetchone()
+        return row[0] if row else 0
+
+    async def count_runs(self, workflow_id: str) -> int:
+        """Return the total number of runs for *workflow_id* (TD-72)."""
+        async with self._db.execute(
+            "SELECT COUNT(*) FROM workflow_runs WHERE workflow_id = ?", (workflow_id,)
+        ) as cur:
+            row = await cur.fetchone()
+        return row[0] if row else 0
+
     async def update_workflow(
         self,
         workflow_id: str,

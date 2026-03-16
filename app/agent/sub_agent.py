@@ -39,6 +39,20 @@ _active: dict[str, set[str]] = {}
 _spawn_locks: dict[str, asyncio.Lock] = {}
 
 
+def get_active_count(parent_id: str | None = None) -> int:
+    """Return the number of active sub-agents, optionally filtered by parent (TD-126).
+
+    Parameters
+    ----------
+    parent_id:
+        When provided, count only sub-agents under this parent.
+        When ``None``, count all active sub-agents across all parents.
+    """
+    if parent_id is not None:
+        return len(_active.get(parent_id, set()))
+    return sum(len(v) for v in _active.values())
+
+
 def active_sub_agent_count(parent_session_key: str) -> int:
     """Return the number of active sub-agent sessions for *parent_session_key*."""
     return len(_active.get(parent_session_key, set()))
@@ -102,7 +116,7 @@ async def spawn_sub_agent(
         When the per-parent concurrency cap is reached.
     """
     # ── Concurrency limit check (atomic via per-parent lock — TD-58) ─────────
-    parent = parent_session_key or "_global"
+    parent = parent_session_key or "_orphan"
     async with _get_spawn_lock(parent):
         if active_sub_agent_count(parent) >= MAX_CONCURRENT_SUBAGENTS:
             raise RuntimeError(

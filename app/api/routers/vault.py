@@ -15,10 +15,9 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.deps import require_gateway_token
-from app.exceptions import NotFoundError
 from app.knowledge.vault import VaultGraph, VaultNote, get_vault_store
 
 logger = logging.getLogger(__name__)
@@ -34,7 +33,7 @@ router = APIRouter(
 
 
 class NoteCreateRequest(BaseModel):
-    title: str
+    title: str = Field(min_length=1, max_length=255)
     content: str = ""
     tags: list[str] = []
 

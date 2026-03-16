@@ -21,9 +21,9 @@ This directory contains **7 tech-debt cleanup sub-sprints** that address every i
 | **[TD-S2](td_s2_correctness.md)** | Correctness Bugs | 11 | 3 Critical, 6 High, 2 Medium | ✅ Complete |
 | **[TD-S3](td_s3_performance.md)** | Performance & Async | 13 | 3 High, 7 Medium, 3 Low | ✅ Complete |
 | **[TD-S4](td_s4_concurrency.md)** | Concurrency & Resource Management | 11 | 2 Critical, 3 High, 6 Medium | ✅ Complete |
-| **[TD-S5](td_s5_validation.md)** | Validation & Data Integrity | 14 | 1 High, 8 Medium, 5 Low | ⬜ Not Started |
-| **[TD-S6](td_s6_observability.md)** | Observability & Error Handling | 14 | 12 Medium, 2 Low | ⬜ Not Started |
-| **[TD-S7](td_s7_design.md)** | Design & Code Quality | 23 | 8 Medium, 15 Low | ⬜ Not Started |
+| **[TD-S5](td_s5_validation.md)** | Validation & Data Integrity | 14 | 1 High, 8 Medium, 5 Low | ✅ Complete |
+| **[TD-S6](td_s6_observability.md)** | Observability & Error Handling | 14 | 12 Medium, 2 Low | ✅ Complete |
+| **[TD-S7](td_s7_design.md)** | Design & Code Quality | 23 | 8 Medium, 15 Low | ✅ Complete |
 
 **Total**: 95 items across 7 sub-sprints
 
@@ -173,7 +173,7 @@ These rules supplement the main coding standards in `docs/application_reference/
 | TD-S3 Performance & Async | ✅ Complete |
 | TD-S4 Concurrency & Resources | ✅ Complete |
 | TD-S5 Validation & Data Integrity | ⬜ Not Started |
-| TD-S6 Observability & Error Handling | ⬜ Not Started |
+| TD-S6 Observability & Error Handling | ✅ Complete |
 | TD-S7 Design & Code Quality | ⬜ Not Started |
 | Full test suite green (683+, 1 pre-existing) | ⬜ Not Started |
 | Ready to proceed to Sprint 12 | ⬜ Not Started |

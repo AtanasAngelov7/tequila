@@ -20,7 +20,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel
 
 from app.api.deps import require_gateway_token
-from app.memory.entities import Entity, extract_entity_mentions
+from app.memory.entities import ENTITY_TYPES, Entity, extract_entity_mentions
 from app.memory.entity_store import get_entity_store
 
 logger = logging.getLogger(__name__)
@@ -37,7 +37,7 @@ router = APIRouter(
 
 class EntityCreateRequest(BaseModel):
     name: str
-    entity_type: str
+    entity_type: ENTITY_TYPES  # TD-115: constrained to known entity types
     aliases: list[str] = []
     summary: str = ""
     properties: dict[str, Any] = {}

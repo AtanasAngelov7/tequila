@@ -428,12 +428,23 @@ class SQLiteEmbeddingStore(EmbeddingStore):
                 items.append(EmbeddingItem(source_type="entity", source_id=d["id"], text=text))
                 result.total += 1
 
-        try:
-            await self.add_batch(items)
-            result.updated = len(items)
-        except Exception as exc:  # noqa: BLE001
-            logger.error("Reindex batch failed: %s", exc)
-            result.errors = len(items)
+        # Process in sub-batches so partial failures are tracked per-batch
+        _BATCH = 50
+        for batch_start in range(0, max(len(items), 1), _BATCH):
+            batch = items[batch_start : batch_start + _BATCH]
+            if not batch:
+                break
+            try:
+                await self.add_batch(batch)
+                result.updated += len(batch)
+            except Exception:  # noqa: BLE001
+                logger.warning(
+                    "Reindex batch failed (%d items, offset %d)",
+                    len(batch),
+                    batch_start,
+                    exc_info=True,
+                )
+                result.errors += len(batch)
 
         result.duration_ms = int((time.monotonic() - start) * 1000)
         logger.info(

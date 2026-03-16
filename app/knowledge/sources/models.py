@@ -63,7 +63,8 @@ class KnowledgeSource(BaseModel):
         def _dt_required(v: str | None) -> datetime:
             if not v:
                 return datetime.now(timezone.utc)
-            return _dt(v)  # type: ignore[return-value]
+            result = _dt(v)
+            return result if result is not None else datetime.now(timezone.utc)
 
         return cls(
             source_id=row["id"],

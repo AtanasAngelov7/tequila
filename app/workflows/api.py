@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -69,7 +69,7 @@ class WorkflowCreateRequest(BaseModel):
     description: str = ""
     """Optional description."""
 
-    mode: str = "pipeline"
+    mode: Literal["pipeline", "parallel"] = "pipeline"
     """Execution mode: ``pipeline`` | ``parallel``."""
 
     steps: list[WorkflowStepRequest] = []
@@ -81,7 +81,7 @@ class WorkflowUpdateRequest(BaseModel):
 
     name: str | None = None
     description: str | None = None
-    mode: str | None = None
+    mode: Literal["pipeline", "parallel"] | None = None
     steps: list[WorkflowStepRequest] | None = None
 
 
@@ -115,11 +115,6 @@ def _run_dict(run: WorkflowRun) -> dict[str, Any]:
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def create_workflow(body: WorkflowCreateRequest) -> dict[str, Any]:
     """Create a new workflow definition."""
-    if body.mode not in ("pipeline", "parallel"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="mode must be 'pipeline' or 'parallel'",
-        )
     steps = [_step_from_req(s) for s in body.steps]
     store = get_workflow_store()
     wf = await store.create_workflow(
@@ -139,7 +134,8 @@ async def list_workflows(
     """List all workflow definitions."""
     store = get_workflow_store()
     workflows = await store.list_workflows(limit=limit, offset=offset)
-    return {"workflows": [_workflow_dict(w) for w in workflows], "total": len(workflows)}
+    total = await store.count_workflows()
+    return {"workflows": [_workflow_dict(w) for w in workflows], "total": total}
 
 
 @router.get("/{workflow_id}")
@@ -156,11 +152,6 @@ async def get_workflow(workflow_id: str) -> dict[str, Any]:
 @router.put("/{workflow_id}")
 async def update_workflow(workflow_id: str, body: WorkflowUpdateRequest) -> dict[str, Any]:
     """Update mutable fields on an existing workflow."""
-    if body.mode is not None and body.mode not in ("pipeline", "parallel"):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="mode must be 'pipeline' or 'parallel'",
-        )
     steps = [_step_from_req(s) for s in body.steps] if body.steps is not None else None
     try:
         store = get_workflow_store()
@@ -214,8 +205,9 @@ async def trigger_run(
             logger.exception("Workflow run %s failed unexpectedly", run.id)
             try:
                 await store.update_run_status(run.id, status="failed", error="Internal error")
-            except Exception:
-                pass
+            except Exception:  # noqa: BLE001
+                # Best-effort status update; a background reaper should clean up stuck runs
+                logger.warning("Failed to update workflow run status to 'failed' for run_id=%s", run.id)
         finally:
             _cancel_events.pop(run.id, None)
 
@@ -236,7 +228,8 @@ async def list_runs(
     except NotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
     runs = await store.list_runs(workflow_id, limit=limit, offset=offset)
-    return {"runs": [_run_dict(r) for r in runs], "total": len(runs)}
+    total = await store.count_runs(workflow_id)
+    return {"runs": [_run_dict(r) for r in runs], "total": total}
 
 
 @router.get("/{workflow_id}/runs/{run_id}")

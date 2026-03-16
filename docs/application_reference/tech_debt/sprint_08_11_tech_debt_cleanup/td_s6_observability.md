@@ -1,9 +1,9 @@
-# TD-S6 — Observability & Error Handling
+﻿# TD-S6 â€” Observability & Error Handling
 
 **Focus**: Silent error swallowing, logging, error responses, event sourcing
 **Items**: 14 (TD-67, TD-69, TD-71, TD-74, TD-79, TD-82, TD-88, TD-89, TD-97, TD-102, TD-103, TD-106, TD-123, TD-137)
 **Severity**: 12 Medium, 2 Low
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Estimated effort**: ~30 minutes
 
 ---
@@ -39,21 +39,21 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
 
 ### T1: Return error for non-existent session in `sessions_history` (TD-67)
 
-**File**: `app/tools/builtin/sessions.py` (~lines 114–116)
+**File**: `app/tools/builtin/sessions.py` (~lines 114â€“116)
 
-- [ ] Before returning messages, check if the session exists:
+- [x] Before returning messages, check if the session exists:
   ```python
   session = await session_store.get_by_key(session_key)
   if not session:
       return {"error": f"Session '{session_key}' not found"}
   ```
-- [ ] This lets the caller distinguish "empty session" from "no such session"
+- [x] This lets the caller distinguish "empty session" from "no such session"
 
 ### T2: Catch `ValueError` in `sessions_spawn` (TD-69)
 
-**File**: `app/tools/builtin/sessions.py` (~lines 237–241)
+**File**: `app/tools/builtin/sessions.py` (~lines 237â€“241)
 
-- [ ] Expand the except clause:
+- [x] Expand the except clause:
   ```python
   except (RuntimeError, ValueError) as exc:
       return {"error": str(exc)}
@@ -61,9 +61,9 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
 
 ### T3: Log errors in workflow `_execute` status update (TD-71)
 
-**File**: `app/workflows/api.py` (~lines 167–172, 211)
+**File**: `app/workflows/api.py` (~lines 167â€“172, 211)
 
-- [ ] Replace:
+- [x] Replace:
   ```python
   except Exception:
       pass
@@ -73,25 +73,25 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
   except Exception:
       logger.exception("Failed to update workflow run status to 'failed' for run_id=%s", run_id)
   ```
-- [ ] Consider adding a comment about a future background reaper for stuck runs
+- [x] Consider adding a comment about a future background reaper for stuck runs
 
 ### T4: Narrow catch in `sessions_send` (TD-74)
 
-**File**: `app/tools/builtin/sessions.py` (~lines 205–207)
+**File**: `app/tools/builtin/sessions.py` (~lines 205â€“207)
 
-- [ ] Replace broad `except Exception` with specific exceptions:
+- [x] Replace broad `except Exception` with specific exceptions:
   ```python
   except (asyncio.TimeoutError, RuntimeError) as exc:
       logger.warning("sessions_send reply read failed: %s", exc)
       return {"status": "error", "detail": str(exc)}
   ```
-- [ ] If reply reading fails, return `"status": "error"` instead of `"completed"`
+- [x] If reply reading fails, return `"status": "error"` instead of `"completed"`
 
 ### T5: Report partial progress in reindex (TD-79)
 
-**File**: `app/knowledge/embeddings.py` (~lines 405–410)
+**File**: `app/knowledge/embeddings.py` (~lines 405â€“410)
 
-- [ ] Track per-batch success/failure:
+- [x] Track per-batch success/failure:
   ```python
   succeeded = 0
   failed = 0
@@ -107,20 +107,20 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
 
 ### T6: Return 503 when audit module unavailable (TD-82)
 
-**File**: `app/api/routers/memory.py` (~lines 168–196)
+**File**: `app/api/routers/memory.py` (~lines 168â€“196)
 
-- [ ] Replace silent empty-list returns:
+- [x] Replace silent empty-list returns:
   ```python
   if audit_log is None:
       raise HTTPException(status_code=503, detail="Audit system not initialized")
   ```
-- [ ] Apply to both `GET /api/memories/{id}/history` and `GET /api/memory-events`
+- [x] Apply to both `GET /api/memories/{id}/history` and `GET /api/memory-events`
 
 ### T7: Fix greedy regex in `_parse_json_response` (TD-88)
 
 **File**: `app/memory/extraction.py` (~line 104)
 
-- [ ] Change:
+- [x] Change:
   ```python
   match = re.search(r"\[.*\]", text, re.DOTALL)
   ```
@@ -128,13 +128,13 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
   ```python
   match = re.search(r"\[.*?\]", text, re.DOTALL)
   ```
-- [ ] This prevents matching from the first `[` to the last `]` across unrelated JSON arrays
+- [x] This prevents matching from the first `[` to the last `]` across unrelated JSON arrays
 
 ### T8: Log entity link failures in extraction (TD-89)
 
-**File**: `app/memory/extraction.py` (~lines 434–436)
+**File**: `app/memory/extraction.py` (~lines 434â€“436)
 
-- [ ] Replace:
+- [x] Replace:
   ```python
   except Exception:
       pass
@@ -147,14 +147,14 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
 
 ### T9: Fix `_audit()` double error swallowing (TD-97)
 
-**File**: `app/tools/builtin/memory.py` (~lines 752–785)
+**File**: `app/tools/builtin/memory.py` (~lines 752â€“785)
 
-- [ ] Replace both nested `except Exception: pass` with logging:
+- [x] Replace both nested `except Exception: pass` with logging:
   ```python
   except Exception:
       logger.warning("Audit event failed for %s", event_type, exc_info=True)
   ```
-- [ ] Replace deprecated `asyncio.get_event_loop()` with `asyncio.get_running_loop()`:
+- [x] Replace deprecated `asyncio.get_event_loop()` with `asyncio.get_running_loop()`:
   ```python
   loop = asyncio.get_running_loop()
   loop.create_task(self._audit_impl(...))
@@ -162,9 +162,9 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
 
 ### T10: Raise lifecycle audit log level to WARNING (TD-102)
 
-**File**: `app/memory/lifecycle.py` (~lines 131–134)
+**File**: `app/memory/lifecycle.py` (~lines 131â€“134)
 
-- [ ] Change:
+- [x] Change:
   ```python
   logger.debug("Audit event failed: %s", exc)
   ```
@@ -175,9 +175,9 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
 
 ### T11: Track and escalate embedding failures in `run_merge` (TD-103)
 
-**File**: `app/memory/lifecycle.py` (~lines 349–351)
+**File**: `app/memory/lifecycle.py` (~lines 349â€“351)
 
-- [ ] Add a consecutive failure counter:
+- [x] Add a consecutive failure counter:
   ```python
   consecutive_embedding_failures = 0
   for pair in merge_candidates:
@@ -188,15 +188,15 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
           consecutive_embedding_failures += 1
           logger.warning("Embedding similarity failed (consecutive: %d)", consecutive_embedding_failures, exc_info=True)
           if consecutive_embedding_failures >= 3:
-              logger.error("Aborting merge pass — embedding store unavailable")
+              logger.error("Aborting merge pass â€” embedding store unavailable")
               break
   ```
 
 ### T12: Log errors in `get_neighborhood()` BFS (TD-106)
 
-**File**: `app/knowledge/graph.py` (~lines 291–297)
+**File**: `app/knowledge/graph.py` (~lines 291â€“297)
 
-- [ ] After `asyncio.gather(..., return_exceptions=True)`, check results:
+- [x] After `asyncio.gather(..., return_exceptions=True)`, check results:
   ```python
   for result in results:
       if isinstance(result, BaseException):
@@ -207,17 +207,17 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
 
 **File**: `app/tools/builtin/sessions.py` (~line 165)
 
-- [ ] Replace hardcoded `"sessions_send_tool"` with dynamic source:
+- [x] Replace hardcoded `"sessions_send_tool"` with dynamic source:
   ```python
   source = f"sessions_send:{calling_agent_id or 'unknown'}"
   ```
-- [ ] Or pass the caller's agent_id/session_key as context
+- [x] Or pass the caller's agent_id/session_key as context
 
 ### T14: Fix HTTP adapter 4xx health reporting (TD-137)
 
 **File**: `app/knowledge/sources/adapters/http.py` (~line 96)
 
-- [ ] In the health check method, treat 4xx responses as unhealthy:
+- [x] In the health check method, treat 4xx responses as unhealthy:
   ```python
   async def health_check(self) -> bool:
       try:
@@ -232,28 +232,28 @@ Replace all `except Exception: pass` patterns with proper logging. Fix error res
 ## Testing
 
 ### Existing tests to verify
-- [ ] All session tool tests pass
-- [ ] All workflow tests pass
-- [ ] All embedding tests pass
-- [ ] All memory API tests pass
-- [ ] All extraction tests pass
-- [ ] All graph tests pass
+- [x] All session tool tests pass
+- [x] All workflow tests pass
+- [x] All embedding tests pass
+- [x] All memory API tests pass
+- [x] All extraction tests pass
+- [x] All graph tests pass
 
 ### New tests to add
-- [ ] Test that `sessions_history` returns error dict for non-existent session
-- [ ] Test that `sessions_spawn` catches ValueError
-- [ ] Test that audit endpoints return 503 when not initialized
-- [ ] Test that greedy regex fix correctly parses nested JSON
-- [ ] Test that HTTP adapter health check returns False for 4xx
+- [x] Test that `sessions_history` returns error dict for non-existent session
+- [x] Test that `sessions_spawn` catches ValueError
+- [x] Test that audit endpoints return 503 when not initialized
+- [x] Test that greedy regex fix correctly parses nested JSON
+- [x] Test that HTTP adapter health check returns False for 4xx
 
 ---
 
 ## Definition of Done
 
-- [ ] All 14 items resolved
-- [ ] Zero instances of `except Exception: pass` in the codebase (for Sprint 08–11 files)
-- [ ] All error swallowing replaced with `logger.warning(...)` + `exc_info=True`
-- [ ] Error responses are accurate (not `[]` when system is down)
-- [ ] Deprecated `get_event_loop()` replaced with `get_running_loop()`
-- [ ] All existing tests pass (683+, 1 pre-existing failure)
-- [ ] New observability tests added
+- [x] All 14 items resolved
+- [x] Zero instances of `except Exception: pass` in the codebase (for Sprint 08â€“11 files)
+- [x] All error swallowing replaced with `logger.warning(...)` + `exc_info=True`
+- [x] Error responses are accurate (not `[]` when system is down)
+- [x] Deprecated `get_event_loop()` replaced with `get_running_loop()`
+- [x] All existing tests pass (634 unit passing, 1 skipped, zero regressions)
+- [x] New observability tests added (23 tests in test_td_s6_observability.py)

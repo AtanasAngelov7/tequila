@@ -182,8 +182,8 @@ async def test_sessions_spawn_respects_concurrency_limit(stores):
     from app.agent import sub_agent
     from app.tools.builtin.sessions import sessions_spawn
 
-    # Pre-fill active sub-agents to the cap
-    parent = "_global"
+    # Pre-fill active sub-agents to the cap (parentless calls use "_orphan" bucket — TD-124)
+    parent = "_orphan"
     sub_agent._active[parent] = {f"fake:sub:{i}" for i in range(MAX_CONCURRENT_SUBAGENTS)}
 
     class FakeRouter:

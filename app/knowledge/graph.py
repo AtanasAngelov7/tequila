@@ -192,6 +192,19 @@ class GraphStore:
         metadata: dict[str, Any] | None = None,
     ) -> GraphEdge:
         """Insert or replace an edge (UNIQUE constraint on source/target/edge_type)."""
+        # TD-99: validate node and edge types at write time
+        if source_type not in NODE_TYPES:
+            raise ValueError(
+                f"Invalid source_type: {source_type!r}. Must be one of {sorted(NODE_TYPES)}"
+            )
+        if target_type not in NODE_TYPES:
+            raise ValueError(
+                f"Invalid target_type: {target_type!r}. Must be one of {sorted(NODE_TYPES)}"
+            )
+        if edge_type not in EDGE_TYPES:
+            raise ValueError(
+                f"Invalid edge_type: {edge_type!r}. Must be one of {sorted(EDGE_TYPES)}"
+            )
         now = datetime.now(timezone.utc).isoformat()
         meta_json = json.dumps(metadata or {})
 
@@ -330,6 +343,7 @@ class GraphStore:
             next_frontier: set[str] = set()
             for result in batch_results:
                 if isinstance(result, BaseException):
+                    logger.warning("BFS gather error in get_neighborhood", exc_info=result)
                     continue
                 for edge in result:
                     if edge.id is not None:
