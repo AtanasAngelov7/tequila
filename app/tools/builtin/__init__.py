@@ -21,3 +21,4 @@ def register_all_builtin_tools() -> None:
     from app.tools.builtin import vision  # noqa: F401
     from app.tools.builtin import sessions  # noqa: F401  # Sprint 08
     from app.tools.builtin import knowledge  # noqa: F401  # Sprint 10
+    from app.tools.builtin import memory  # noqa: F401  # Sprint 11

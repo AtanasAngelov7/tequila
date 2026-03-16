@@ -1,6 +1,6 @@
 # Tequila v2 — Developer Docs
 
-**Updated**: March 16, 2026  
+**Updated**: March 17, 2026  
 **Spec**: [tequila_v2_specification.md](./application_reference/tequila_v2_specification.md)  
 **Sprint guide**: [sprints/README.md](./application_reference/sprints/README.md)
 
@@ -19,7 +19,7 @@ This directory documents the *implementation* — what is built, how the pieces 
 
 ## Quick orientation
 
-> **Sprint 10 complete — Phase 4 Memory II done.** 58 new Sprint 10 tests (38 unit + 20 integration, all passing). Extraction pipeline, recursive recall (Stage 1/2/3), knowledge source registry with 4 adapters (ChromaDB, pgvector, FAISS, HTTP), federated search, `kb_search`/`kb_list_sources` agent tools, and full CRUD REST API for knowledge sources are live. See [sprint_10.md](./application_reference/sprints/sprint_10.md) for details.
+> **Sprint 11 complete — Phase 4 Memory III (and Phase 4 gate) done.** 86 new Sprint 11 tests (+67 unit, +19 integration, all passing). Agent memory tools (13 tools: save/update/forget/search/list/pin/unpin/link + entity_*/extract_now), memory lifecycle manager (decay, archive, merge, orphan detection), memory audit trail (16 event types, history API, global feed), and knowledge graph (typed edge store, BFS neighbourhood, semantic similarity builder, full REST API at `/api/graph`) are live. Phase 4 Memory pipeline fully operational: extraction → recall → tools → lifecycle → graph. See [sprint_11.md](./application_reference/sprints/sprint_11.md) for details.
 
 ---
 
@@ -34,6 +34,7 @@ This directory documents the *implementation* — what is built, how the pieces 
 | S08 | Multi-Agent: session tools, sub-agents, workflows | ✅ Done |
 | S09 | Memory I: vault, embeddings, memory data model, entities | ✅ Done |
 | S10 | Memory II: extraction, recall, knowledge sources | ✅ Done |
-| S11+ | … | ⬜ Not started |
+| S11 | Memory III: memory tools, lifecycle, knowledge graph | ✅ Done |
+| S12+ | … | ⬜ Not started |
 
 Full sprint plan: [sprints/README.md](./application_reference/sprints/README.md)

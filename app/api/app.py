@@ -182,6 +182,32 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_recall_pipeline()
     logger.info("RecallPipeline initialised.")
 
+    # 8o. Initialise MemoryAuditLog (Sprint 11).
+    from app.memory.audit import init_memory_audit
+    init_memory_audit(db_conn.get_app_db())
+    logger.info("MemoryAuditLog initialised.")
+
+    # 8p. Initialise GraphStore (Sprint 11).
+    from app.knowledge.graph import init_graph_store
+    init_graph_store(db_conn.get_app_db())
+    logger.info("GraphStore initialised.")
+
+    # 8q. Initialise MemoryLifecycleManager (Sprint 11).
+    from app.memory.lifecycle import init_lifecycle_manager
+    from app.memory.store import get_memory_store as _get_mem
+    from app.memory.entity_store import get_entity_store as _get_ent
+    try:
+        from app.memory.audit import get_memory_audit as _get_audit
+        _audit_ref = _get_audit()
+    except RuntimeError:
+        _audit_ref = None
+    init_lifecycle_manager(
+        memory_store=_get_mem(),
+        entity_store=_get_ent(),
+        audit_log=_audit_ref,
+    )
+    logger.info("MemoryLifecycleManager initialised.")
+
     # 8f. Register all built-in tools (Sprint 06).
     from app.tools.builtin import register_all_builtin_tools
     register_all_builtin_tools()
@@ -293,7 +319,7 @@ def create_app() -> FastAPI:
     # ── Routers ───────────────────────────────────────────────────────────────
     from app.api.routers import system, logs, sessions, messages, setup, agents, providers
     from app.api.routers import vault, memory, entities
-    from app.api.routers import knowledge_sources
+    from app.api.routers import knowledge_sources, graph
     from app.api import ws
     from app.workflows import api as workflows_api
 
@@ -307,8 +333,10 @@ def create_app() -> FastAPI:
     app.include_router(workflows_api.router)
     app.include_router(vault.router)
     app.include_router(memory.router)
+    app.include_router(memory._events_router)
     app.include_router(entities.router)
     app.include_router(knowledge_sources.router)
+    app.include_router(graph.router)
     app.include_router(ws.router)
 
     # ── Static frontend (placeholder) ─────────────────────────────────────────

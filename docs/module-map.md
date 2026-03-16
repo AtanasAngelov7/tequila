@@ -929,6 +929,139 @@ Both tools have `safety="read_only"` and degrade gracefully when registry is not
 
 ---
 
+## Sprint 11 — Memory III: Memory Tools, Lifecycle & Knowledge Graph *(§5.7–§5.9, §5.11)*
+
+### `app/memory/audit.py` *(Sprint 11)*
+
+**Responsibility**: Append-only audit trail for all memory and entity mutations. Persists to the `memory_events` table.
+
+**Key exports:**
+
+| Symbol | Type | Purpose |
+|--------|------|---------|
+| `EVENT_TYPES` | Literal | 16 event types: `created`, `updated`, `merged`, `promoted`, `archived`, `deleted`, `accessed`, `pinned`, `unpinned`, `conflict_detected`, `conflict_resolved`, `entity_created`, `entity_merged`, `entity_updated`, `decay_recalculated`, `consolidated` |
+| `ACTOR_TYPES` | Literal | 6 actor types: `extraction_pipeline`, `consolidation`, `recall`, `agent`, `user`, `system` |
+| `MemoryEvent` | Pydantic model | `id, memory_id?, entity_id?, event_type, actor, actor_id?, old_content?, new_content?, reason?, metadata{}, timestamp`; `from_row(cls, row)` classmethod |
+| `MemoryAuditLog` | class | `log(...)` → `MemoryEvent`; `get_memory_history(memory_id, limit)` → newest-first; `get_entity_history(entity_id, limit)`; `get_global_feed(event_type?, actor?, since?, limit, offset)` |
+| `init_memory_audit(db)` | fn | Creates and stores singleton (variable `_audit`) |
+| `get_memory_audit()` | fn | Returns singleton; raises `RuntimeError` if not init |
+
+**Spec ref**: §5.9
+
+---
+
+### `app/memory/lifecycle.py` *(Sprint 11)*
+
+**Responsibility**: Periodic memory maintenance — decay, archive, task expiry, near-duplicate merge, orphan detection.
+
+**Key exports:**
+
+| Symbol | Type | Purpose |
+|--------|------|---------|
+| `MemoryDecayConfig` | Pydantic model | `enabled, half_life_days=90, floor=0.1, access_resets_decay, always_recall_immune, task_post_expiry_decay_days=7` |
+| `ConsolidationConfig` | Pydantic model | `enabled, merge_threshold=0.92, summarize_threshold=10, archive_threshold=0.15, orphan_report_after_days=60, batch_size=50` |
+| `MemoryLifecycleManager` | class | `run_decay()`, `run_archive()`, `run_expire_tasks()`, `run_merge()`, `run_orphan_report()`, `run_all()` |
+| `init_lifecycle_manager(...)` | fn | Creates singleton wired to memory/entity stores and audit log |
+| `get_lifecycle_manager()` | fn | Returns singleton; raises `RuntimeError` if not init |
+
+Decay formula: $\text{score} = \max(\text{floor},\ 0.5^{d / h})$ where $d$ = days since last access, $h$ = half-life in days.
+
+**Spec ref**: §5.8, §20.5
+
+---
+
+### `app/knowledge/graph.py` *(Sprint 11)*
+
+**Responsibility**: Knowledge graph edge store — typed directed edges between any node IDs, BFS neighbourhood queries, semantic similarity edge builder, shortest-path finder.
+
+**Key exports:**
+
+| Symbol | Type | Purpose |
+|--------|------|---------|
+| `GraphEdge` | Pydantic model | `id?, source_id, source_type, target_id, target_type, edge_type, weight=1.0, label?, metadata{}, created_at`; `from_row(cls, row)` |
+| `GraphNode` | Pydantic model | `id, node_type, label, metadata{}, created_at, updated_at?` |
+| `GraphStats` | Pydantic model | `total_nodes, total_edges, node_counts{}, edge_counts{}, orphan_count, most_connected[]` |
+| `KnowledgeGraph` | Pydantic model | `nodes[], edges[], stats` |
+| `GraphStore` | class | `add_edge` (UPSERT), `get_edge`, `delete_edge`, `delete_edges_for_node`, `get_neighbors`, `get_neighborhood` (BFS), `list_edges`, `get_stats`, `rebuild_semantic_edges`, `shortest_path` |
+| `init_graph_store(db)` | fn | Creates singleton |
+| `get_graph_store()` | fn | Returns singleton; raises `RuntimeError` if not init |
+
+Graph edges stored in `graph_edges` table (AUTOINCREMENT integer PK, UNIQUE `(source_id, target_id, edge_type)`).
+
+**Spec ref**: §5.11
+
+---
+
+### `app/tools/builtin/memory.py` *(Sprint 11)*
+
+**Responsibility**: 13 agent memory tools registered via `@tool` decorator. All store access is lazy (imports inside function body).
+
+**Tools:**
+
+| Tool | Safety | Description |
+|------|--------|-------------|
+| `memory_save` | `side_effect` | Create `MemoryExtract`; returns `mem.id` |
+| `memory_update` | `side_effect` | Modify existing memory fields |
+| `memory_forget` | `destructive` | Soft-delete + audit event |
+| `memory_search` | `read_only` | Embedding search → FTS fallback |
+| `memory_list` | `read_only` | List with type/entity filters; `[pinned]` badge |
+| `memory_pin` | `side_effect` | `store.update(id, pinned=True)` |
+| `memory_unpin` | `side_effect` | `store.update(id, pinned=False)` |
+| `memory_link` | `side_effect` | Link memory to entity OR create graph edge |
+| `entity_create` | `side_effect` | `EntityStore.create()` |
+| `entity_merge` | `side_effect` | Transfer aliases + memory links |
+| `entity_update` | `side_effect` | `EntityStore.update()` |
+| `entity_search` | `read_only` | `EntityStore.list()` |
+| `memory_extract_now` | `side_effect` | Run `ExtractionPipeline.run()` immediately |
+
+Patch paths for tests: `app.memory.store.get_memory_store`, `app.memory.entity_store.get_entity_store`, etc. (not `app.tools.builtin.memory.*`).
+
+**Spec ref**: §5.7
+
+---
+
+### `app/api/routers/graph.py` *(Sprint 11)*
+
+**Responsibility**: Knowledge graph REST API. Prefix `/api/graph`.
+
+**Endpoints:**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/graph` | List edges (source_type, target_type, edge_type, since, limit, offset filters) |
+| `GET` | `/api/graph/stats` | `GraphStats` |
+| `GET` | `/api/graph/orphans` | Memory + entity IDs with no edges |
+| `GET` | `/api/graph/node/{id}` | Direct neighbours of a node |
+| `GET` | `/api/graph/node/{id}/neighborhood` | BFS neighbourhood (`?depth=2`) |
+| `POST` | `/api/graph/edges` | Add edge (201); body: `AddEdgeRequest` |
+| `DELETE` | `/api/graph/edges/{edge_id}` | Remove edge by AUTOINCREMENT id (204) |
+| `POST` | `/api/graph/rebuild` | Rebuild semantic similarity edges (`?threshold=0.82`) |
+
+**Spec ref**: §5.11
+
+---
+
+### Memory events sub-router *(Sprint 11 — `app/api/routers/memory.py`)*
+
+**Additions to** `app/api/routers/memory.py`:
+- `GET /api/memory/{memory_id}/history` — audit event timeline for one memory
+- `GET /api/memory-events` — global paginated event feed (`?event_type=`, `?actor=`, `?since=`, `?limit=`, `?offset=`)
+
+The second router is exported as `_events_router` and mounted separately in `app/api/app.py`.
+
+---
+
+### `alembic/versions/0011_sprint11_memory_graph.py` *(Sprint 11)*
+
+| Table | Key Columns |
+|-------|------------|
+| `memory_events` | `id TEXT PK`, `memory_id TEXT`, `entity_id TEXT`, `event_type TEXT NOT NULL`, `actor TEXT NOT NULL DEFAULT 'system'`, `actor_id TEXT`, `old_content TEXT`, `new_content TEXT`, `reason TEXT`, `metadata TEXT DEFAULT '{}'`, `timestamp TEXT DEFAULT (datetime('now'))` |
+| `graph_edges` | `id INTEGER PK AUTOINCREMENT`, `source_id TEXT NOT NULL`, `source_type TEXT NOT NULL`, `target_id TEXT NOT NULL`, `target_type TEXT NOT NULL`, `edge_type TEXT NOT NULL`, `weight REAL DEFAULT 1.0`, `label TEXT`, `metadata TEXT DEFAULT '{}'`, `created_at TEXT DEFAULT (datetime('now'))`, UNIQUE `(source_id, target_id, edge_type)` |
+
+Revision chain: `0010` → `0011`.
+
+---
+
 | File | What it covers |
 |------|----------------|
 | `test_budget.py` | Budget tracker (stub — Sprint 14) |
@@ -956,6 +1089,12 @@ Both tools have `safety="read_only"` and degrade gracefully when registry is not
 | `unit/test_knowledge_sources.py` | KnowledgeSource model, QueryMode, KnowledgeChunk, HTTP adapter, registry CRUD, singleton *(Sprint 10)* |
 | `integration/test_extraction_recall.py` | Extraction + recall end-to-end via test app: KB registration, source CRUD, activate/deactivate, stats *(Sprint 10)* |
 | `integration/test_federation.py` | Federation search, mock adapter injection, agent tool registration *(Sprint 10)* |
+| `unit/test_memory_audit.py` | `MemoryAuditLog` log/history/feed/pagination, singleton init/get *(Sprint 11)* |
+| `unit/test_knowledge_graph.py` | `GraphStore` edge CRUD/UPSERT, neighbors (direction + weight), BFS neighbourhood depth 1 vs 2, stats (empty + populated), singleton *(Sprint 11)* |
+| `unit/test_lifecycle.py` | `_compute_decay` formula (4 cases), run_decay/archive/expire_tasks/orphan_report, singleton *(Sprint 11)* |
+| `unit/test_memory_tools.py` | All 13 memory agent tools (save/update/forget/search/list/pin/unpin/link/entity_*/extract_now) *(Sprint 11)* |
+| `integration/test_memory_lifecycle.py` | Lifecycle pipeline via test app: decay config, run_decay, run_archive, orphan report, run_all *(Sprint 11)* |
+| `integration/test_graph_recall.py` | Graph REST API (POST/GET/DELETE edges, stats, neighborhood) + audit events + memory history *(Sprint 11)* |
 
 All tests use `pytest` with `asyncio_mode = "auto"`. Run: `.venv\Scripts\python.exe -m pytest tests/ -v --tb=short`
 
