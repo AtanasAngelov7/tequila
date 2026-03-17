@@ -100,6 +100,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <div style={navLinkStyle('/soul-editor')} role="button" tabIndex={0} onClick={() => navigate('/soul-editor')}>
               ✨ Soul Editor
             </div>
+            <div style={navLinkStyle('/notifications')} role="button" tabIndex={0} onClick={() => navigate('/notifications')}>
+              🔔 Notifications
+            </div>
+            <div style={navLinkStyle('/audit')} role="button" tabIndex={0} onClick={() => navigate('/audit')}>
+              📋 Audit Log
+            </div>
+            <div style={navLinkStyle('/budget')} role="button" tabIndex={0} onClick={() => navigate('/budget')}>
+              💰 Budget
+            </div>
+            <div style={navLinkStyle('/backup')} role="button" tabIndex={0} onClick={() => navigate('/backup')}>
+              💾 Backup
+            </div>
           </div>
         </aside>
       )}

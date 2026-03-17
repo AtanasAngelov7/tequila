@@ -256,6 +256,44 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_soul_editor(db_conn.get_app_db())
     logger.info("SoulEditor initialised.")
 
+    # 8w. Initialise NotificationStore (Sprint 14b D1).
+    from app.notifications import init_notification_store
+    _notif_store = init_notification_store(db_conn.get_app_db())
+    await _notif_store.seed_default_preferences()
+    logger.info("NotificationStore initialised and preferences seeded.")
+
+    # 8x. Initialise BudgetTracker (Sprint 14b D3).
+    from app.budget import init_budget_tracker
+    from app.gateway.events import ET as _ET
+    _budget_tracker = init_budget_tracker(db_conn.get_app_db())
+    await _budget_tracker.seed_default_pricing()
+    get_router().on(_ET.BUDGET_TURN_COST, _budget_tracker.handle_turn_cost)
+    logger.info("BudgetTracker initialised and subscribed to BUDGET_TURN_COST.")
+
+    # 8y. Initialise AuditSinkManager (Sprint 14b D2).
+    from app.audit.sinks import init_audit_sink_manager
+    _sink_mgr = init_audit_sink_manager(db_conn.get_app_db())
+    await _sink_mgr.seed_default_sinks()
+    await _sink_mgr.apply_retention()
+    logger.info("AuditSinkManager initialised and retention applied.")
+
+    # 8z. Initialise AppLockManager (Sprint 14b D4).
+    from app.auth.app_lock import init_app_lock
+    _app_lock = init_app_lock(db_conn.get_app_db())
+    await _app_lock.start_idle_watcher()
+    logger.info("AppLockManager initialised with idle watcher.")
+
+    # 8z1. Initialise NotificationDispatcher (Sprint 14b D1).
+    from app.notifications import init_notification_dispatcher, get_notification_dispatcher as _get_nd
+    init_notification_dispatcher(db_conn.get_app_db(), get_router())
+    _budget_tracker.wire_notifier(_get_nd())
+    logger.info("NotificationDispatcher initialised and wired to BudgetTracker.")
+
+    # 8z2. Initialise BackupManager (Sprint 14b D5).
+    from app.backup import init_backup_manager
+    init_backup_manager(db_conn.get_app_db())
+    logger.info("BackupManager initialised.")
+
     # 9. Start background idle-detection task (§3.7).
     _idle_task = asyncio.create_task(idle_detection_task())
 
@@ -291,6 +329,13 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         from app.plugins.discovery import stop_watcher as _stop_disc
         await _stop_disc()
     except Exception:  # noqa: BLE001
+        pass
+
+    # Stop AppLock idle watcher (Sprint 14b).
+    try:
+        from app.auth.app_lock import get_app_lock as _get_lock
+        await _get_lock().stop_idle_watcher()
+    except RuntimeError:
         pass
 
     # Stop scheduler (Sprint 13).
@@ -386,6 +431,11 @@ def create_app() -> FastAPI:
     from app.api.routers import knowledge_sources, graph
     from app.api.routers import skills as skills_router, tool_groups as tool_groups_router
     from app.api.routers import soul_editor as soul_editor_router
+    from app.api.routers import notifications as notifications_router
+    from app.api.routers import budget as budget_router
+    from app.api.routers import audit as audit_router
+    from app.api.routers import app_lock as app_lock_router
+    from app.api.routers import backup as backup_router
     from app.api import ws
     from app.workflows import api as workflows_api
     from app.auth import api as auth_api
@@ -414,6 +464,11 @@ def create_app() -> FastAPI:
     app.include_router(skills_router.router)
     app.include_router(tool_groups_router.router)
     app.include_router(soul_editor_router.router)
+    app.include_router(notifications_router.router)
+    app.include_router(budget_router.router)
+    app.include_router(audit_router.router)
+    app.include_router(app_lock_router.router)
+    app.include_router(backup_router.router)
     app.include_router(ws.router)
 
     # ── Static frontend (placeholder) ─────────────────────────────────────────

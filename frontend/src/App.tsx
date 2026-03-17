@@ -11,6 +11,10 @@ import SchedulerPage from './pages/SchedulerPage';
 import WebSettingsPage from './pages/WebSettingsPage';
 import SkillManagerPage from './pages/SkillManagerPage';
 import SoulEditorPage from './pages/SoulEditorPage';
+import NotificationsPage from './pages/NotificationsPage';
+import AuditLogPage from './pages/AuditLogPage';
+import BudgetPage from './pages/BudgetPage';
+import BackupPage from './pages/BackupPage';
 import { wsClient } from './api/ws';
 import { shortcutManager } from './lib/shortcuts';
 import { applyTheme, watchSystemTheme } from './lib/theme';
@@ -157,6 +161,38 @@ function MainApp() {
         element={
           <AppLayout>
             <SoulEditorPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/notifications"
+        element={
+          <AppLayout>
+            <NotificationsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/audit"
+        element={
+          <AppLayout>
+            <AuditLogPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/budget"
+        element={
+          <AppLayout>
+            <BudgetPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/backup"
+        element={
+          <AppLayout>
+            <BackupPage />
           </AppLayout>
         }
       />

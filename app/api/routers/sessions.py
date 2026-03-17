@@ -1,4 +1,4 @@
-"""REST API for session management (§3.2, §3.7, §13.1) — Sprint 05.
+"""REST API for session management (§3.2, §3.7, §13.1, §13.4) — Sprint 05 / 14b.
 
 Endpoints:
   POST   /api/sessions                    — create session
@@ -10,12 +10,13 @@ Endpoints:
   POST   /api/sessions/{session_id}/unarchive     — restore from archive
   POST   /api/sessions/{session_id}/regenerate    — regenerate last response
   POST   /api/sessions/{session_id}/edit          — edit user message + resubmit
+  GET    /api/sessions/{session_id}/export        — export transcript (§13.4)
 """
 from __future__ import annotations
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 
 from app.api.deps import require_gateway_token
@@ -320,6 +321,46 @@ async def regenerate_response(
 
     return BranchResponse(status="started", session_id=session_id)
 
+
+# ── Export (§13.4) ────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/{session_id}/export",
+    dependencies=[Depends(require_gateway_token)],
+)
+async def export_session(
+    session_id: str,
+    format: Literal["markdown", "json", "pdf"] = Query(default="markdown"),
+    include_tool_calls: bool = Query(default=False),
+    include_system_messages: bool = Query(default=False),
+    include_costs: bool = Query(default=False),
+) -> Response:
+    """Export session transcript as Markdown, JSON, or PDF (§13.4)."""
+    from app.sessions.export import ExportOptions, SessionExporter
+    from app.sessions.messages import get_message_store
+
+    opts = ExportOptions(
+        include_tool_calls=include_tool_calls,
+        include_system_messages=include_system_messages,
+        include_costs=include_costs,
+    )
+    exporter = SessionExporter(get_session_store(), get_message_store())
+
+    if format == "json":
+        data = await exporter.export_json(session_id, opts)
+        import json as _json
+        return Response(content=_json.dumps(data, indent=2), media_type="application/json")
+    elif format == "pdf":
+        pdf_bytes = await exporter.export_pdf(session_id, opts)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=\"session_{session_id}.pdf\""},
+        )
+    else:
+        md = await exporter.export_markdown(session_id, opts)
+        return Response(content=md, media_type="text/markdown")
 
 @router.post("/{session_id}/edit", response_model=BranchResponse, status_code=202)
 async def edit_and_resubmit(
