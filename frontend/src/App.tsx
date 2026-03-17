@@ -9,6 +9,8 @@ import PluginsPage from './pages/PluginsPage';
 import AuthSettingsPage from './pages/AuthSettingsPage';
 import SchedulerPage from './pages/SchedulerPage';
 import WebSettingsPage from './pages/WebSettingsPage';
+import SkillManagerPage from './pages/SkillManagerPage';
+import SoulEditorPage from './pages/SoulEditorPage';
 import { wsClient } from './api/ws';
 import { shortcutManager } from './lib/shortcuts';
 import { applyTheme, watchSystemTheme } from './lib/theme';
@@ -139,6 +141,22 @@ function MainApp() {
         element={
           <AppLayout>
             <WebSettingsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/skills"
+        element={
+          <AppLayout>
+            <SkillManagerPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/soul-editor"
+        element={
+          <AppLayout>
+            <SoulEditorPage />
           </AppLayout>
         }
       />

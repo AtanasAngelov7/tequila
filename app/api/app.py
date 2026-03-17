@@ -245,6 +245,17 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await start_watcher(_plugin_registry)
     logger.info("Plugin discovery watcher started.")
 
+    # 8u. Initialise SkillStore (Sprint 14a).
+    from app.agent.skills import init_skill_store
+    skill_store = init_skill_store(db_conn.get_app_db())
+    await skill_store.seed_builtins()
+    logger.info("SkillStore initialised and built-ins seeded.")
+
+    # 8v. Initialise SoulEditor (Sprint 14a).
+    from app.agent.soul_editor import init_soul_editor
+    init_soul_editor(db_conn.get_app_db())
+    logger.info("SoulEditor initialised.")
+
     # 9. Start background idle-detection task (§3.7).
     _idle_task = asyncio.create_task(idle_detection_task())
 
@@ -373,6 +384,8 @@ def create_app() -> FastAPI:
     from app.api.routers import system, logs, sessions, messages, setup, agents, providers
     from app.api.routers import vault, memory, entities
     from app.api.routers import knowledge_sources, graph
+    from app.api.routers import skills as skills_router, tool_groups as tool_groups_router
+    from app.api.routers import soul_editor as soul_editor_router
     from app.api import ws
     from app.workflows import api as workflows_api
     from app.auth import api as auth_api
@@ -398,6 +411,9 @@ def create_app() -> FastAPI:
     app.include_router(plugins_api.router)
     app.include_router(scheduler_api.router)
     app.include_router(web_policy.router)
+    app.include_router(skills_router.router)
+    app.include_router(tool_groups_router.router)
+    app.include_router(soul_editor_router.router)
     app.include_router(ws.router)
 
     # ── Static frontend (placeholder) ─────────────────────────────────────────

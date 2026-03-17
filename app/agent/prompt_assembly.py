@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.agent.models import AgentConfig, ContextBudgetConfig
+from app.agent.skills import SessionSkillState
 from app.agent.soul import render_soul_prompt
 from app.providers.base import Message, ToolDef
 
@@ -49,6 +50,10 @@ class AssemblyContext:
     knowledge_context: str = ""
     skill_index: str = ""
     active_skills: str = ""
+    active_skill_ids: list[str] = field(default_factory=list)
+    """Skill IDs that were activated this turn (populated by Step 0)."""
+    session_skill_state: SessionSkillState = field(default_factory=SessionSkillState)
+    """Per-session manual skill overrides (manually_activated / manually_deactivated)."""
     file_context: str = ""
 
     # ── Token budget tracking ──────────────────────────────────────────────
@@ -99,6 +104,34 @@ async def assemble_prompt(ctx: AssemblyContext) -> list[Message]:
     """
     budget = ctx.budget()
     messages: list[Message] = []
+
+    # ── Step 0: Resolve skill context (§4.5.2 steps 4a + 4b) ─────────────
+    # Populate skill_index (Level 1) and active_skills (Level 2) before the
+    # system prompt is rendered in Step 1 (both are embedded via Jinja2 slots).
+    if not ctx.skill_index and ctx.agent_config.skills:
+        try:
+            from app.agent.skills import get_skill_store, get_skill_engine
+            _skill_store = get_skill_store()
+            _engine = get_skill_engine()
+            _agent_skills = await _skill_store.get_skills_for_agent(ctx.agent_config.skills)
+            # Step 4a: Level 1 index for all assigned skills
+            ctx.skill_index = _engine.render_skill_index(
+                _agent_skills, budget.skill_index_budget
+            )
+            # Step 4b: Level 2 instructions for active skills
+            _active_text, _active_ids = _engine.resolve_active_skills(
+                _agent_skills,
+                ctx.user_message,
+                ctx.session_skill_state,
+                ctx.agent_config.tools,
+                budget.skill_instruction_budget,
+            )
+            ctx.active_skills = _active_text
+            ctx.active_skill_ids = _active_ids
+        except RuntimeError:
+            pass  # SkillStore not initialised — skip gracefully
+        except Exception as _exc:
+            logger.warning("Skill resolution failed (non-fatal): %s", _exc)
 
     # ── Step 1: System prompt render ──────────────────────────────────────
     tools_block = _format_tools_for_prompt(ctx.tools)
@@ -152,11 +185,16 @@ async def assemble_prompt(ctx: AssemblyContext) -> list[Message]:
             messages.append(Message(role="assistant", content="Noted."))
             ctx.tokens_used += tokens
 
-    # ── Step 4: Skill descriptions ────────────────────────────────────────
+    # ── Step 4: Track skill token budget (already embedded in system prompt) ──
+    # Level 1 (skill_index) and Level 2 (active_skills) are injected into the
+    # system prompt via Jinja2 template slots in Step 1.  Here we track their
+    # token cost against the respective budgets.
     if ctx.skill_index:
-        tokens = _estimate_tokens(ctx.skill_index)
-        if tokens <= budget.skill_index_budget and ctx.remaining() > tokens:
-            ctx.tokens_used += tokens  # already embedded in system prompt above
+        idx_tokens = _estimate_tokens(ctx.skill_index)
+        ctx.tokens_used += min(idx_tokens, budget.skill_index_budget)
+    if ctx.active_skills:
+        instr_tokens = _estimate_tokens(ctx.active_skills)
+        ctx.tokens_used += min(instr_tokens, budget.skill_instruction_budget)
 
     # ── Step 5: Tool definitions ──────────────────────────────────────────
     # Tool defs are passed separately to provider.stream_completion() as

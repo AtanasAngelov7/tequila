@@ -42,5 +42,6 @@ This directory documents the *implementation* — what is built, how the pieces 
 | S11 | Memory III: memory tools, lifecycle, knowledge graph | ✅ Done |
 | S12 | Plugins I: plugin system, auth, Telegram, Gmail, SMTP/IMAP, Calendar, Webhooks | ✅ Done |
 | S13+ | … | ✅ Done (S13) |
+| S14a | Skills System (3-level progressive disclosure), Soul Editor, Tool Groups API | ✅ Done |
 
 Full sprint plan: [sprints/README.md](./application_reference/sprints/README.md)

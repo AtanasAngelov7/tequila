@@ -94,6 +94,12 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <div style={navLinkStyle('/web-settings')} role="button" tabIndex={0} onClick={() => navigate('/web-settings')}>
               🌐 Web Settings
             </div>
+            <div style={navLinkStyle('/skills')} role="button" tabIndex={0} onClick={() => navigate('/skills')}>
+              🧩 Skills
+            </div>
+            <div style={navLinkStyle('/soul-editor')} role="button" tabIndex={0} onClick={() => navigate('/soul-editor')}>
+              ✨ Soul Editor
+            </div>
           </div>
         </aside>
       )}
