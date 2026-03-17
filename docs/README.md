@@ -20,6 +20,8 @@ This directory documents the *implementation* — what is built, how the pieces 
 
 ## Quick orientation
 
+> **Sprint 12 complete — Phase 5 (Plugins I) done.** 115 new tests (+93 unit, +16 integration, all passing). Plugin system core (PluginBase ABC, registry singleton, health-check loop, CRUD API at `/api/plugins/*`), auth provider key management with Fernet encryption at rest (`/api/auth/*`), and 5 built-in connector plugins (Telegram, Gmail, SMTP/IMAP, Google Calendar, Webhooks) are live. Frontend: Plugins management page (`/plugins`) and Auth settings page (`/auth`) with nav links added. Full suite: **975 passed, 1 skipped** (1 pre-existing failure, 3 pre-existing timeouts). See [sprint_12.md](./application_reference/sprints/sprint_12.md) for details.
+
 > **Sprint 11 complete — Phase 4 Memory III (and Phase 4 gate) done.** 86 new Sprint 11 tests (+67 unit, +19 integration, all passing). Agent memory tools (13 tools: save/update/forget/search/list/pin/unpin/link + entity_*/extract_now), memory lifecycle manager (decay, archive, merge, orphan detection), memory audit trail (16 event types, history API, global feed), and knowledge graph (typed edge store, BFS neighbourhood, semantic similarity builder, full REST API at `/api/graph`) are live. Phase 4 Memory pipeline fully operational: extraction → recall → tools → lifecycle → graph. See [sprint_11.md](./application_reference/sprints/sprint_11.md) for details.
 
 > **TD-S1–S7 complete — all 95 tech-debt items from Sprints 08–11 resolved.** 667 unit tests passing (1 skipped). Sub-sprints covered: data integrity constraints, indexes, session tools, error handling, observability, and design/code quality. See [tech_debt/](./application_reference/tech_debt/) for per-sprint docs.
@@ -38,6 +40,7 @@ This directory documents the *implementation* — what is built, how the pieces 
 | S09 | Memory I: vault, embeddings, memory data model, entities | ✅ Done |
 | S10 | Memory II: extraction, recall, knowledge sources | ✅ Done |
 | S11 | Memory III: memory tools, lifecycle, knowledge graph | ✅ Done |
-| S12+ | … | ⬜ Not started |
+| S12 | Plugins I: plugin system, auth, Telegram, Gmail, SMTP/IMAP, Calendar, Webhooks | ✅ Done |
+| S13+ | … | ✅ Done (S13) |
 
 Full sprint plan: [sprints/README.md](./application_reference/sprints/README.md)

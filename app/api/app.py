@@ -94,6 +94,16 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     set_config_store(config_store)
     logger.info("ConfigStore hydrated.")
 
+    # 6b. Initialise credential encryption (Sprint 12).
+    from app.auth.encryption import init_encryption, generate_key
+    _enc_key = config_store.get("auth.encryption_key", None)
+    if not _enc_key:
+        _enc_key = generate_key()
+        await config_store.set("auth.encryption_key", _enc_key)
+        logger.info("Generated new Fernet encryption key.")
+    init_encryption(_enc_key)
+    logger.info("Credential encryption ready.")
+
     # 7. Initialise GatewayRouter.
     from app.gateway.router import init_router
     init_router()
@@ -213,6 +223,28 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     register_all_builtin_tools()
     logger.info("Built-in tools registered.")
 
+    # 8r. Initialise PluginRegistry (Sprint 12).
+    from app.plugins.registry import init_plugin_registry
+    _plugin_registry = await init_plugin_registry(db_conn.get_app_db())
+    await _plugin_registry.start(gateway=get_router())
+    logger.info("PluginRegistry started.")
+
+    # 8s. Initialise Scheduler (Sprint 13, §20.8).
+    from app.scheduler.engine import init_scheduler
+    _scheduler = await init_scheduler(db_conn.get_app_db())
+    await _scheduler.start()
+    logger.info("Scheduler started.")
+
+    # 8t. Auto-discover custom plugins from data/plugins/ (Sprint 13, D6).
+    from app.plugins.discovery import discover_plugins, start_watcher
+    for _cls in discover_plugins():
+        try:
+            _plugin_registry.register_class(_cls)
+        except Exception as _e:  # noqa: BLE001
+            logger.warning("Could not register discovered plugin %r: %s", _cls, _e)
+    await start_watcher(_plugin_registry)
+    logger.info("Plugin discovery watcher started.")
+
     # 9. Start background idle-detection task (§3.7).
     _idle_task = asyncio.create_task(idle_detection_task())
 
@@ -241,6 +273,27 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         await _idle_task
     except asyncio.CancelledError:
+        pass
+
+    # Stop discovery watcher (Sprint 13).
+    try:
+        from app.plugins.discovery import stop_watcher as _stop_disc
+        await _stop_disc()
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Stop scheduler (Sprint 13).
+    try:
+        from app.scheduler.engine import get_scheduler as _get_sched
+        await _get_sched().stop()
+    except RuntimeError:
+        pass
+
+    # Stop plugin registry (Sprint 12).
+    try:
+        from app.plugins.registry import get_plugin_registry as _get_pr
+        await _get_pr().stop()
+    except RuntimeError:
         pass
 
     from app.gateway.router import get_router
@@ -322,6 +375,10 @@ def create_app() -> FastAPI:
     from app.api.routers import knowledge_sources, graph
     from app.api import ws
     from app.workflows import api as workflows_api
+    from app.auth import api as auth_api
+    from app.plugins import api as plugins_api
+    from app.scheduler import api as scheduler_api
+    from app.api.routers import web_policy
 
     app.include_router(system.router)
     app.include_router(logs.router)
@@ -337,6 +394,10 @@ def create_app() -> FastAPI:
     app.include_router(entities.router)
     app.include_router(knowledge_sources.router)
     app.include_router(graph.router)
+    app.include_router(auth_api.router)
+    app.include_router(plugins_api.router)
+    app.include_router(scheduler_api.router)
+    app.include_router(web_policy.router)
     app.include_router(ws.router)
 
     # ── Static frontend (placeholder) ─────────────────────────────────────────

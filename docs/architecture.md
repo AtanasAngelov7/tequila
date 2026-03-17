@@ -55,15 +55,18 @@ app/db/schema.py      ─── schema introspection helpers used by Alembic env
 4. Alembic migrations run (alembic upgrade head)                     [alembic/]
 5. GatewayRouter initialised and started                             [app.gateway.router.init_router]
 6. ConfigStore hydrated from `config` table                          [app.config.ConfigStore]
+6b. Encryption key initialised (Fernet); generated if absent         [app.auth.encryption.init_encryption]
 7. FastAPI routers registered                                        [app.api.app]
 8. HTTP server ready — uvicorn accepts connections
+8r. PluginRegistry created; built-in plugins registered; health loop started [app.plugins.registry.init_plugin_registry]
 ```
 
 On shutdown (SIGTERM / KeyboardInterrupt):
 
 ```
-1. GatewayRouter stopped (drain in-flight events)
-2. Database connection closed cleanly
+1. PluginRegistry stopped (deactivate all active plugins)
+2. GatewayRouter stopped (drain in-flight events)
+3. Database connection closed cleanly
 ```
 
 ---
@@ -119,6 +122,48 @@ GatewayRouter.emit()
                 │
                 ▼
            AgentRuntime.handle_turn()  [Sprint 04+]
+```
+
+---
+
+## Plugin System *(Sprint 12, §8.0–§8.9)*
+
+All connectors inherit from `PluginBase` and are managed by a singleton `PluginRegistry`.
+
+```
+PluginRegistry  (app/plugins/registry.py)
+      │
+      ├─ register(plugin_id, PluginBase instance)
+      │
+      ├─ install()  → PluginStore.save_plugin()
+      ├─ activate() → plugin.configure() → plugin.activate(gateway)
+      ├─ deactivate() → plugin.deactivate()
+      └─ health loop (every 300 s) → plugin.health()
+                │ 3 consecutive failures
+                └─────► auto-deactivate + status = "error"
+
+Built-in plugins auto-registered at startup:
+  webhooks, telegram, smtp_imap, gmail, google_calendar
+```
+
+**Encryption layer** (`app/auth/encryption.py`):
+
+```
+Fernet(key)  ←  init_encryption(b64_key) called in lifespan step 6b
+      │
+      ├─ encrypt_credential(plain_text) → base64 token  (stored in plugin_credentials)
+      └─ decrypt_credential(token)      → plain_text    (never returned via API)
+```
+
+**Auth provider keys** (`app/auth/providers.py`):
+
+```
+POST /api/auth/providers/{provider}/key
+      │
+      ├─ encrypt_credential(key)
+      └─ PluginStore.save_credential(plugin_id="__auth__", key="api_key:{provider}", ...)
+
+GET /api/auth/providers  → list configured providers (no plaintext exposure)
 ```
 
 ---

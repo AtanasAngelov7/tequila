@@ -2,7 +2,7 @@
 
 **Phase**: 5 – Plugins & Integrations (II) (**Phase Gate Sprint**)
 **Duration**: 2 weeks
-**Status**: ⬜ Not Started
+**Status**: ✅ Done
 **Build Sequence Items**: BS-41, BS-42, BS-43, BS-44, BS-45, BS-46, BS-47
 
 > **📖 Spec reference**: For full design context, data models, and acceptance details, consult [tequila_v2_specification.md](../tequila_v2_specification.md) at the §-sections listed in the Spec References table below.
@@ -165,70 +165,70 @@ Deliver the second wave of plugins: documents (PDF, Office, HTML presentations, 
 ## Tasks
 
 ### Backend — Documents Plugin
-- [ ] Create `app/plugins/builtin/documents/` package
-- [ ] Implement PDF reading tools (PyMuPDF + pymupdf4llm)
-- [ ] Implement PDF manipulation tools (pypdf)
-- [ ] Implement PDF creation tools (fpdf2)
-- [ ] Implement PowerPoint tools (python-pptx): create, open, edit, templates, from_markdown
-- [ ] Implement HTML presentation tools (reveal.js): create, from_markdown, preview — bundle reveal.js assets in `documents/reveal_assets/`
-- [ ] Implement Word document tools (python-docx): create, open, edit, from_markdown
-- [ ] Implement Spreadsheet tools (openpyxl): create, open, edit
-- [ ] Implement CSV/TSV tools (DuckDB for SQL queries)
-- [ ] Implement data analysis + charting (matplotlib)
-- [ ] Smart context injection routing (MIME → tool auto-preview)
+- [x] Create `app/plugins/builtin/documents/` package
+- [x] Implement PDF reading tools (PyMuPDF + pymupdf4llm)
+- [x] Implement PDF manipulation tools (pypdf)
+- [x] Implement PDF creation tools (fpdf2)
+- [x] Implement PowerPoint tools (python-pptx): create, open, edit, templates, from_markdown
+- [x] Implement HTML presentation tools (reveal.js): create, from_markdown, preview — bundle reveal.js assets in `documents/reveal_assets/`
+- [x] Implement Word document tools (python-docx): create, open, edit, from_markdown
+- [x] Implement Spreadsheet tools (openpyxl): create, open, edit
+- [x] Implement CSV/TSV tools (DuckDB for SQL queries)
+- [x] Implement data analysis + charting (matplotlib)
+- [x] Smart context injection routing (MIME → tool auto-preview)
 
 ### Backend — Browser Plugin
-- [ ] Create `app/plugins/builtin/browser/` package
-- [ ] Implement core browser tools (launch, navigate, click, type, screenshot)
-- [ ] Implement advanced tools (evaluate, wait, scroll, form fill)
-- [ ] Implement browser profiles (persistent cookies)
-- [ ] Vision-based interaction (screenshot → vision → coordinates)
-- [ ] Full-mode web_fetch via Playwright
+- [x] Create `app/plugins/builtin/browser/` package
+- [x] Implement core browser tools (launch, navigate, click, type, screenshot)
+- [x] Implement advanced tools (evaluate, wait, scroll, form fill)
+- [x] Implement browser profiles (persistent cookies)
+- [x] Vision-based interaction (screenshot → vision → coordinates)
+- [x] Full-mode web_fetch via Playwright
 
 ### Backend — Web Access Polish
-- [ ] Implement additional search providers (Brave, Tavily, Google, Bing, SearXNG)
-- [ ] Search provider selector in SearchConfig
-- [ ] URL blocklist/allowlist enforcement
+- [x] Implement additional search providers (Brave, Tavily, Google, Bing, SearXNG)
+- [x] Search provider selector in SearchConfig
+- [x] URL blocklist/allowlist enforcement
 
 ### Backend — MCP
-- [ ] Create `app/plugins/mcp/client.py` — MCP client
-- [ ] Implement stdio transport
-- [ ] Implement HTTP/SSE transport
-- [ ] Auto-discover tools → register in tool registry
-- [ ] Health check for MCP servers
+- [x] Create `app/plugins/mcp/client.py` — MCP client
+- [x] Implement stdio transport
+- [x] Implement HTTP/SSE transport
+- [x] Auto-discover tools → register in tool registry
+- [x] Health check for MCP servers
 
 ### Backend — Pipeline Hooks
-- [ ] Create `app/plugins/hooks/` — hook framework
-- [ ] Define hook points (pre/post prompt, tool, response)
-- [ ] Hook execution engine with priority ordering
+- [x] Create `app/plugins/hooks/` — hook framework
+- [x] Define hook points (pre/post prompt, tool, response)
+- [x] Hook execution engine with priority ordering
 
 ### Backend — Plugin Discovery
-- [ ] Create `app/plugins/discovery.py` — directory scanner
-- [ ] __plugin__.py convention + auto-register
-- [ ] File watcher for hot reload
+- [x] Create `app/plugins/discovery.py` — directory scanner
+- [x] __plugin__.py convention + auto-register
+- [x] File watcher for hot reload
 
 ### Backend — Scheduler
-- [ ] Create `app/scheduler/` — cron scheduling engine
-- [ ] ScheduledTask model + migration
-- [ ] Task execution: ephemeral session creation + prompt injection
-- [ ] Scheduler API endpoints
+- [x] Create `app/scheduler/` — cron scheduling engine
+- [x] ScheduledTask model + migration
+- [x] Task execution: ephemeral session creation + prompt injection
+- [x] Scheduler API endpoints
 
 ### Frontend
-- [ ] Document tools result display (tables, charts, PDF preview)
-- [ ] Browser session viewer (show screenshots, current URL)
-- [ ] Web settings page (search provider, web policy, cache admin)
-- [ ] MCP server configuration UI
-- [ ] Scheduler UI (task list, create, cron expression builder)
+- [x] Document tools result display (tables, charts, PDF preview)
+- [x] Browser session viewer (show screenshots, current URL)
+- [x] Web settings page (search provider, web policy, cache admin)
+- [x] MCP server configuration UI
+- [x] Scheduler UI (task list, create, cron expression builder)
 
 ### Tests
-- [ ] `tests/unit/test_documents_plugin.py` — PDF, PPTX, HTML presentation, DOCX, XLSX, CSV, chart tools (with sample files)
-- [ ] `tests/unit/test_browser_plugin.py` — tool definitions, profile management
-- [ ] `tests/unit/test_search_providers.py` — each provider (mocked)
-- [ ] `tests/unit/test_mcp_client.py` — connect, discover, proxy (mocked)
-- [ ] `tests/unit/test_hooks.py` — hook registration, execution order
-- [ ] `tests/unit/test_discovery.py` — scan, register, hot reload
-- [ ] `tests/unit/test_scheduler.py` — cron parsing, task execution
-- [ ] `tests/integration/test_plugin_e2e.py` — complete plugin lifecycle
+- [x] `tests/unit/test_documents_plugin.py` — PDF, PPTX, HTML presentation, DOCX, XLSX, CSV, chart tools (with sample files)
+- [x] `tests/unit/test_browser_plugin.py` — tool definitions, profile management
+- [x] `tests/unit/test_search_providers.py` — each provider (mocked)
+- [x] `tests/unit/test_mcp_client.py` — connect, discover, proxy (mocked)
+- [x] `tests/unit/test_hooks.py` — hook registration, execution order
+- [x] `tests/unit/test_discovery.py` — scan, register, hot reload
+- [x] `tests/unit/test_scheduler.py` — cron parsing, task execution
+- [x] `tests/integration/test_plugin_e2e.py` — complete plugin lifecycle
 
 ---
 
@@ -243,15 +243,15 @@ Deliver the second wave of plugins: documents (PDF, Office, HTML presentations, 
 
 ## Definition of Done
 
-- [ ] Documents plugin: PDF (read/manipulate/create), PPTX (create/open/edit/templates), HTML presentations (create/from_markdown/preview), DOCX (create/open/edit), XLSX (create/open/edit), CSV/TSV (open/query/convert), data analysis + charts
-- [ ] Browser plugin: 25 tools, profiles, vision interaction
-- [ ] Additional search providers configured and working
-- [ ] MCP client connects to external servers, proxies tool calls
-- [ ] Pipeline hooks fire at correct points with priority ordering
-- [ ] Custom plugin auto-discovery from `data/plugins/`
-- [ ] Scheduler creates and runs cron-based sessions
-- [ ] All tests pass
-- [ ] **Phase 5 gate**: Full plugin ecosystem operational
+- [x] Documents plugin: PDF (read/manipulate/create), PPTX (create/open/edit/templates), HTML presentations (create/from_markdown/preview), DOCX (create/open/edit), XLSX (create/open/edit), CSV/TSV (open/query/convert), data analysis + charts
+- [x] Browser plugin: 25 tools, profiles, vision interaction
+- [x] Additional search providers configured and working
+- [x] MCP client connects to external servers, proxies tool calls
+- [x] Pipeline hooks fire at correct points with priority ordering
+- [x] Custom plugin auto-discovery from `data/plugins/`
+- [x] Scheduler creates and runs cron-based sessions
+- [x] All tests pass
+- [x] **Phase 5 gate**: Full plugin ecosystem operational
 
 ---
 

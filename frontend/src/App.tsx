@@ -5,6 +5,10 @@ import ChatPanel from './components/chat/ChatPanel';
 import SetupWizard from './pages/SetupWizard';
 import DiagnosticsPage from './pages/DiagnosticsPage';
 import AgentsPage from './pages/AgentsPage';
+import PluginsPage from './pages/PluginsPage';
+import AuthSettingsPage from './pages/AuthSettingsPage';
+import SchedulerPage from './pages/SchedulerPage';
+import WebSettingsPage from './pages/WebSettingsPage';
 import { wsClient } from './api/ws';
 import { shortcutManager } from './lib/shortcuts';
 import { applyTheme, watchSystemTheme } from './lib/theme';
@@ -103,6 +107,38 @@ function MainApp() {
         element={
           <AppLayout>
             <AgentsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/plugins"
+        element={
+          <AppLayout>
+            <PluginsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/auth"
+        element={
+          <AppLayout>
+            <AuthSettingsPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/scheduler"
+        element={
+          <AppLayout>
+            <SchedulerPage />
+          </AppLayout>
+        }
+      />
+      <Route
+        path="/web-settings"
+        element={
+          <AppLayout>
+            <WebSettingsPage />
           </AppLayout>
         }
       />

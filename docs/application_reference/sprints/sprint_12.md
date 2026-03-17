@@ -2,7 +2,7 @@
 
 **Phase**: 5 – Plugins & Integrations (I)
 **Duration**: 2 weeks
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Build Sequence Items**: BS-34, BS-35, BS-36, BS-37, BS-38, BS-39, BS-40
 
 > **📖 Spec reference**: For full design context, data models, and acceptance details, consult [tequila_v2_specification.md](../tequila_v2_specification.md) at the §-sections listed in the Spec References table below.
@@ -129,67 +129,67 @@ Build the plugin system infrastructure and deliver the first wave of built-in co
 ## Tasks
 
 ### Backend — Plugin System
-- [ ] Create `app/plugins/base.py` — PluginBase ABC
-- [ ] Create `app/plugins/registry.py` — registry + CRUD API
-- [ ] Implement lifecycle hooks (on_install, on_enable, on_disable, on_uninstall)
-- [ ] Implement health check loop (periodic, auto-disable)
-- [ ] Implement PluginDependencies + pip install flow
-- [ ] Implement venv isolation for plugin dependencies
-- [ ] Migration: plugins table (config, state, health)
+- [x] Create `app/plugins/base.py` — PluginBase ABC
+- [x] Create `app/plugins/registry.py` — registry + CRUD API
+- [x] Implement lifecycle hooks (on_install, on_enable, on_disable, on_uninstall)
+- [x] Implement health check loop (periodic, auto-disable)
+- [x] Implement PluginDependencies + pip install flow
+- [x] Implement venv isolation for plugin dependencies
+- [x] Migration: plugins table (config, state, health)
 
 ### Backend — Auth
-- [ ] Create `app/auth/providers.py` — API key management
-- [ ] Create `app/auth/encryption.py` — key encryption at rest
-- [ ] Auth API endpoints (save key, revoke, list providers)
-- [ ] Key validation on save
+- [x] Create `app/auth/providers.py` — API key management
+- [x] Create `app/auth/encryption.py` — key encryption at rest
+- [x] Auth API endpoints (save key, revoke, list providers)
+- [x] Key validation on save
 
 ### Backend — Telegram Plugin
-- [ ] Create `app/plugins/builtin/telegram/` plugin package
-- [ ] Implement Telegram Bot API channel (long polling)
-- [ ] Implement telegram_send, telegram_send_file tools
-- [ ] Session mapping (per-chat or single)
+- [x] Create `app/plugins/builtin/telegram/` plugin package
+- [x] Implement Telegram Bot API channel (long polling)
+- [x] Implement telegram_send, telegram_send_file tools
+- [x] Session mapping (per-chat or single)
 
 ### Backend — Gmail Plugin
-- [ ] Create `app/plugins/builtin/gmail/` plugin package
-- [ ] Implement OAuth2 flow for Gmail
-- [ ] Implement inbox polling channel
-- [ ] Implement gmail_send, gmail_search, gmail_read tools
+- [x] Create `app/plugins/builtin/gmail/` plugin package
+- [x] Implement OAuth2 flow for Gmail
+- [x] Implement inbox polling channel
+- [x] Implement gmail_send, gmail_search, gmail_read tools
 
 ### Backend — SMTP/IMAP Plugin
-- [ ] Create `app/plugins/builtin/smtp_imap/` plugin package
-- [ ] Implement IMAP polling channel
-- [ ] Implement SMTP send tool
-- [ ] email_search, email_read tools
+- [x] Create `app/plugins/builtin/smtp_imap/` plugin package
+- [x] Implement IMAP polling channel
+- [x] Implement SMTP send tool
+- [x] email_search, email_read tools
 
 ### Backend — Google Calendar Plugin
-- [ ] Create `app/plugins/builtin/google_calendar/` plugin package
-- [ ] Implement calendar tools (list, create, update, delete)
-- [ ] Implement upcoming event trigger
-- [ ] OAuth2 flow for Google Calendar
+- [x] Create `app/plugins/builtin/google_calendar/` plugin package
+- [x] Implement calendar tools (list, create, update, delete)
+- [x] Implement upcoming event trigger
+- [x] OAuth2 flow for Google Calendar
 
 ### Backend — Webhooks Plugin
-- [ ] Create `app/plugins/builtin/webhooks/` plugin package
-- [ ] Implement webhook endpoint router
-- [ ] HMAC validation
-- [ ] Payload transformation (JSONPath)
+- [x] Create `app/plugins/builtin/webhooks/` plugin package
+- [x] Implement webhook endpoint router
+- [x] HMAC validation
+- [x] Payload transformation (JSONPath)
 
 ### Frontend
-- [ ] Plugin management page (list, enable/disable, configure, health status)
-- [ ] Auth settings page (provider keys, OAuth flow triggers)
-- [ ] Telegram config UI
-- [ ] Email config UI (Gmail + SMTP/IMAP)
-- [ ] Calendar config UI
-- [ ] Webhook config UI (create, list, copy URL)
+- [x] Plugin management page (list, enable/disable, configure, health status)
+- [x] Auth settings page (provider keys, OAuth flow triggers)
+- [ ] Telegram config UI *(deferred to Sprint 13)*
+- [ ] Email config UI (Gmail + SMTP/IMAP) *(deferred to Sprint 13)*
+- [ ] Calendar config UI *(deferred to Sprint 13)*
+- [ ] Webhook config UI (create, list, copy URL) *(deferred to Sprint 13)*
 
 ### Tests
-- [ ] `tests/unit/test_plugin_system.py` — lifecycle, registry, health
-- [ ] `tests/unit/test_auth.py` — key encryption, validation
-- [ ] `tests/unit/test_telegram_plugin.py` — message routing, tools (mocked API)
-- [ ] `tests/unit/test_gmail_plugin.py` — OAuth, polling, tools (mocked)
-- [ ] `tests/unit/test_smtp_imap.py` — send, receive (mocked)
-- [ ] `tests/unit/test_calendar_plugin.py` — tools (mocked API)
-- [ ] `tests/unit/test_webhooks.py` — routing, HMAC, payload transform
-- [ ] `tests/integration/test_plugin_lifecycle.py` — install → enable → health → disable
+- [x] `tests/unit/test_plugin_system.py` — lifecycle, registry, health
+- [x] `tests/unit/test_auth.py` — key encryption, validation
+- [x] `tests/unit/test_telegram_plugin.py` — message routing, tools (mocked API)
+- [x] `tests/unit/test_gmail_plugin.py` — OAuth, polling, tools (mocked)
+- [x] `tests/unit/test_smtp_imap.py` — send, receive (mocked)
+- [x] `tests/unit/test_calendar_plugin.py` — tools (mocked API)
+- [x] `tests/unit/test_webhooks.py` — routing, HMAC, payload transform
+- [x] `tests/integration/test_plugin_lifecycle.py` — install → enable → health → disable
 
 ---
 
@@ -205,14 +205,14 @@ Build the plugin system infrastructure and deliver the first wave of built-in co
 
 ## Definition of Done
 
-- [ ] Plugin system: PluginBase ABC, registry, CRUD API, health checks, dependency management
-- [ ] Auth: API key management with encryption, validation
-- [ ] Telegram plugin: send/receive messages via Bot API
-- [ ] Gmail plugin: OAuth, inbox polling, send/search/read
-- [ ] SMTP/IMAP plugin: IMAP polling, SMTP send
-- [ ] Google Calendar plugin: CRUD events, upcoming event trigger
-- [ ] Webhooks plugin: inbound routing with HMAC validation
-- [ ] All tests pass
+- [x] Plugin system: PluginBase ABC, registry, CRUD API, health checks, dependency management
+- [x] Auth: API key management with encryption, validation
+- [x] Telegram plugin: send/receive messages via Bot API
+- [x] Gmail plugin: OAuth, inbox polling, send/search/read
+- [x] SMTP/IMAP plugin: IMAP polling, SMTP send
+- [x] Google Calendar plugin: CRUD events, upcoming event trigger
+- [x] Webhooks plugin: inbound routing with HMAC validation
+- [x] All tests pass
 
 ---
 

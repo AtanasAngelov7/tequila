@@ -34,8 +34,8 @@
 | **[S09](sprint_09.md)** | 4 – Memory (I) | Vault, embeddings, memory data model | ✅ Done | §5.1–5.4, §5.10, §5.13, §20.3b |
 | **[S10](sprint_10.md)** | 4 – Memory (II) | Extraction, recall, knowledge sources | ✅ Done | §5.5–5.6, §5.14, §20.5 |
 | **[S11](sprint_11.md)** | 4 – Memory (III) | Memory tools, lifecycle, graph | ✅ Done | §5.7–5.9, §5.11–5.12, §20.5 |
-| **[S12](sprint_12.md)** | 5 – Plugins (I) | Plugin system, auth, Telegram, email | ⬜ Not Started | §6.1, §8.0–8.1, §8.6–8.9, §20.4 |
-| **[S13](sprint_13.md)** | 5 – Plugins (II) | Documents, browser, MCP, scheduler | ⬜ Not Started | §7.1–7.3, §8.0, §8.6–8.7, §17.1, §17.3, §17.5–17.6, §21.4, §20.8 |
+| **[S12](sprint_12.md)** | 5 – Plugins (I) | Plugin system, auth, Telegram, email | ✅ Done | §6.1, §8.0–8.1, §8.6–8.9, §20.4 |
+| **[S13](sprint_13.md)** | 5 – Plugins (II) | Documents, browser, MCP, scheduler | ✅ Done | §7.1–7.3, §8.0, §8.6–8.7, §17.1, §17.3, §17.5–17.6, §21.4, §20.8 |
 | **[S14a](sprint_14.md)** | 6 – Polish (I) | Skills (3-level), soul editor | ⬜ Not Started | §4.5.0–4.5.8, §4.1a |
 | **[S14b](sprint_14b.md)** | 6 – Polish (I) | Notifications, budget, audit, backup, export | ⬜ Not Started | §6.2, §12.1–12.3, §13.4, §23.1, §24.1–24.5, §26.1–26.6 |
 | **[S15](sprint_15.md)** | 6 – Polish (II) | Full UI, file cleanup, packaging | ⬜ Not Started | §9.1–9.2b, §21.6–21.7, §29.1–29.5 |
@@ -52,7 +52,7 @@ Phase 1: Foundation     → S01 ✅, S02 ✅, S03 ✅      (6 weeks) ← PHASE 1
 Phase 2: Agent Core     → S04 ✅, S05 ✅, S06 ✅, S07 ✅  (8 weeks) ← PHASE 2 COMPLETE
 Phase 3: Multi-Agent    → S08 ✅                      (2 weeks) ← PHASE 3 COMPLETE
 Phase 4: Memory         → S09 ✅, S10 ✅, S11 ✅      (6 weeks) ← PHASE 4 COMPLETE
-Phase 5: Plugins        → S12 ⬜, S13 ⬜              (4 weeks)
+Phase 5: Plugins        → S12 ✅, S13 ✅              (4 weeks)
 Phase 6: Polish         → S14a ⬜, S14b ⬜, S15 ⬜    (6 weeks)
 Phase 7: Future         → S16 ⬜                     (2 weeks, open-ended)
                           ─────────────────

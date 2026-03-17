@@ -82,6 +82,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <div style={navLinkStyle('/diagnostics')} role="button" tabIndex={0} onClick={() => navigate('/diagnostics')}>
               🔍 Diagnostics
             </div>
+            <div style={navLinkStyle('/plugins')} role="button" tabIndex={0} onClick={() => navigate('/plugins')}>
+              🔌 Plugins
+            </div>
+            <div style={navLinkStyle('/auth')} role="button" tabIndex={0} onClick={() => navigate('/auth')}>
+              🔑 Auth
+            </div>
+            <div style={navLinkStyle('/scheduler')} role="button" tabIndex={0} onClick={() => navigate('/scheduler')}>
+              ⏰ Scheduler
+            </div>
+            <div style={navLinkStyle('/web-settings')} role="button" tabIndex={0} onClick={() => navigate('/web-settings')}>
+              🌐 Web Settings
+            </div>
           </div>
         </aside>
       )}

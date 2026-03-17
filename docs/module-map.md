@@ -1062,6 +1062,189 @@ Revision chain: `0010` → `0011`.
 
 ---
 
+## Sprint 12 — Plugins I: Plugin System, Auth & Built-in Connectors *(§6.1, §8.0–§8.9)*
+
+### `app/auth/encryption.py` *(Sprint 12)*
+
+Fernet-based symmetric encryption for secrets stored at rest.
+
+| Symbol | Role |
+|--------|------|
+| `generate_key()` | Generate a new URL-safe base64 Fernet key |
+| `init_encryption(b64_key)` | Initialise module-level `Fernet` instance; must be called before any credential ops |
+| `encrypt_credential(plain)` | Encrypt UTF-8 string → base64 token |
+| `decrypt_credential(token)` | Decrypt token → UTF-8 string |
+
+### `app/auth/providers.py` *(Sprint 12)*
+
+LLM provider API-key management (store/retrieve/revoke, sentinel plugin_id `__auth__`).
+
+| Symbol | Role |
+|--------|------|
+| `save_provider_key(provider, key, db)` | Encrypt and persist key; `KNOWN_PROVIDERS` = `{openai, anthropic, ollama}` |
+| `get_provider_key(provider, db)` | Decrypt and return key or `None` |
+| `revoke_provider_key(provider, db)` | Delete credential row |
+| `list_configured_providers(db)` | Return list of `ProviderStatus` dicts (configured flag, no plaintext) |
+
+### `app/auth/api.py` *(Sprint 12)*
+
+FastAPI router mounted at `/api/auth`.
+
+| Endpoint | Method | Action |
+|----------|--------|--------|
+| `/api/auth/providers` | `GET` | List all configured providers |
+| `/api/auth/providers/{provider}/key` | `POST` | Save/update encrypted API key |
+| `/api/auth/providers/{provider}/key` | `DELETE` | Revoke API key |
+
+### `app/plugins/models.py` *(Sprint 12)*
+
+Pydantic models for the plugin subsystem.
+
+| Model | Role |
+|-------|------|
+| `PluginRecord` | Canonical plugin DB record (id, name, type, config JSON, status, error_message) |
+| `PluginAuth` | Plugin auth config (scheme: none/api_key/oauth2, scopes, OAuth2Config) |
+| `ChannelAdapterSpec` | Inbound channel description (channel_type, capabilities) |
+| `PluginHealthResult` | Health check result (success, message, latency_ms, checked_at) |
+| `PluginTestResult` | Test result (success, message, latency_ms) |
+| `PluginDependencies` | pip/system package lists declared by a plugin |
+
+### `app/plugins/base.py` *(Sprint 12)*
+
+`PluginBase` abstract base class every plugin must inherit.
+
+| Abstract method | Contract |
+|-----------------|----------|
+| `configure(config, auth_store)` | Validate and store config dict |
+| `activate(gateway)` | Start channels/polling tasks |
+| `deactivate()` | Cancel tasks, close sessions |
+| `get_tools()` | Return list of `ToolSpec` dicts |
+| `health()` | Return `PluginHealthResult` |
+| `test()` | Return `PluginTestResult` |
+| `get_dependencies()` | Return `PluginDependencies` |
+
+### `app/plugins/store.py` *(Sprint 12)*
+
+DB persistence for plugins and credentials.
+
+| Symbol | Role |
+|--------|------|
+| `save_plugin / load_plugin / load_all_plugins` | Plugin row CRUD |
+| `update_plugin_config / update_plugin_status` | Partial updates |
+| `delete_plugin` | Hard delete |
+| `save_credential / get_credential / delete_credential` | Encrypted credential CRUD |
+| `make_auth_store(plugin_id, db)` | Return a `(save, get, delete)` closure bound to a plugin_id |
+
+### `app/plugins/registry.py` *(Sprint 12)*
+
+`PluginRegistry` singleton — lifecycle orchestration, health loop.
+
+| Symbol | Role |
+|--------|------|
+| `PluginRegistry` | Singleton class; maintains `_plugins: dict[str, PluginBase]` |
+| `register(plugin_id, plugin)` | Add plugin class to registry |
+| `install(plugin_id, config, db)` | Persist row, call `configure()` |
+| `activate_plugin(plugin_id, db, gateway)` | Call `activate()`, update status |
+| `deactivate_plugin(plugin_id, db)` | Call `deactivate()`, update status |
+| `uninstall(plugin_id, db)` | Deactivate + delete row |
+| `health_check(plugin_id)` | Call `health()`, track failure count |
+| `start(gateway)` | Start background health loop (every 300 s) |
+| `stop()` | Cancel health loop |
+| `init_plugin_registry(db)` | Create registry, register built-ins, return singleton |
+| `get_plugin_registry()` | Return existing singleton |
+
+### `app/plugins/api.py` *(Sprint 12)*
+
+FastAPI router mounted at `/api/plugins` — full CRUD + lifecycle endpoints per §8.8.
+
+| Endpoint | Method | Action |
+|----------|--------|--------|
+| `/api/plugins` | `GET` | List all installed plugins |
+| `/api/plugins` | `POST` | Install a plugin |
+| `/api/plugins/{id}` | `GET` | Plugin detail |
+| `/api/plugins/{id}` | `DELETE` | Uninstall plugin |
+| `/api/plugins/{id}/activate` | `POST` | Activate plugin |
+| `/api/plugins/{id}/deactivate` | `POST` | Deactivate plugin |
+| `/api/plugins/{id}/test` | `POST` | Run connectivity test |
+| `/api/plugins/{id}/health` | `GET` | Latest health result |
+| `/api/plugins/{id}/tools` | `GET` | List tools exposed |
+| `/api/plugins/{id}/dependencies` | `GET` | List pip/system deps |
+| `/api/plugins/{id}/credentials` | `PATCH` | Update stored credential |
+| `/api/plugins/{id}/refresh` | `POST` | Refresh OAuth2 token |
+
+### `app/plugins/builtin/webhooks/` *(Sprint 12)*
+
+Inbound webhook channel plugin.
+
+| Symbol | Role |
+|--------|------|
+| `WebhooksPlugin` | Registers HTTP receive points; HMAC SHA-256 validation; dedup via `dedup_keys` table |
+| `create_endpoint / list_endpoints / get_endpoint / delete_endpoint` | Endpoint CRUD |
+| `validate_hmac_signature` | Constant-time HMAC verification |
+| `check_dedup` | TTL-based idempotency check |
+
+### `app/plugins/builtin/telegram/` *(Sprint 12)*
+
+Telegram Bot API connector via httpx long-polling.
+
+| Symbol | Role |
+|--------|------|
+| `TelegramPlugin` | Long-poll loop, message → gateway `inbound.message` routing |
+| `telegram_send_message` | Tool: send text to chat |
+| `telegram_list_chats` | Tool: list known chats seen since activation |
+
+### `app/plugins/builtin/smtp_imap/` *(Sprint 12)*
+
+Generic email connector using stdlib `imaplib` + `smtplib` (no external deps).
+
+| Symbol | Role |
+|--------|------|
+| `SmtpImapPlugin` | IMAP poll loop, new email → gateway routing |
+| `email_send` | Tool: SMTP send |
+| `email_search` | Tool: IMAP search by query string |
+| `email_read` | Tool: fetch email body by UID |
+| `email_list_folders` | Tool: list IMAP mailbox folders |
+
+### `app/plugins/builtin/gmail/` *(Sprint 12)*
+
+Gmail connector via Google API Python client (OAuth2).
+
+| Symbol | Role |
+|--------|------|
+| `GmailPlugin` | OAuth2 flow, Gmail API polling |
+| `gmail_send` | Tool: compose and send email |
+| `gmail_search` | Tool: query inbox via Gmail search syntax |
+| `gmail_read` | Tool: fetch full message by ID |
+| `gmail_list_labels` | Tool: list Gmail labels |
+
+### `app/plugins/builtin/google_calendar/` *(Sprint 12)*
+
+Google Calendar integration via Google API Python client (OAuth2).
+
+| Symbol | Role |
+|--------|------|
+| `GoogleCalendarPlugin` | OAuth2 shared with Gmail; optional upcoming-event trigger |
+| `calendar_list_events` | Tool: list events in date range |
+| `calendar_create_event` | Tool: create event with optional attendees |
+| `calendar_update_event` | Tool: patch existing event fields |
+| `calendar_delete_event` | Tool: delete event by ID |
+| `calendar_get_event` | Tool: get event detail by ID |
+
+### `alembic/versions/0014_sprint12_plugins.py` *(Sprint 12)*
+
+Migration: plugin system tables.
+
+| Table | Key Columns |
+|-------|------------|
+| `plugins` | `plugin_id TEXT PK`, `name`, `description`, `version`, `plugin_type`, `connector_type`, `status`, `config_json`, `error_message`, timestamps |
+| `plugin_credentials` | `plugin_id TEXT`, `credential_key TEXT`, `encrypted_value TEXT`, UNIQUE `(plugin_id, credential_key)` |
+| `webhook_endpoints` | `endpoint_id TEXT PK`, `plugin_id TEXT`, `name`, `secret_hash`, `target_session_id`, `payload_template`, timestamps |
+| `dedup_keys` | `key_hash TEXT PK`, `plugin_id TEXT`, `created_at TEXT`, `expires_at TEXT` |
+
+Revision chain: `0013` → `0014`.
+
+---
+
 | File | What it covers |
 |------|----------------|
 | `test_budget.py` | Budget tracker (stub — Sprint 14) |
@@ -1095,6 +1278,14 @@ Revision chain: `0010` → `0011`.
 | `unit/test_memory_tools.py` | All 13 memory agent tools (save/update/forget/search/list/pin/unpin/link/entity_*/extract_now) *(Sprint 11)* |
 | `integration/test_memory_lifecycle.py` | Lifecycle pipeline via test app: decay config, run_decay, run_archive, orphan report, run_all *(Sprint 11)* |
 | `integration/test_graph_recall.py` | Graph REST API (POST/GET/DELETE edges, stats, neighborhood) + audit events + memory history *(Sprint 11)* |
+| `unit/test_auth.py` | Fernet encryption (encrypt/decrypt/rotate), provider key save/get/revoke/list, auth API endpoints *(Sprint 12)* |
+| `unit/test_plugin_system.py` | PluginBase ABC, PluginStore CRUD, PluginRegistry lifecycle (install/activate/deactivate/health), API *(Sprint 12)* |
+| `unit/test_webhooks.py` | HMAC validation, dedup key logic, endpoint CRUD, payload routing *(Sprint 12)* |
+| `unit/test_telegram_plugin.py` | Bot API polling, send_message/list_chats tools, session mapping *(Sprint 12)* |
+| `unit/test_smtp_imap.py` | IMAP polling, SMTP send, email_read/email_search tools *(Sprint 12)* |
+| `unit/test_gmail_plugin.py` | OAuth2 flow, inbox polling, gmail_send/search/read/list_labels tools *(Sprint 12)* |
+| `unit/test_calendar_plugin.py` | list/create/update/delete/get events, OAuth2 flow *(Sprint 12)* |
+| `integration/test_plugin_lifecycle.py` | Install → activate → health check → deactivate → uninstall lifecycle via test app *(Sprint 12)* |
 
 All tests use `pytest` with `asyncio_mode = "auto"`. Run: `.venv\Scripts\python.exe -m pytest tests/ -v --tb=short`
 
@@ -1160,3 +1351,6 @@ React 18 + Vite 6 + TypeScript + Tailwind CSS v4 + Zustand + TanStack Query.
 |------|-------|----------------|
 | `SetupWizard.tsx` | `/setup` | Multi-step first-run wizard (6 steps: welcome, provider, credentials, model, agent name, done) |
 | `DiagnosticsPage.tsx` | `/diagnostics` | Live system status panel (uptime, provider, DB stats, scheduler); auto-refreshes every 15 s |
+| `AgentsPage.tsx` | `/agents` | Agent list and management *(Sprint 11+)* |
+| `PluginsPage.tsx` | `/plugins` | Plugin management: install/activate/deactivate/test per plugin, status badges *(Sprint 12)* |
+| `AuthSettingsPage.tsx` | `/auth` | Provider API key management: save encrypted keys, revoke, configured status *(Sprint 12)* |
