@@ -13,6 +13,7 @@ Routes:
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Query
@@ -20,6 +21,14 @@ from pydantic import BaseModel
 
 from app.api.deps import require_gateway_token
 from app.budget import BudgetCap, ProviderPricing, get_budget_tracker
+
+
+def _default_date_or_month(period: str, date_or_month: str | None) -> str:
+    """Default *date_or_month* to today/this-month when caller passes None (TD-146)."""
+    if date_or_month is not None:
+        return date_or_month
+    now = datetime.now(timezone.utc)
+    return now.date().isoformat() if period == "daily" else now.strftime("%Y-%m")
 
 router = APIRouter(prefix="/api/budget", tags=["budget"])
 
@@ -48,7 +57,8 @@ async def get_summary(
     date_or_month: str | None = Query(default=None, description="YYYY-MM-DD or YYYY-MM"),
 ) -> dict:
     tracker = get_budget_tracker()
-    summary = await tracker.get_summary(period=period, date_or_month=date_or_month)
+    resolved = _default_date_or_month(period, date_or_month)
+    summary = await tracker.get_summary(period=period, date_or_month=resolved)
     return summary.model_dump()
 
 
@@ -58,7 +68,8 @@ async def get_by_agent(
     date_or_month: str | None = Query(default=None),
 ) -> list[dict]:
     tracker = get_budget_tracker()
-    rows = await tracker.get_by_agent(period=period, date_or_month=date_or_month)
+    resolved = _default_date_or_month(period, date_or_month)
+    rows = await tracker.get_by_agent(period=period, date_or_month=resolved)
     return rows
 
 
@@ -68,7 +79,8 @@ async def get_by_provider(
     date_or_month: str | None = Query(default=None),
 ) -> list[dict]:
     tracker = get_budget_tracker()
-    return await tracker.get_by_provider(period=period, date_or_month=date_or_month)
+    resolved = _default_date_or_month(period, date_or_month)
+    return await tracker.get_by_provider(period=period, date_or_month=resolved)
 
 
 @router.get("/usage", dependencies=[Depends(require_gateway_token)])

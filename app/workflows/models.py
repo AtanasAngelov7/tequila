@@ -54,7 +54,7 @@ class Workflow(BaseModel):
     mode: Literal["pipeline", "parallel"] = "pipeline"
     """Execution mode: ``pipeline`` = sequential, ``parallel`` = fan-out."""
 
-    steps: list[WorkflowStep] = Field(default_factory=list)
+    steps: list[WorkflowStep] = Field(default_factory=list, min_length=1)
     """Ordered list of steps.  In pipeline mode the order determines execution order."""
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

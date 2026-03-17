@@ -74,7 +74,8 @@ class PipelineHookSpec(BaseModel):
         "post_prompt_assembly",
         "pre_tool_execution",
         "post_tool_execution",
-        "post_turn_complete",
+        "pre_response",
+        "post_response",
     ]
     """Where in the turn pipeline this hook fires."""
 

@@ -14,6 +14,7 @@ export class TequilaWsClient {
   private backoff = 1_000;
   private destroyed = false;
   private _pendingReconnect: ReturnType<typeof setTimeout> | null = null;
+  private _activeSessionId: string | null = null;
 
   private listeners: Set<FrameHandler> = new Set();
   private statusListeners: Set<(status: 'connecting' | 'connected' | 'disconnected') => void> =
@@ -40,6 +41,17 @@ export class TequilaWsClient {
       this._emit_status('connected');
       // Send connect handshake so server can replay missed events
       this._send({ method: 'connect', id: crypto.randomUUID(), payload: { last_seq: this.lastSeq } });
+      // TD-230: Re-resume active session on reconnect
+      if (this._activeSessionId) {
+        this._send({ method: 'session.resume', id: crypto.randomUUID(), payload: { session_id: this._activeSessionId } });
+      }
+      // TD-252: Flush queued messages that were sent while disconnected
+      if (this._pendingQueue.length > 0) {
+        const queued = this._pendingQueue.splice(0);
+        for (const f of queued) {
+          this.ws!.send(JSON.stringify(f));
+        }
+      }
     };
 
     this.ws.onmessage = (ev) => {
@@ -63,9 +75,19 @@ export class TequilaWsClient {
     };
   }
 
+  // TD-252: Queue messages when WS is not open and flush on reconnect
+  private _pendingQueue: Omit<WsFrame, 'seq'>[] = [];
+
   send(frame: Omit<WsFrame, 'seq'>) {
+    // TD-230: Track which session is active for reconnect resume
+    const f = frame as any;
+    if (f.method === 'session.resume' && f.payload?.session_id) {
+      this._activeSessionId = f.payload.session_id;
+    }
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(frame));
+    } else {
+      this._pendingQueue.push(frame);
     }
   }
 

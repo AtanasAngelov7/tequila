@@ -7,9 +7,12 @@
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
+
+logger = logging.getLogger(__name__)
 
 
 # ── Policy model ──────────────────────────────────────────────────────────────
@@ -310,5 +313,10 @@ def check_policy(
             )
         return PolicyResult(allowed=True)
 
-    # Unknown event type — default allow to avoid breaking unknown future events
-    return PolicyResult(allowed=True)
+    # TD-231: Unknown event types default to deny for security
+    logger.warning("Unknown policy event_type %r — denying by default.", event_type)
+    return PolicyResult(
+        allowed=False,
+        reason=f"Unknown event type {event_type!r} is not permitted.",
+        error_code="unknown_event_type",
+    )

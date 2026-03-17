@@ -86,6 +86,8 @@ class PluginRegistry:
         self._health_failures: dict[str, int] = {}
         self._health_task: asyncio.Task[None] | None = None
         self._started = False
+        # TD-186: Initialize _gateway so attribute is always present
+        self._gateway: Any | None = None
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
@@ -265,6 +267,11 @@ class PluginRegistry:
         """Return all in-memory plugin records (in insertion order)."""
         return list(self._records.values())
 
+    def refresh_records(self, records: list[PluginRecord]) -> None:
+        """Replace in-memory plugin records (TD-173: public API for refresh_plugins)."""
+        for rec in records:
+            self._records[rec.plugin_id] = rec
+
     def get_record(self, plugin_id: str) -> PluginRecord | None:
         return self._records.get(plugin_id)
 
@@ -272,8 +279,14 @@ class PluginRegistry:
         return self._instances.get(plugin_id)
 
     def list_tools(self) -> list[Any]:
-        """Collect tools from all active plugins (synchronous view)."""
-        return []  # Populated asynchronously; see get_all_active_tools()
+        """Collect tools from all active plugins (synchronous view).
+
+        .. deprecated:: Use ``get_all_active_tools()`` for a complete list.
+        """
+        logger.debug("list_tools() is synchronous and returns cached data; "
+                     "prefer get_all_active_tools() for an up-to-date view.")
+        return self._cached_tools
+    _cached_tools: list[Any] = []
 
     async def get_all_active_tools(self) -> list[Any]:
         """Gather tools from all active plugin instances."""
@@ -285,6 +298,7 @@ class PluginRegistry:
                     tools.extend(await instance.get_tools())
                 except Exception as exc:  # noqa: BLE001
                     logger.warning("Error getting tools from plugin %r: %s", plugin_id, exc)
+        self._cached_tools = tools  # TD-185: Update synchronous cache
         return tools
 
     # ── Health loop ───────────────────────────────────────────────────────────
@@ -301,19 +315,32 @@ class PluginRegistry:
                 logger.warning("Health loop error: %s", exc)
 
     async def _run_health_checks(self) -> None:
-        """Check health of all active plugins; auto-disable on repeated failure."""
-        for plugin_id, instance in list(self._instances.items()):
-            rec = self._records.get(plugin_id)
-            if not rec or rec.status != "active":
-                continue
+        """Check health of all active plugins; auto-disable on repeated failure.
+
+        TD-169: Runs checks concurrently with a per-check timeout.
+        """
+        async def _check_one(plugin_id: str, instance: Any) -> None:
             try:
-                result: PluginHealthResult = await instance.health_check()
+                result: PluginHealthResult = await asyncio.wait_for(
+                    instance.health_check(), timeout=10.0
+                )
                 if result.healthy:
                     self._health_failures[plugin_id] = 0
                 else:
                     await self._record_failure(plugin_id, result.message or "unhealthy")
+            except asyncio.TimeoutError:
+                await self._record_failure(plugin_id, "health check timed out")
             except Exception as exc:  # noqa: BLE001
                 await self._record_failure(plugin_id, str(exc))
+
+        checks = []
+        for plugin_id, instance in list(self._instances.items()):
+            rec = self._records.get(plugin_id)
+            if not rec or rec.status != "active":
+                continue
+            checks.append(_check_one(plugin_id, instance))
+        if checks:
+            await asyncio.gather(*checks, return_exceptions=True)
 
     async def _record_failure(self, plugin_id: str, reason: str) -> None:
         count = self._health_failures.get(plugin_id, 0) + 1

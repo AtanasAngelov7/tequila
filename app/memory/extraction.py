@@ -132,11 +132,11 @@ def _parse_json_response(text: str) -> list[dict[str, Any]]:
 async def _default_llm_fn(messages: list[dict[str, str]]) -> str:
     """Call the active LLM provider with a list of chat messages."""
     try:
-        from app.providers.registry import get_provider_registry
-        registry = get_provider_registry()
-        providers = [p for p in registry.providers.values() if getattr(p, "provider_id", "") != "mock"]
+        from app.providers.registry import get_registry
+        registry = get_registry()
+        providers = [p for p in registry.list_providers() if getattr(p, "provider_id", "") != "mock"]
         if not providers:
-            providers = list(registry.providers.values())
+            providers = registry.list_providers()
         if not providers:
             return "[]"
         provider = providers[0]
@@ -148,7 +148,7 @@ async def _default_llm_fn(messages: list[dict[str, str]]) -> str:
         from app.providers.base import Message as ProvMsg
         prov_messages = [ProvMsg(role=m["role"], content=m["content"]) for m in messages]
         chunks: list[str] = []
-        stream = await provider.stream_completion(
+        stream = provider.stream_completion(
             messages=prov_messages, model=qualified_model, tools=[]
         )
         async for event in stream:
@@ -352,19 +352,19 @@ class ExtractionPipeline:
 
             content = candidate.get("content", "")
             results = await emb_store.search(
-                text=content,
-                source_type="memory",
-                top_k=3,
+                content,
+                source_types=["memory"],
+                limit=3,
                 threshold=self.config.merge_similarity_threshold,
             )
             if not results:
                 return "create", None
 
             top = results[0]
-            if top.score >= self.config.dedup_similarity_threshold:
-                return "skip", top.item.source_id
-            if top.score >= self.config.merge_similarity_threshold:
-                return "merge", top.item.source_id
+            if top.similarity >= self.config.dedup_similarity_threshold:
+                return "skip", top.source_id
+            if top.similarity >= self.config.merge_similarity_threshold:
+                return "merge", top.source_id
             return "create", None
         except Exception as exc:
             logger.debug("Dedup check failed (skipping): %s", exc)

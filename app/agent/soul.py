@@ -20,7 +20,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from jinja2 import Environment, StrictUndefined, TemplateError, Undefined
+from jinja2 import StrictUndefined, TemplateError, Undefined
+from jinja2.sandbox import SandboxedEnvironment
 
 from app.agent.models import DEFAULT_SYSTEM_PROMPT, SoulConfig
 
@@ -33,7 +34,7 @@ def _make_env(strict: bool = False) -> Environment:
     In ``strict=True`` mode (used by tests) missing variables raise
     ``UndefinedError``.  In normal mode missing variables become empty strings.
     """
-    return Environment(
+    return SandboxedEnvironment(
         undefined=StrictUndefined if strict else _SilentUndefined,
         keep_trailing_newline=True,
         autoescape=False,  # system prompts are plain text, not HTML

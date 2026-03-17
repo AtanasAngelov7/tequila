@@ -22,7 +22,7 @@ import { useUiStore } from './stores/uiStore';
 import { useChatStore } from './stores/chatStore';
 import { api } from './api/client';
 
-type AppMode = 'loading' | 'setup' | 'app';
+type AppMode = 'loading' | 'setup' | 'app' | 'error';
 
 function MainApp() {
   const { theme, toggleSidebar, toggleShortcutsHelp, closeShortcutsHelp } = useUiStore();
@@ -212,8 +212,8 @@ export default function App() {
         setMode(data.setup_complete ? 'app' : 'setup');
       })
       .catch(() => {
-        // If the setup status check fails (e.g. server not up yet), show app.
-        setMode('app');
+        // TD-253: Show connection error instead of broken app UI
+        setMode('error');
       });
   }, []);
 
@@ -231,6 +231,38 @@ export default function App() {
         }}
       >
         Loading…
+      </div>
+    );
+  }
+
+  // TD-253: Show a connection error state with retry button
+  if (mode === 'error') {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          gap: 12,
+          color: 'var(--color-on-surface)',
+          fontSize: 14,
+        }}
+      >
+        <p style={{ opacity: 0.7 }}>Unable to connect to the Tequila server.</p>
+        <button
+          onClick={() => {
+            setMode('loading');
+            api
+              .get<{ setup_complete: boolean }>('/setup/status')
+              .then((data) => setMode(data.setup_complete ? 'app' : 'setup'))
+              .catch(() => setMode('error'));
+          }}
+          style={{ padding: '6px 16px', cursor: 'pointer' }}
+        >
+          Retry
+        </button>
       </div>
     );
   }

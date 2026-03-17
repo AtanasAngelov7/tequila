@@ -47,6 +47,7 @@ def upgrade() -> None:  # noqa: D103
 
 
 def downgrade() -> None:  # noqa: D103
+    # TD-244: Only drop indexes that 0007 added — NOT the audit_log table
+    # itself, which was originally created by 0001_baseline.
     op.execute("DROP INDEX IF EXISTS ix_audit_log_created_at")
     op.execute("DROP INDEX IF EXISTS ix_audit_log_session_key")
-    op.execute("DROP TABLE IF EXISTS audit_log")

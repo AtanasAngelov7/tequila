@@ -20,7 +20,7 @@ export default function SessionList() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
 
-  // Load with current filters on mount
+  // TD-232: Reload when filters change (not just on mount)
   useEffect(() => {
     loadSessions({
       q: sessionSearch || undefined,
@@ -29,8 +29,7 @@ export default function SessionList() {
       sort: sessionSort,
       order: sessionOrder,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionSearch, sessionStatus, sessionKind, sessionSort, sessionOrder, loadSessions]);
 
   const handleNew = async () => {
     const session = await createSession();

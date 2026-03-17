@@ -78,10 +78,11 @@ export default function BackupPage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const token = (import.meta as any).env?.VITE_GATEWAY_TOKEN ?? '';
+      // TD-259: Use shared auth headers helper
+      const { getAuthHeaders } = await import('../api/client');
       const res = await fetch('/api/backup/restore', {
         method: 'POST',
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: getAuthHeaders(),
         body: formData,
       });
       if (!res.ok) {

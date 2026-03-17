@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import require_gateway_token, get_db
+from app.api.deps import require_gateway_token, get_db_dep as get_db
 from app.scheduler.cronparser import validate_cron, next_run
 from app.scheduler.engine import get_scheduler
 from app.scheduler.models import (

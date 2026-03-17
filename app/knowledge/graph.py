@@ -476,10 +476,25 @@ class GraphStore:
 
             for i in range(0, len(node_ids), batch_size):
                 batch = node_ids[i : i + batch_size]
+                # TD-198: Fetch actual node content instead of embedding UUID strings
+                content_map: dict[str, str] = {}
                 for nid in batch:
                     try:
+                        async with self._db.execute(
+                            "SELECT content FROM graph_nodes WHERE id = ?", (nid,)
+                        ) as cur:
+                            row = await cur.fetchone()
+                            if row:
+                                content_map[nid] = row[0] if isinstance(row, (tuple, list)) else row_to_dict(row).get("content", "")
+                    except Exception:
+                        pass  # skip nodes without content
+                for nid in batch:
+                    node_text = content_map.get(nid)
+                    if not node_text:
+                        continue  # skip — no content to embed
+                    try:
                         results = await emb_store.search(
-                            nid,
+                            node_text,
                             source_types=[source_type],
                             limit=10,
                             threshold=threshold,
@@ -541,10 +556,11 @@ class GraphStore:
         visited: set[str] = {from_id}
         queue: deque[list[str]] = deque([[from_id]])  # O(1) popleft (TD-128)
 
-        for _ in range(max_depth):
-            if not queue:
-                break
-            path = queue.popleft()  # O(1) — was queue.pop(0) which is O(n)
+        # TD-209: Proper BFS level exploration instead of popping one node per depth
+        while queue:
+            path = queue.popleft()
+            if len(path) - 1 >= max_depth:
+                continue  # exceeded hop depth
             current = path[-1]
             edges = await self.get_neighbors(current, limit=100)
             for edge in edges:

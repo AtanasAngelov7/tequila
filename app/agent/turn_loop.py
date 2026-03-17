@@ -75,6 +75,8 @@ class TurnLoop:
         self._message_store = message_store or get_message_store()
         self._executor = tool_executor or get_tool_executor()
         self._registry = tool_registry or get_tool_registry()
+        # TD-201: Per-session lock to prevent parallel turns corrupting state
+        self._session_locks: dict[str, asyncio.Lock] = {}
 
     # ── Gateway handler ───────────────────────────────────────────────────────
 
@@ -128,6 +130,32 @@ class TurnLoop:
         user_name: str = "",
     ) -> None:
         """Execute one full turn: user message → assistant response."""
+        # TD-201: Acquire per-session lock to prevent parallel turns
+        if session_key not in self._session_locks:
+            self._session_locks[session_key] = asyncio.Lock()
+        async with self._session_locks[session_key]:
+            # TD-206: Track active turns for accurate counting
+            from app.sessions.store import mark_turn_active, mark_turn_inactive
+            mark_turn_active(session_key)
+            try:
+                await self._run_full_turn_inner(
+                    session_key=session_key,
+                    session_id=session_id,
+                    user_content=user_content,
+                    user_name=user_name,
+                )
+            finally:
+                mark_turn_inactive(session_key)
+
+    async def _run_full_turn_inner(
+        self,
+        *,
+        session_key: str,
+        session_id: str,
+        user_content: str,
+        user_name: str = "",
+    ) -> None:
+        """Inner implementation of a full turn (wrapped by _run_full_turn)."""
         # ── Step 1: Load session + agent config ───────────────────────────────
         try:
             session = await self._session_store.get_by_id(session_id)
@@ -399,14 +427,15 @@ class TurnLoop:
                 always_recall_content=ctx.memory_always,
                 always_memories=_always_memories,
             )
-            # Stage 3 runs in background
-            asyncio.create_task(
+            # TD-218: Track fire-and-forget tasks with exception logging
+            task = asyncio.create_task(
                 recall.prefetch_background(
                     user_message=current_content,
                     session_id=session_id,
                     agent_id=agent_id_str,
                 )
             )
+            task.add_done_callback(lambda t: t.exception() and logger.warning("Recall prefetch error: %s", t.exception()))
         except RuntimeError:
             pass  # RecallPipeline not yet initialised (tests / first startup)
         except Exception as exc:
@@ -565,10 +594,11 @@ class TurnLoop:
                 messages = await self._message_store.get_active_chain(session_id)
                 msg_count = len(messages)
                 if msg_count > 0 and msg_count % pipeline.config.trigger_interval_messages == 0:
-                    # Schedule extraction as a background task (non-blocking)
-                    asyncio.create_task(
+                    # TD-218: Track extraction task with exception logging
+                    ext_task = asyncio.create_task(
                         self._run_extraction(session_id, messages)
                     )
+                    ext_task.add_done_callback(lambda t: t.exception() and logger.warning("Extraction task error: %s", t.exception()))
         except RuntimeError:
             pass  # ExtractionPipeline not yet initialised
         except Exception as exc:

@@ -10,6 +10,7 @@ Routes:
 """
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -36,7 +37,7 @@ class NotificationOut(BaseModel):
     action_url: str | None
     source_session_key: str | None
     read: bool
-    created_at: str
+    created_at: datetime  # TD-187: Use datetime not str
 
 
 class PreferenceIn(BaseModel):

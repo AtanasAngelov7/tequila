@@ -92,6 +92,31 @@ class AuditSinkManager:
 
     def __init__(self, db: aiosqlite.Connection) -> None:
         self._db = db
+        # TD-166: Shared httpx client for webhook sinks
+        self._http_client: Any | None = None
+        # TD-167: In-memory cache for sink list (invalidated on create/update/delete)
+        self._sink_cache: list[AuditSink] | None = None
+
+    def _get_http_client(self) -> Any:
+        """Return (creating if necessary) a shared httpx.AsyncClient."""
+        if self._http_client is None:
+            import httpx
+            self._http_client = httpx.AsyncClient(timeout=5.0)
+        return self._http_client
+
+    def _get_cached_sinks(self) -> list[AuditSink] | None:
+        """Return cached sink list or None if cache is empty."""
+        return self._sink_cache
+
+    def _invalidate_sink_cache(self) -> None:
+        """Clear the cached sink list so it's refreshed on next route_event."""
+        self._sink_cache = None
+
+    async def close(self) -> None:
+        """Close shared resources (call during shutdown)."""
+        if self._http_client is not None:
+            await self._http_client.aclose()
+            self._http_client = None
 
     # ── Sink CRUD ─────────────────────────────────────────────────────────
 
@@ -125,6 +150,7 @@ class AuditSinkManager:
                 (row["id"], row["kind"], row["name"], row["config"],
                  row["enabled"], row["created_at"]),
             )
+        self._invalidate_sink_cache()
         return sink
 
     async def get_sink(self, sink_id: str) -> AuditSink:
@@ -155,11 +181,13 @@ class AuditSinkManager:
                 "UPDATE audit_sinks SET kind=?, name=?, config=?, enabled=? WHERE id=?",
                 (row["kind"], row["name"], row["config"], row["enabled"], sink_id),
             )
+        self._invalidate_sink_cache()
         return updated
 
     async def delete_sink(self, sink_id: str) -> None:
         async with write_transaction(self._db):
             await self._db.execute("DELETE FROM audit_sinks WHERE id = ?", (sink_id,))
+        self._invalidate_sink_cache()
 
     # ── Retention ─────────────────────────────────────────────────────────
 
@@ -254,7 +282,11 @@ class AuditSinkManager:
 
     async def route_event(self, event: Any) -> None:
         """Fan-out an AuditEvent to all enabled non-SQLite sinks."""
-        sinks = await self.list_sinks()
+        # TD-167: Use cached sink list instead of DB query on every event
+        sinks = self._get_cached_sinks()
+        if sinks is None:
+            sinks = await self.list_sinks()
+            self._sink_cache = sinks
         event_dict = event.model_dump() if hasattr(event, "model_dump") else dict(event)
         # Serialise datetime fields
         for k, v in event_dict.items():
@@ -278,19 +310,45 @@ class AuditSinkManager:
     async def _route_to_file(self, sink: AuditSink, event: dict[str, Any]) -> None:
         path_str = sink.config.get("path", "data/logs/audit.jsonl")
         path = Path(path_str)
-        path.parent.mkdir(parents=True, exist_ok=True)
+        # TD-144: Validate path is within allowed base directory
+        allowed_base = Path("data/logs").resolve()
+        try:
+            resolved = path.resolve()
+        except (OSError, ValueError):
+            logger.warning("Audit file sink: invalid path %r", path_str)
+            return
+        if not str(resolved).startswith(str(allowed_base)):
+            logger.warning("Audit file sink: path %r is outside allowed base %s", path_str, allowed_base)
+            return
+        resolved.parent.mkdir(parents=True, exist_ok=True)
         line = json.dumps(event, default=str) + "\n"
-        await asyncio.to_thread(lambda: path.open("a", encoding="utf-8").write(line))
+        # TD-145: Use proper with-statement to avoid file handle leak
+        def _append(p: Path, data: str) -> None:
+            with p.open("a", encoding="utf-8") as f:
+                f.write(data)
+        await asyncio.to_thread(_append, resolved, line)
 
     async def _route_to_webhook(self, sink: AuditSink, event: dict[str, Any]) -> None:
         url = sink.config.get("url")
         if not url:
             return
+        # TD-150: Block SSRF to private/link-local IP ranges
+        import ipaddress
+        from urllib.parse import urlparse
+        try:
+            parsed = urlparse(url)
+            hostname = parsed.hostname or ""
+            addr = ipaddress.ip_address(hostname)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                logger.warning("Webhook SSRF blocked: %r resolves to private/reserved IP", url)
+                return
+        except ValueError:
+            pass  # Not an IP literal — hostname will be resolved by httpx
         headers = {"Content-Type": "application/json", **sink.config.get("headers", {})}
         try:
-            import httpx
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                await client.post(url, json=event, headers=headers)
+            # TD-166: Reuse shared httpx client instead of creating one per event
+            client = self._get_http_client()
+            await client.post(url, json=event, headers=headers)
         except Exception as exc:
             logger.warning("Webhook audit sink POST failed: %s", exc)
 

@@ -63,6 +63,10 @@ def decrypt_credential(token: str) -> str:
     """
     try:
         return get_fernet().decrypt(token.encode()).decode()
-    except (InvalidToken, Exception) as exc:
+    except InvalidToken as exc:
+        # TD-241: Narrow exception to only expected crypto errors
+        logger.warning("Credential decryption failed: %s", exc)
+        raise ValueError("Invalid or tampered credential token.") from exc
+    except (UnicodeDecodeError, ValueError) as exc:
         logger.warning("Credential decryption failed: %s", exc)
         raise ValueError("Invalid or tampered credential token.") from exc

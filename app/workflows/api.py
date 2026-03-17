@@ -19,7 +19,7 @@ import logging
 from typing import Any, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.deps import require_gateway_token
 from app.exceptions import NotFoundError
@@ -72,8 +72,8 @@ class WorkflowCreateRequest(BaseModel):
     mode: Literal["pipeline", "parallel"] = "pipeline"
     """Execution mode: ``pipeline`` | ``parallel``."""
 
-    steps: list[WorkflowStepRequest] = []
-    """Ordered list of steps."""
+    steps: list[WorkflowStepRequest] = Field(default_factory=list, min_length=1)
+    """Ordered list of steps (at least one required)."""
 
 
 class WorkflowUpdateRequest(BaseModel):

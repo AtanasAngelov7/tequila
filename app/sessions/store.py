@@ -52,13 +52,39 @@ def remove_turn_queue(session_key: str) -> None:
     _turn_queues.pop(session_key, None)
 
 
+# TD-206: Track active turns with a set, not queue emptiness.
+# A turn that has been dequeued and is actively processing has an empty queue,
+# so queue-based counting gives inverted results.
+_active_turns: set[str] = set()
+
+
+def mark_turn_active(session_key: str) -> None:
+    """Mark *session_key* as having an active turn in progress."""
+    _active_turns.add(session_key)
+
+
+def mark_turn_inactive(session_key: str) -> None:
+    """Mark the turn for *session_key* as finished."""
+    _active_turns.discard(session_key)
+
+
+def is_agent_turn_active(agent_id: str) -> bool:
+    """Return True if **any** session associated with *agent_id* has an active turn.
+
+    Since session_key contains the agent_id prefix by convention
+    (``<agent_id>:<channel>:<user_or_id>``), we check for prefix matches.
+    """
+    prefix = f"{agent_id}:"
+    return any(k.startswith(prefix) or k == agent_id for k in _active_turns)
+
+
 def active_turn_count() -> int:
-    """Return the number of sessions that currently have a non-empty turn queue.
+    """Return the number of sessions that currently have an active turn.
 
     Used by the ``GET /api/system/status`` health endpoint without exposing the
-    private ``_turn_queues`` dict to external callers.
+    private ``_active_turns`` set to external callers.
     """
-    return sum(1 for q in _turn_queues.values() if not q.empty())
+    return len(_active_turns)
 
 
 # ── SessionStore ──────────────────────────────────────────────────────────────
@@ -264,6 +290,42 @@ class SessionStore:
             rows = await cur.fetchall()
             return [Session.from_row(row_to_dict(r)) for r in rows]
 
+    async def count(
+        self,
+        *,
+        status: str | None = None,
+        kind: str | None = None,
+        agent_id: str | None = None,
+        q: str | None = None,
+    ) -> int:
+        """Return total number of sessions matching filters (TD-161).
+
+        Uses the same filter logic as :meth:`list` but executes ``COUNT(*)``
+        instead of fetching rows, giving a true total for pagination.
+        """
+        filters: list[str] = []
+        params: list[Any] = []
+
+        if status is not None:
+            filters.append("status = ?")
+            params.append(status)
+        if kind is not None:
+            filters.append("kind = ?")
+            params.append(kind)
+        if agent_id is not None:
+            filters.append("agent_id = ?")
+            params.append(agent_id)
+        if q is not None:
+            pattern = f"%{q}%"
+            filters.append("(title LIKE ? OR summary LIKE ?)")
+            params.extend([pattern, pattern])
+
+        where = ("WHERE " + " AND ".join(filters)) if filters else ""
+        query = f"SELECT COUNT(*) FROM sessions {where}"
+        async with self._db.execute(query, params) as cur:
+            row = await cur.fetchone()
+            return int(row[0]) if row else 0
+
     # ── Update ────────────────────────────────────────────────────────────────
 
     async def update(
@@ -382,6 +444,9 @@ class SessionStore:
                 {"id": session_id, "now": now_iso},
             )
 
+        # TD-224: Clean up turn queue for idle sessions
+        remove_turn_queue(session_id)
+
         return self._db.total_changes > before
 
     async def archive(self, session_id: str) -> Session:
@@ -405,6 +470,9 @@ class SessionStore:
                 """,
                 {"id": session_id, "now": now_iso},
             )
+
+        # TD-224: Clean up turn queue for archived sessions
+        remove_turn_queue(session_id)
 
         # Evict the runtime context budget for this session (TD-12)
         try:

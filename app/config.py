@@ -222,9 +222,9 @@ class ConfigStore:
         except (TypeError, ValueError) as exc:
             raise ConfigValidationError(key, str(exc)) from exc
 
-        # OCC update.
+        # OCC update (TD-207: check rowcount for silent write loss).
         async with write_transaction(self._db):
-            await self._db.execute(
+            cursor = await self._db.execute(
                 """
                 UPDATE config
                 SET    value = ?, updated_at = datetime('now'), version = version + 1
@@ -232,6 +232,11 @@ class ConfigStore:
                 """,
                 (encoded, key, current_version),
             )
+            if cursor.rowcount == 0:
+                from app.exceptions import ConflictError
+                raise ConflictError(
+                    f"Config key '{key}' was modified concurrently (version mismatch)"
+                )
 
         # Update cache.
         self._cache[key] = self._decode(encoded, value_type)

@@ -127,6 +127,20 @@ class MCPClient:
             parts = shlex.split(cmd)
             prog, *args = parts
 
+        # TD-138: Allowlist permitted MCP commands to prevent arbitrary command execution
+        import os
+        _ALLOWED_MCP_COMMANDS = {
+            "node", "npx", "python", "python3", "uvx",
+            "mcp-server", "mcp", "deno", "bun",
+        }
+        prog_base = os.path.splitext(os.path.basename(prog))[0].lower()
+        if prog_base not in _ALLOWED_MCP_COMMANDS:
+            raise ValueError(
+                f"MCP stdio command {prog!r} is not in the allowed list: "
+                f"{sorted(_ALLOWED_MCP_COMMANDS)}. "
+                "Add it to _ALLOWED_MCP_COMMANDS if it is a trusted MCP server binary."
+            )
+
         self._proc = await asyncio.create_subprocess_exec(
             prog,
             *args,
@@ -162,6 +176,19 @@ class MCPClient:
     async def _http_connect(self) -> None:
         base = self.url_or_command
         self._base_url = base if isinstance(base, str) else base[0]
+        # TD-151: SSRF validation for MCP HTTP transport
+        import ipaddress
+        from urllib.parse import urlparse
+        try:
+            parsed = urlparse(self._base_url)
+            hostname = parsed.hostname or ""
+            addr = ipaddress.ip_address(hostname)
+            if addr.is_private or addr.is_loopback or addr.is_link_local or addr.is_reserved:
+                raise ValueError(f"MCP HTTP transport blocked: {hostname!r} is a private/reserved IP")
+        except ValueError as exc:
+            if "blocked" in str(exc):
+                raise
+            # Not an IP literal — will be resolved by httpx
         headers: dict[str, str] = {"Content-Type": "application/json"}
         if self.auth:
             hdr = self.auth.get("header", "Authorization")
@@ -214,13 +241,15 @@ class MCPClient:
 
     async def _initialize(self) -> None:
         """Send MCP initialize handshake."""
+        # TD-184: Source version from app constants
+        from app.constants import APP_VERSION
         try:
             await self._rpc(
                 "initialize",
                 {
                     "protocolVersion": "2024-11-05",
                     "capabilities": {"tools": {}},
-                    "clientInfo": {"name": "tequila", "version": "1.0.0"},
+                    "clientInfo": {"name": "tequila", "version": APP_VERSION},
                 },
             )
             logger.debug("MCPClient initialised (%s transport).", self.transport)

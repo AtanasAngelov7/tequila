@@ -20,8 +20,8 @@ async def test_scheduler_list_empty(test_app):
     resp = await test_app.get("/api/scheduled-tasks")
     assert resp.status_code == 200
     data = resp.json()
-    assert "tasks" in data
-    assert isinstance(data["tasks"], list)
+    assert isinstance(data, list)
+    assert len(data) == 0
 
 
 @pytest.mark.asyncio
@@ -30,6 +30,7 @@ async def test_scheduler_create_task(test_app):
     payload = {
         "name": "Integration Test Task",
         "cron_expression": "*/5 * * * *",
+        "agent_id": "test-agent-1",
         "prompt_template": "Hello from integration test.",
         "enabled": True,
     }
@@ -48,6 +49,7 @@ async def test_scheduler_get_task(test_app):
     create_resp = await test_app.post("/api/scheduled-tasks", json={
         "name": "Get Test Task",
         "cron_expression": "0 8 * * *",
+        "agent_id": "test-agent-1",
         "prompt_template": "Morning check",
     })
     assert create_resp.status_code in (200, 201)
@@ -64,6 +66,7 @@ async def test_scheduler_update_task(test_app):
     create_resp = await test_app.post("/api/scheduled-tasks", json={
         "name": "Update Me",
         "cron_expression": "0 9 * * *",
+        "agent_id": "test-agent-1",
         "prompt_template": "original",
     })
     task_id = create_resp.json()["id"]
@@ -79,6 +82,7 @@ async def test_scheduler_delete_task(test_app):
     create_resp = await test_app.post("/api/scheduled-tasks", json={
         "name": "Delete Me",
         "cron_expression": "0 0 * * *",
+        "agent_id": "test-agent-1",
         "prompt_template": "bye",
     })
     task_id = create_resp.json()["id"]
@@ -107,6 +111,7 @@ async def test_scheduler_run_now(test_app):
     create_resp = await test_app.post("/api/scheduled-tasks", json={
         "name": "Run Now Task",
         "cron_expression": "0 0 1 1 *",  # Only runs Jan 1 00:00 — won't fire automatically
+        "agent_id": "test-agent-1",
         "prompt_template": "Trigger me manually",
     })
     assert create_resp.status_code in (200, 201)
@@ -181,7 +186,7 @@ async def test_hook_engine_singleton_accessible():
     assert engine is not None
 
     # Running with no hooks registered should succeed without error
-    ctx = HookContext(hook_point="pre_prompt", session_id="integration-test", data={"text": "hello"})
+    ctx = HookContext(hook_point="pre_prompt_assembly", session_id="integration-test", data={"text": "hello"})
     result = await engine.run(ctx)
     assert result is not None
 

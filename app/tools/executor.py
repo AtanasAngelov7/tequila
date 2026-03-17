@@ -108,12 +108,16 @@ class ToolExecutor:
         session_key: str,
     ) -> bool:
         """Return True if this tool call must pause for user confirmation."""
+        # TD-154: Critical tools ALWAYS require per-call approval — no bypass
+        if td.safety == "critical":
+            return True
+
         # 1. Persistent session-level approval (Sprint 07) — overrides everything
         session_approved = self._session_approvals.get(session_key, set())
         if td.name in session_approved:
             return False
 
-        # 2. Turn-level allow-all
+        # 2. Turn-level allow-all (still blocked for critical above)
         if self._allow_all.get(session_key):
             return False
 
@@ -128,8 +132,8 @@ class ToolExecutor:
         if td.name in require:
             return True
 
-        # 5. Safety-level defaults: destructive + critical require approval
-        return td.safety in ("destructive", "critical")
+        # 5. Safety-level defaults: destructive requires approval
+        return td.safety == "destructive"
 
     # ── Approval gate ─────────────────────────────────────────────────────────
 
@@ -366,10 +370,17 @@ class ToolExecutor:
         # Execute
         start_ms = time.monotonic()
         try:
-            if asyncio.iscoroutinefunction(fn):
-                raw = await fn(**arguments)
+            # TD-228: Filter arguments to only declared parameter keys
+            allowed_keys = set(td.parameters.get("properties", {}).keys()) if td.parameters else None
+            if allowed_keys:
+                safe_arguments = {k: v for k, v in arguments.items() if k in allowed_keys}
             else:
-                raw = await asyncio.to_thread(fn, **arguments)
+                safe_arguments = arguments
+
+            if asyncio.iscoroutinefunction(fn):
+                raw = await fn(**safe_arguments)
+            else:
+                raw = await asyncio.to_thread(fn, **safe_arguments)
 
             elapsed_ms = int((time.monotonic() - start_ms) * 1000)
 

@@ -51,11 +51,16 @@ class AppLockManager:
     """
 
     _BCRYPT_ROUNDS = 12
+    _MAX_ATTEMPTS = 5
+    _LOCKOUT_SECONDS = 300  # 5 minute lockout after max attempts
 
     def __init__(self, db: aiosqlite.Connection) -> None:
         self._db = db
         self._last_activity: datetime = datetime.now(timezone.utc)
         self._idle_task: asyncio.Task[None] | None = None
+        # TD-147: Brute-force protection
+        self._failed_attempts: int = 0
+        self._lockout_until: datetime | None = None
 
     # ── State ─────────────────────────────────────────────────────────────
 
@@ -106,8 +111,10 @@ class AppLockManager:
 
     async def set_pin(self, pin: str) -> str:
         """Set a new PIN. Returns the one-time recovery key (show it once!)."""
-        if len(pin) < 4:
-            raise ValueError("PIN must be at least 4 characters")
+        if len(pin) < 6:
+            raise ValueError("PIN must be at least 6 characters")
+        if len(pin) > 72:
+            raise ValueError("PIN must be at most 72 characters (bcrypt limit)")
         pin_hash = await asyncio.to_thread(
             bcrypt.hashpw, pin.encode(), bcrypt.gensalt(self._BCRYPT_ROUNDS)
         )
@@ -125,8 +132,28 @@ class AppLockManager:
         logger.info("App lock PIN set.")
         return recovery_key  # shown once to the user
 
+    def _check_lockout(self) -> None:
+        """Raise ValueError if currently locked out from brute-force protection."""
+        if self._lockout_until and datetime.now(timezone.utc) < self._lockout_until:
+            remaining = int((self._lockout_until - datetime.now(timezone.utc)).total_seconds())
+            raise ValueError(f"Too many failed attempts. Try again in {remaining}s.")
+        if self._lockout_until and datetime.now(timezone.utc) >= self._lockout_until:
+            # Lockout expired — reset
+            self._failed_attempts = 0
+            self._lockout_until = None
+
+    def _record_failed_attempt(self) -> None:
+        """Track a failed verification attempt; engage lockout if threshold reached."""
+        self._failed_attempts += 1
+        if self._failed_attempts >= self._MAX_ATTEMPTS:
+            from datetime import timedelta
+            self._lockout_until = datetime.now(timezone.utc) + timedelta(seconds=self._LOCKOUT_SECONDS)
+            logger.warning("Brute-force lockout engaged for %ds after %d failed attempts.",
+                           self._LOCKOUT_SECONDS, self._failed_attempts)
+
     async def verify_pin(self, pin: str) -> bool:
         """Verify PIN and unlock on success."""
+        self._check_lockout()
         cursor = await self._db.execute(
             "SELECT pin_hash FROM app_lock WHERE id = 1"
         )
@@ -139,13 +166,19 @@ class AppLockManager:
                 bcrypt.checkpw, pin.encode(), stored_hash.encode()
             )
         except Exception:
+            self._record_failed_attempt()
             return False
         if match:
+            self._failed_attempts = 0
+            self._lockout_until = None
             await self.unlock()
+        else:
+            self._record_failed_attempt()
         return match
 
     async def verify_recovery_key(self, key: str) -> bool:
         """Verify emergency recovery key and unlock on success."""
+        self._check_lockout()
         cursor = await self._db.execute(
             "SELECT recovery_key_hash FROM app_lock WHERE id = 1"
         )
@@ -158,9 +191,14 @@ class AppLockManager:
                 bcrypt.checkpw, key.encode(), stored_hash.encode()
             )
         except Exception:
+            self._record_failed_attempt()
             return False
         if match:
+            self._failed_attempts = 0
+            self._lockout_until = None
             await self.unlock()
+        else:
+            self._record_failed_attempt()
         return match
 
     async def disable(self) -> None:

@@ -11,6 +11,7 @@
 """
 from __future__ import annotations
 
+import logging
 import os
 import time
 from datetime import datetime, timezone
@@ -23,6 +24,8 @@ from app.api.deps import get_config_dep, require_gateway_token
 from app.config import ConfigStore
 from app.constants import APP_NAME, APP_VERSION
 from app.exceptions import ConfigKeyNotFoundError, ConfigValidationError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["system"])
 

@@ -144,7 +144,32 @@ class AgentStore:
         ) as cur:
             rows = await cur.fetchall()
         return [AgentConfig.from_row(row_to_dict(r)) for r in rows]
-
+    async def count(
+        self,
+        *,
+        status: str | None = None,
+        role: str | None = None,
+        q: str | None = None,
+    ) -> int:
+        """Return total count of agents matching filters (TD-168)."""
+        clauses: list[str] = []
+        params: list[Any] = []
+        if status:
+            clauses.append("status = ?")
+            params.append(status)
+        if role:
+            clauses.append("role = ?")
+            params.append(role)
+        if q:
+            clauses.append("(name LIKE ? OR persona LIKE ?)")
+            params.extend([f"%{q}%", f"%{q}%"])
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        async with self._db.execute(
+            f"SELECT COUNT(*) FROM agents {where}",
+            params,
+        ) as cur:
+            row = await cur.fetchone()
+        return row[0] if row else 0
     # ── Update ────────────────────────────────────────────────────────────────
 
     async def update(

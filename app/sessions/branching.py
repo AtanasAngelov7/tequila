@@ -65,16 +65,15 @@ async def regenerate(
     if msg.role != "assistant":
         raise ValidationError(f"Message {message_id!r} is not an assistant message (role={msg.role!r}).")
 
-    # Find preceding user message from the active chain
+    # Find preceding user message by iterating forward (TD-195)
     chain = await store.get_active_chain(session_id)
     preceding_user_content: str | None = None
-    for m in reversed(chain):
+    for m in chain:
         if m.id == message_id:
-            # Found the pivot — stop looking forward
-            continue
+            # Reached the target assistant message — use the last-seen user content
+            break
         if m.role == "user":
             preceding_user_content = m.content
-            break
 
     if preceding_user_content is None:
         raise ValidationError(

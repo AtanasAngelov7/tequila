@@ -205,7 +205,7 @@ class RecallPipeline:
                     mem = await mem_store.get(obj_id)
                 except Exception:
                     continue
-                score = float(r.score)
+                score = float(r.similarity)
                 candidates.append({
                     "id": mem.id,
                     "content": mem.content,

@@ -166,7 +166,7 @@ async def test_graceful_degradation_fallback_flow() -> None:
     fail_prov = MagicMock()
     fail_prov.provider_id = "failing"
 
-    async def _fail(*_, **__):
+    def _fail(*_, **__):
         raise RuntimeError("provider down")
 
     fail_prov.stream_completion = _fail
@@ -175,10 +175,8 @@ async def test_graceful_degradation_fallback_flow() -> None:
     ok_prov.provider_id = "ok"
 
     async def _ok_stream(*_, **__):
-        async def _gen():
-            yield StreamEvent(kind="text_delta", text="recovered")
-            yield StreamEvent(kind="done")
-        return _gen()
+        yield StreamEvent(kind="text_delta", text="recovered")
+        yield StreamEvent(kind="done")
 
     ok_prov.stream_completion = _ok_stream
 
@@ -200,7 +198,7 @@ async def test_graceful_degradation_circuit_open_skips_provider() -> None:
     skip_prov = MagicMock()
     skip_prov.provider_id = "skip-me"
 
-    async def _should_not_call(*_, **__):
+    def _should_not_call(*_, **__):
         raise AssertionError("should not call")
 
     skip_prov.stream_completion = _should_not_call
@@ -214,9 +212,7 @@ async def test_graceful_degradation_circuit_open_skips_provider() -> None:
     ok_prov.provider_id = "always-ok"
 
     async def _ok(*_, **__):
-        async def _gen():
-            yield StreamEvent(kind="done")
-        return _gen()
+        yield StreamEvent(kind="done")
 
     ok_prov.stream_completion = _ok
 

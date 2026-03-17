@@ -186,71 +186,84 @@ class AnthropicProvider(LLMProvider):
         if api_tools:
             kwargs["tools"] = api_tools
 
-        # Collect active tool calls during stream
+        # Track active tool calls during stream
         active_tool: dict[str, Any] | None = None
+        # TD-239: Accumulate usage across stream events for a single combined event
+        _accumulated_input: int = 0
+        _accumulated_output: int = 0
 
-        async with self._client.messages.stream(**kwargs) as stream:
-            async for event in stream:
-                event_type = type(event).__name__
+        # TD-210: Wrap stream in try/except so errors yield proper events
+        try:
+            async with self._client.messages.stream(**kwargs) as stream:
+                async for event in stream:
+                    event_type = type(event).__name__
 
-                if event_type == "RawContentBlockStartEvent":
-                    block = event.content_block
-                    if block.type == "text":
-                        pass  # text deltas will follow
-                    elif block.type == "tool_use":
-                        active_tool = {"id": block.id, "name": block.name, "args_raw": ""}
-                        yield ProviderStreamEvent(
-                            kind="tool_call_start",
-                            tool_call_id=block.id,
-                            tool_name=block.name,
-                        )
+                    if event_type == "RawContentBlockStartEvent":
+                        block = event.content_block
+                        if block.type == "text":
+                            pass  # text deltas will follow
+                        elif block.type == "tool_use":
+                            active_tool = {"id": block.id, "name": block.name, "args_raw": ""}
+                            yield ProviderStreamEvent(
+                                kind="tool_call_start",
+                                tool_call_id=block.id,
+                                tool_name=block.name,
+                            )
 
-                elif event_type == "RawContentBlockDeltaEvent":
-                    delta = event.delta
-                    if delta.type == "text_delta":
-                        yield ProviderStreamEvent(kind="text_delta", text=delta.text)
-                    elif delta.type == "input_json_delta":
+                    elif event_type == "RawContentBlockDeltaEvent":
+                        delta = event.delta
+                        if delta.type == "text_delta":
+                            yield ProviderStreamEvent(kind="text_delta", text=delta.text)
+                        elif delta.type == "input_json_delta":
+                            if active_tool:
+                                active_tool["args_raw"] += delta.partial_json
+                            yield ProviderStreamEvent(
+                                kind="tool_call_delta",
+                                tool_call_id=active_tool["id"] if active_tool else None,
+                                tool_args_delta=delta.partial_json,
+                            )
+
+                    elif event_type == "RawContentBlockStopEvent":
                         if active_tool:
-                            active_tool["args_raw"] += delta.partial_json
-                        yield ProviderStreamEvent(
-                            kind="tool_call_delta",
-                            tool_call_id=active_tool["id"] if active_tool else None,
-                            tool_args_delta=delta.partial_json,
-                        )
+                            import json
+                            try:
+                                parsed_args = json.loads(active_tool["args_raw"] or "{}")
+                            except json.JSONDecodeError:
+                                parsed_args = {}
+                            yield ProviderStreamEvent(
+                                kind="tool_call_end",
+                                tool_call_id=active_tool["id"],
+                                tool_name=active_tool["name"],
+                                tool_args=parsed_args,
+                            )
+                            active_tool = None
 
-                elif event_type == "RawContentBlockStopEvent":
-                    if active_tool:
-                        import json
-                        try:
-                            parsed_args = json.loads(active_tool["args_raw"] or "{}")
-                        except json.JSONDecodeError:
-                            parsed_args = {}
-                        yield ProviderStreamEvent(
-                            kind="tool_call_end",
-                            tool_call_id=active_tool["id"],
-                            tool_name=active_tool["name"],
-                            tool_args=parsed_args,
-                        )
-                        active_tool = None
+                    elif event_type == "RawMessageDeltaEvent":
+                        usage = getattr(event, "usage", None)
+                        if usage:
+                            # TD-239: Accumulate output tokens instead of separate event
+                            _acc_output = getattr(usage, "output_tokens", None) or 0
+                            _accumulated_output += _acc_output
 
-                elif event_type == "RawMessageDeltaEvent":
-                    usage = getattr(event, "usage", None)
-                    if usage:
-                        yield ProviderStreamEvent(
-                            kind="usage",
-                            output_tokens=getattr(usage, "output_tokens", None),
-                        )
+                    elif event_type == "RawMessageStartEvent":
+                        usage = getattr(event.message, "usage", None)
+                        if usage:
+                            _accumulated_input += getattr(usage, "input_tokens", None) or 0
+                            _accumulated_output += getattr(usage, "output_tokens", None) or 0
 
-                elif event_type == "RawMessageStartEvent":
-                    usage = getattr(event.message, "usage", None)
-                    if usage:
-                        yield ProviderStreamEvent(
-                            kind="usage",
-                            input_tokens=getattr(usage, "input_tokens", None),
-                            output_tokens=getattr(usage, "output_tokens", None),
-                        )
+                # TD-239: Emit a single combined usage event at the end of the stream
+                if _accumulated_input or _accumulated_output:
+                    yield ProviderStreamEvent(
+                        kind="usage",
+                        input_tokens=_accumulated_input or None,
+                        output_tokens=_accumulated_output or None,
+                    )
 
-        yield ProviderStreamEvent(kind="done")
+            yield ProviderStreamEvent(kind="done")
+        except Exception as exc:
+            logger.error("Anthropic stream error: %s", exc)
+            yield ProviderStreamEvent(kind="error", error=str(exc))
+            yield ProviderStreamEvent(kind="done")
 
     async def count_tokens(self, messages: list[Message], model: str) -> int:
         """Use Anthropic's token counting endpoint."""

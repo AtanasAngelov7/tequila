@@ -150,3 +150,12 @@ def setup_logging(
         "Logging configured",
         extra={"level": level, "format": fmt, "output": output},
     )
+
+
+def reset_logging() -> None:
+    """Reset logging configuration so ``setup_logging`` can be called again.
+
+    Primarily for use in tests that need to reconfigure logging.
+    """
+    global _configured  # noqa: PLW0603
+    _configured = False

@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
 
 import aiosqlite
@@ -247,6 +247,8 @@ class BudgetTracker:
                 (cap_id, cap.period, cap.limit_usd, cap.action,
                  datetime.now(timezone.utc).isoformat()),
             )
+        # TD-178: Return cap with the generated id
+        cap.id = cap_id
         return cap
 
     async def delete_cap(self, period: str) -> None:
@@ -278,13 +280,15 @@ class BudgetTracker:
         date_str = now.date().isoformat()
         month_str = now.strftime("%Y-%m")
 
+        # TD-160: Use range queries instead of LIKE for index usage
         # Daily usage
         daily_cap = await self._get_cap("daily")
         if daily_cap:
+            next_day = (now.date() + timedelta(days=1)).isoformat()
             cursor = await self._db.execute(
                 "SELECT COALESCE(SUM(cost_usd), 0) FROM turn_costs "
-                "WHERE timestamp LIKE ?",
-                (f"{date_str}%",),
+                "WHERE timestamp >= ? AND timestamp < ?",
+                (date_str, next_day),
             )
             row = await cursor.fetchone()
             daily_total = float(row[0]) if row else 0.0
@@ -293,10 +297,15 @@ class BudgetTracker:
         # Monthly usage
         monthly_cap = await self._get_cap("monthly")
         if monthly_cap:
+            # Compute next month boundary
+            if now.month == 12:
+                next_month = f"{now.year + 1}-01"
+            else:
+                next_month = f"{now.year}-{now.month + 1:02d}"
             cursor = await self._db.execute(
                 "SELECT COALESCE(SUM(cost_usd), 0) FROM turn_costs "
-                "WHERE timestamp LIKE ?",
-                (f"{month_str}%",),
+                "WHERE timestamp >= ? AND timestamp < ?",
+                (f"{month_str}-01", f"{next_month}-01"),
             )
             row = await cursor.fetchone()
             monthly_total = float(row[0]) if row else 0.0
@@ -370,9 +379,10 @@ class BudgetTracker:
         )
 
     async def get_by_agent(
-        self, *, period: str, date_or_month: str
+        self, *, period: str, date_or_month: str | None = None
     ) -> list[dict[str, Any]]:
-        like = f"{date_or_month}%"
+        # TD-179: Use period to determine date_or_month if not specified
+        like = f"{date_or_month or period}%"
         cursor = await self._db.execute(
             """
             SELECT agent_id,
@@ -389,9 +399,10 @@ class BudgetTracker:
         return [dict(r) for r in rows]
 
     async def get_by_provider(
-        self, *, period: str, date_or_month: str
+        self, *, period: str, date_or_month: str | None = None
     ) -> list[dict[str, Any]]:
-        like = f"{date_or_month}%"
+        # TD-179: Use period to determine date_or_month if not specified
+        like = f"{date_or_month or period}%"
         cursor = await self._db.execute(
             """
             SELECT provider_id, model,

@@ -57,11 +57,16 @@ async def set_pin(body: SetPinRequest) -> dict:
         recovery_key = await lock.set_pin(body.pin)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
-    return {
-        "status": "pin_set",
-        "recovery_key": recovery_key,
-        "note": "Save this recovery key — it will not be shown again.",
-    }
+    # TD-175: Prevent browser from caching recovery key
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        content={
+            "status": "pin_set",
+            "recovery_key": recovery_key,
+            "note": "Save this recovery key — it will not be shown again.",
+        },
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.post("/lock", dependencies=[Depends(require_gateway_token)])
@@ -74,16 +79,20 @@ async def lock_app() -> dict:
 @router.post("/unlock", dependencies=[Depends(require_gateway_token)])
 async def unlock_app(body: UnlockRequest) -> dict:
     lock = get_app_lock()
-    if body.pin:
-        success = await lock.verify_pin(body.pin)
-        if not success:
-            raise HTTPException(status_code=401, detail="Invalid PIN")
-    elif body.recovery_key:
-        success = await lock.verify_recovery_key(body.recovery_key)
-        if not success:
-            raise HTTPException(status_code=401, detail="Invalid recovery key")
-    else:
-        raise HTTPException(status_code=400, detail="Provide pin or recovery_key")
+    try:
+        if body.pin:
+            success = await lock.verify_pin(body.pin)
+            if not success:
+                raise HTTPException(status_code=401, detail="Invalid PIN")
+        elif body.recovery_key:
+            success = await lock.verify_recovery_key(body.recovery_key)
+            if not success:
+                raise HTTPException(status_code=401, detail="Invalid recovery key")
+        else:
+            raise HTTPException(status_code=400, detail="Provide pin or recovery_key")
+    except ValueError as exc:
+        # TD-147: Brute-force lockout
+        raise HTTPException(status_code=429, detail=str(exc))
     lock.record_activity()
     return {"status": "unlocked"}
 

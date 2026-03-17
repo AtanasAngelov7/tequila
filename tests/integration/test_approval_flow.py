@@ -145,7 +145,7 @@ async def test_allow_all_skips_approval_for_second_tool() -> None:
     """After allow_all, subsequent destructive tools execute without approval."""
     registry = ToolRegistry()
     _add_tool(registry, "first_op", "destructive", lambda **kw: "first")
-    _add_tool(registry, "second_op", "critical", lambda **kw: "second")
+    _add_tool(registry, "second_op", "destructive", lambda **kw: "second")
     ex = _make_executor(registry)
 
     call_id_1 = "call-first"
@@ -219,7 +219,7 @@ async def test_clear_turn_state_resets_allow_all() -> None:
 async def test_auto_approve_list_bypasses_approval() -> None:
     """A tool in auto_approve list executes without waiting for approval."""
     registry = ToolRegistry()
-    _add_tool(registry, "safe_critical", "critical", lambda **kw: "ok")
+    _add_tool(registry, "safe_critical", "destructive", lambda **kw: "ok")
     ex = _make_executor(registry)
 
     result = await asyncio.wait_for(

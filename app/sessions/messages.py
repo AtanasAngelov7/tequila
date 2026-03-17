@@ -64,6 +64,11 @@ class MessageStore:
         """Persist a new message and return the hydrated model."""
         from app.sessions.store import get_session_store
 
+        # TD-156: Validate role
+        _VALID_ROLES = {"user", "assistant", "system", "tool", "tool_result"}
+        if role not in _VALID_ROLES:
+            raise ValueError(f"Invalid message role {role!r}; must be one of {_VALID_ROLES}")
+
         message_id = str(uuid.uuid4())
         now_iso = datetime.now(timezone.utc).isoformat()
 
@@ -173,7 +178,14 @@ class MessageStore:
 
         Used by prompt assembly to load session history.
         """
-        return await self.list_by_session(session_id, limit=1000, active_only=True)
+        # TD-225: Warn when result may be truncated
+        result = await self.list_by_session(session_id, limit=1000, active_only=True)
+        if len(result) >= 1000:
+            logger.warning(
+                "get_active_chain hit 1000-message limit for session %s — history may be truncated",
+                session_id,
+            )
+        return result
 
     # ── Update ────────────────────────────────────────────────────────────────
 
@@ -213,15 +225,16 @@ class MessageStore:
         Returns the number of rows updated.
         Used by branching (§3.5) for regenerate and edit-and-resubmit.
         """
-        # Get the created_at of the pivot message
+        # TD-226: Use ROWID for ordering instead of created_at timestamp
+        # to avoid ambiguity when messages share the same millisecond.
         async with self._db.execute(
-            "SELECT created_at FROM messages WHERE id = ? AND session_id = ?",
+            "SELECT rowid FROM messages WHERE id = ? AND session_id = ?",
             (from_message_id, session_id),
         ) as cur:
             pivot = await cur.fetchone()
         if pivot is None:
             raise NotFoundError(resource="Message", id=from_message_id)
-        pivot_ts = pivot[0]
+        pivot_rowid = pivot[0]
 
         now_iso = datetime.now(timezone.utc).isoformat()
         async with write_transaction(self._db):
@@ -231,9 +244,9 @@ class MessageStore:
                 SET active = 0, updated_at = ?
                 WHERE session_id = ?
                   AND active = 1
-                  AND created_at >= ?
+                  AND rowid >= ?
                 """,
-                (now_iso, session_id, pivot_ts),
+                (now_iso, session_id, pivot_rowid),
             )
         return result.rowcount
 

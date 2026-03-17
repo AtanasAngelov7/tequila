@@ -6,11 +6,12 @@ from typing import Any, Literal
 from pydantic import BaseModel
 
 # The six hook-points in the agent pipeline.
+# TD-140: Canonical HookPoint definition — all code must import from here.
 HookPoint = Literal[
-    "pre_prompt",
-    "post_prompt",
-    "pre_tool",
-    "post_tool",
+    "pre_prompt_assembly",
+    "post_prompt_assembly",
+    "pre_tool_execution",
+    "post_tool_execution",
     "pre_response",
     "post_response",
 ]

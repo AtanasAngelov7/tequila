@@ -102,7 +102,9 @@ class TokenCounter:
     def __init__(self, model_id: str) -> None:
         self._model_id = model_id
         self._enc = _tiktoken_encoding_for_model(model_id)
+        # TD-221: Use LRU dict with max size to prevent unbounded growth
         self._cache: dict[str, int] = {}
+        self._cache_max = 2048
 
     def count(self, text: str) -> int:
         """Return the token count for *text*, using the cache where possible."""
@@ -118,6 +120,14 @@ class TokenCounter:
         else:
             # Fallback: approximate at 4 chars / token
             n = max(1, len(text) // 4)
+
+        # Evict oldest entries if cache is full
+        if len(self._cache) >= self._cache_max:
+            # Remove first ~25% of entries (oldest by insertion order)
+            to_remove = self._cache_max // 4
+            keys = list(self._cache.keys())[:to_remove]
+            for k in keys:
+                del self._cache[k]
 
         self._cache[key] = n
         return n
@@ -273,13 +283,18 @@ class ContextBudget:
         preserved_tail = non_system[-2:] if len(non_system) >= 2 else non_system[:]
         candidate_body = non_system[:-2] if len(non_system) >= 2 else []
 
-        # Remove from the front of candidate_body until under target
-        while candidate_body and self.usage_ratio(system_msgs + candidate_body + preserved_tail) > target_ratio:
-            removed = candidate_body.pop(0)
+        # TD-261: Remove from the front using index+slice instead of O(n²) pop(0)
+        drop_count = 0
+        while drop_count < len(candidate_body) and self.usage_ratio(
+            system_msgs + candidate_body[drop_count:] + preserved_tail
+        ) > target_ratio:
+            removed = candidate_body[drop_count]
             logger.debug(
                 "compress_trim_oldest: dropped message (role=%s)",
                 getattr(removed, "role", "?"),
             )
+            drop_count += 1
+        candidate_body = candidate_body[drop_count:]
 
         trimmed = system_msgs + candidate_body + preserved_tail
         logger.info(
@@ -446,9 +461,10 @@ class ContextBudget:
         return compressed
 
 
-# ── Session-level budget cache ────────────────────────────────────────────────
+# ── Session-level budget cache (TD-220: capped) ──────────────────────────────
 
 _budgets: dict[str, ContextBudget] = {}
+_BUDGET_CACHE_MAX = 500
 
 
 def get_or_create_budget(session_id: str, model_id: str, **kwargs: Any) -> ContextBudget:
@@ -458,6 +474,12 @@ def get_or_create_budget(session_id: str, model_id: str, **kwargs: Any) -> Conte
     """
     existing = _budgets.get(session_id)
     if existing is None or existing._model_id != model_id:
+        # TD-220: Evict oldest entries if cache is full
+        if len(_budgets) >= _BUDGET_CACHE_MAX:
+            to_remove = _BUDGET_CACHE_MAX // 4
+            keys = list(_budgets.keys())[:to_remove]
+            for k in keys:
+                del _budgets[k]
         existing = ContextBudget(model_id=model_id, **kwargs)
         _budgets[session_id] = existing
     return existing

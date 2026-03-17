@@ -18,17 +18,17 @@ POST   /api/plugins/{plugin_id}/dependencies/install — install missing deps
 """
 from __future__ import annotations
 
+import asyncio
 import importlib
-import subprocess
 import sys
 import logging
 from typing import Any
 
 import aiosqlite
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 
-from app.api.deps import get_db_dep, require_gateway_token
+from app.api.deps import get_db_dep, get_write_db_dep, require_gateway_token
 from app.plugins.models import PluginRecord
 from app.plugins.registry import PluginRegistry, get_plugin_registry
 from app.plugins.store import save_credential
@@ -77,9 +77,12 @@ def _registry() -> PluginRegistry:
 @router.get("", response_model=list[PluginRecord])
 async def list_plugins(
     registry: PluginRegistry = Depends(_registry),
+    limit: int = Query(default=50, le=200),
+    offset: int = Query(default=0, ge=0),
 ) -> list[PluginRecord]:
-    """Return all registered plugins and their current status."""
-    return registry.list_records()
+    """Return all registered plugins and their current status (TD-183: with pagination)."""
+    records = registry.list_records()
+    return records[offset : offset + limit]
 
 
 @router.post("", response_model=PluginRecord, status_code=status.HTTP_201_CREATED)
@@ -117,8 +120,8 @@ async def refresh_plugins(
     from app.plugins.store import load_all_plugins
 
     records = await load_all_plugins(db)
-    for rec in records:
-        registry._records[rec.plugin_id] = rec  # noqa: SLF001
+    # TD-173: Use public method instead of accessing private _records
+    registry.refresh_records(records)
     return {"reloaded": len(records)}
 
 
@@ -235,7 +238,9 @@ async def list_plugin_tools(
                 result.append({"name": str(t)})
         return result
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        # TD-177: Don't leak internal error details to client
+        logger.exception("Error getting tools for plugin %r", plugin_id)
+        raise HTTPException(status_code=500, detail="Internal plugin error.") from exc
 
 
 @router.get("/{plugin_id}/dependencies")
@@ -278,14 +283,21 @@ async def install_dependencies(
 
     results = []
     for pkg_spec in deps.python_packages:
+        # TD-143: Basic package name validation
+        import re as _re
+        pkg_name_only = _re.split(r'[>=<\[!;]', pkg_spec)[0].strip()
+        if not _re.match(r'^[a-zA-Z0-9_.-]+$', pkg_name_only):
+            results.append({"package": pkg_spec, "success": False, "output": "Invalid package name"})
+            continue
         try:
-            proc = subprocess.run(
-                [sys.executable, "-m", "pip", "install", pkg_spec, "--quiet"],
-                capture_output=True,
-                text=True,
-                timeout=120,
+            # TD-148: Use asyncio.create_subprocess_exec instead of blocking subprocess.run
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, "-m", "pip", "install", pkg_spec, "--quiet",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
-            results.append({"package": pkg_spec, "success": proc.returncode == 0, "output": proc.stderr.strip()})
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120)
+            results.append({"package": pkg_spec, "success": proc.returncode == 0, "output": stderr.decode().strip()})
         except Exception as exc:  # noqa: BLE001
             results.append({"package": pkg_spec, "success": False, "output": str(exc)})
 
@@ -296,7 +308,7 @@ async def install_dependencies(
 async def save_plugin_credential(
     plugin_id: str,
     body: SaveCredentialRequest,
-    db: aiosqlite.Connection = Depends(get_db_dep),
+    db: aiosqlite.Connection = Depends(get_write_db_dep),  # TD-257: Use write dep
     registry: PluginRegistry = Depends(_registry),
 ) -> dict[str, str]:
     """Store an encrypted credential for a plugin (e.g. API token, bot token)."""

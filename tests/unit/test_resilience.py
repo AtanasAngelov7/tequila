@@ -24,25 +24,24 @@ from app.providers.base import ProviderStreamEvent
 def _make_provider(provider_id: str, stream_result=None, raises: Exception | None = None):
     """Build a mock LLMProvider whose stream_completion matches the real API.
 
-    ``stream_completion`` is a regular ``async def`` that returns an
-    ``AsyncIterator[ProviderStreamEvent]`` — it is NOT itself an async
-    generator.
+    ``stream_completion`` is an async generator function — calling it returns
+    an ``AsyncGenerator[ProviderStreamEvent]`` directly (no extra await).
+    For the error case, a sync function raises immediately at call time so
+    GracefulDegradation can catch it.
     """
     provider = MagicMock()
     provider.provider_id = provider_id
 
     if raises is not None:
-        async def _impl(*args, **kwargs):
+        def _impl(*args, **kwargs):
             raise raises
         provider.stream_completion = _impl
     else:
         events = list(stream_result or [ProviderStreamEvent(kind="done")])
 
         async def _impl(*args, **kwargs):
-            async def _gen():
-                for item in events:
-                    yield item
-            return _gen()
+            for item in events:
+                yield item
 
         provider.stream_completion = _impl
 

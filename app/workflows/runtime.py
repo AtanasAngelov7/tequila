@@ -215,33 +215,37 @@ async def run_parallel(
 
     run = await store.update_run_status(run.id, status="running")
 
-    async def _task(step: WorkflowStep) -> tuple[str, str | None]:
-        """Return (step_id, result_or_None)."""
+    async def _task(step: WorkflowStep) -> tuple[str, str | None, str | None]:
+        """Return (step_id, result_or_None, error_or_None)."""
         try:
             result = await _run_step_with_retry(step, "", parent_session_key)
             logger.info("Parallel step %r completed (%d chars)", step.id, len(result))
-            return step.id, result
+            return step.id, result, None
         except Exception as exc:
             logger.error("Parallel step %r failed: %s", step.id, exc)
-            return step.id, None
+            return step.id, None, str(exc)
 
     tasks = [asyncio.create_task(_task(s)) for s in workflow.steps]
-    outcomes: list[tuple[str, str | None]] = await asyncio.gather(*tasks)
+    outcomes: list[tuple[str, str | None, str | None]] = await asyncio.gather(*tasks)
 
     step_results: dict[str, str] = {}
     failed_steps: list[str] = []
-    for step_id, result in outcomes:
+    error_details: list[str] = []
+    for step_id, result, error in outcomes:
         if result is not None:
             step_results[step_id] = result
         else:
             failed_steps.append(step_id)
+            if error:
+                error_details.append(f"{step_id}: {error}")
 
     if failed_steps:
+        error_msg = "; ".join(error_details) if error_details else f"Steps failed: {', '.join(failed_steps)}"
         return await store.update_run_status(
             run.id,
             status="failed",
             step_results=step_results,
-            error=f"Steps failed: {', '.join(failed_steps)}",
+            error=error_msg,
         )
 
     return await store.update_run_status(

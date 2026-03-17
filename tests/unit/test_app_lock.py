@@ -30,7 +30,7 @@ async def test_initial_state(migrated_db):
 
 async def test_set_pin_returns_recovery_key(migrated_db):
     lock = await _get_manager(migrated_db)
-    recovery = await lock.set_pin("1234")
+    recovery = await lock.set_pin("123456")
     assert recovery is not None
     assert len(recovery) == 24
 
@@ -38,7 +38,7 @@ async def test_set_pin_returns_recovery_key(migrated_db):
 async def test_set_pin_too_short(migrated_db):
     lock = await _get_manager(migrated_db)
     with pytest.raises(ValueError, match="at least"):
-        await lock.set_pin("12")
+        await lock.set_pin("12345")
 
 
 async def test_set_pin_enables_lock(migrated_db):

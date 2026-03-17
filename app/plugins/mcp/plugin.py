@@ -78,6 +78,16 @@ class MCPPlugin(PluginBase):
         )
 
     async def deactivate(self) -> None:
+        # TD-149: Unregister MCP tools from the global ToolRegistry
+        if self._registered_names:
+            try:
+                from app.tools.registry import get_tool_registry
+                registry = get_tool_registry()
+                for name in self._registered_names:
+                    registry.unregister(name)
+                logger.info("Unregistered %d MCP tools.", len(self._registered_names))
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Error unregistering MCP tools: %s", exc)
         if self._client:
             await self._client.disconnect()
             self._client = None

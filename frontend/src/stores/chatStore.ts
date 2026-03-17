@@ -84,18 +84,46 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   createSession: async (title?: string) => {
-    const session = await api.post<Session>('/sessions', {
+    // TD-249: Optimistic update — show placeholder immediately
+    const tempId = `temp-${crypto.randomUUID()}`;
+    const optimistic: Session = {
+      session_id: tempId,
+      session_key: '',
+      title: title ?? 'New Session',
+      status: 'active',
       kind: 'user',
       channel: 'webchat',
-      title: title ?? null,
-    });
-    set((s) => ({ sessions: [session, ...s.sessions] }));
-    wsClient.send({
-      method: 'session.resume',
-      id: crypto.randomUUID(),
-      payload: { session_key: session.session_key },
-    });
-    return session;
+      message_count: 0,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    } as Session;
+    set((s) => ({ sessions: [optimistic, ...s.sessions] }));
+
+    try {
+      const session = await api.post<Session>('/sessions', {
+        kind: 'user',
+        channel: 'webchat',
+        title: title ?? null,
+      });
+      // Replace optimistic placeholder with real session
+      set((s) => ({
+        sessions: s.sessions.map((sess) =>
+          sess.session_id === tempId ? session : sess,
+        ),
+      }));
+      wsClient.send({
+        method: 'session.resume',
+        id: crypto.randomUUID(),
+        payload: { session_key: session.session_key },
+      });
+      return session;
+    } catch (err) {
+      // Rollback optimistic update on failure
+      set((s) => ({
+        sessions: s.sessions.filter((sess) => sess.session_id !== tempId),
+      }));
+      throw err;
+    }
   },
 
   setActiveSession: async (sessionId: string) => {
@@ -254,7 +282,11 @@ _wc.onFrame((frame) => {
 
   // Persisted message echo
   if (frame.event === 'message.created' && frame.payload) {
-    store.receiveMessage(frame.payload as unknown as Message);
+    // TD-254: Runtime validation of WS payload before cast
+    const p = frame.payload as Record<string, unknown>;
+    if (typeof p.id === 'string' && typeof p.role === 'string' && typeof p.content === 'string') {
+      store.receiveMessage(p as unknown as Message);
+    }
     return;
   }
 

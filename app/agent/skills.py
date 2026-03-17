@@ -33,6 +33,8 @@ from typing import Any, Literal
 import aiosqlite
 from pydantic import BaseModel, Field
 
+from app.db.connection import write_transaction
+
 logger = logging.getLogger(__name__)
 
 
@@ -565,23 +567,23 @@ class SkillStore:
 
     async def create_skill(self, skill: SkillDef) -> SkillDef:
         row = skill.to_row()
-        await self._db.execute(
-            """
-            INSERT INTO skills (
-                skill_id, name, description, version, summary,
-                instructions, required_tools, recommended_tools,
-                activation_mode, trigger_patterns, trigger_tool_presence,
-                priority, tags, author, is_builtin, created_at, updated_at
-            ) VALUES (
-                :skill_id, :name, :description, :version, :summary,
-                :instructions, :required_tools, :recommended_tools,
-                :activation_mode, :trigger_patterns, :trigger_tool_presence,
-                :priority, :tags, :author, :is_builtin, :created_at, :updated_at
+        async with write_transaction(self._db):
+            await self._db.execute(
+                """
+                INSERT INTO skills (
+                    skill_id, name, description, version, summary,
+                    instructions, required_tools, recommended_tools,
+                    activation_mode, trigger_patterns, trigger_tool_presence,
+                    priority, tags, author, is_builtin, created_at, updated_at
+                ) VALUES (
+                    :skill_id, :name, :description, :version, :summary,
+                    :instructions, :required_tools, :recommended_tools,
+                    :activation_mode, :trigger_patterns, :trigger_tool_presence,
+                    :priority, :tags, :author, :is_builtin, :created_at, :updated_at
+                )
+                """,
+                row,
             )
-            """,
-            row,
-        )
-        await self._db.commit()
         return await self.get_skill(skill.skill_id)
 
     async def get_skill(self, skill_id: str) -> SkillDef:
@@ -627,8 +629,14 @@ class SkillStore:
             skills = [s for s in skills if any(t in s.tags for t in tags)]
         return skills
 
-    async def update_skill(self, skill_id: str, updates: dict[str, Any]) -> SkillDef:
+    async def update_skill(self, skill_id: str, updates: dict[str, Any], expected_version: int | None = None) -> SkillDef:
         existing = await self.get_skill(skill_id)
+        # TD-258: OCC check — if caller supplies expected_version, enforce it
+        if expected_version is not None and existing.version != expected_version:
+            from app.exceptions import ConflictError
+            raise ConflictError(
+                f"Skill '{skill_id}' version mismatch: expected {expected_version}, got {existing.version}"
+            )
         now = datetime.now(timezone.utc).isoformat()
         # Build SET clause from allowed fields
         allowed = {
@@ -648,16 +656,16 @@ class SkillStore:
             params[key] = val
         if len(set_parts) == 1:
             return existing  # nothing to update
-        await self._db.execute(
-            f"UPDATE skills SET {', '.join(set_parts)} WHERE skill_id = :skill_id",
-            params,
-        )
-        await self._db.commit()
+        async with write_transaction(self._db):
+            await self._db.execute(
+                f"UPDATE skills SET {', '.join(set_parts)} WHERE skill_id = :skill_id",
+                params,
+            )
         return await self.get_skill(skill_id)
 
     async def delete_skill(self, skill_id: str) -> None:
-        await self._db.execute("DELETE FROM skills WHERE skill_id = ?", (skill_id,))
-        await self._db.commit()
+        async with write_transaction(self._db):
+            await self._db.execute("DELETE FROM skills WHERE skill_id = ?", (skill_id,))
 
     async def get_skills_for_agent(self, skill_ids: list[str]) -> list[SkillDef]:
         """Fetch skills by a list of IDs, preserving order."""
@@ -676,19 +684,19 @@ class SkillStore:
 
     async def create_resource(self, resource: SkillResource) -> SkillResource:
         row = resource.to_row()
-        await self._db.execute(
-            """
-            INSERT INTO skill_resources (
-                resource_id, skill_id, name, description, content,
-                content_tokens, created_at, updated_at
-            ) VALUES (
-                :resource_id, :skill_id, :name, :description, :content,
-                :content_tokens, :created_at, :updated_at
+        async with write_transaction(self._db):
+            await self._db.execute(
+                """
+                INSERT INTO skill_resources (
+                    resource_id, skill_id, name, description, content,
+                    content_tokens, created_at, updated_at
+                ) VALUES (
+                    :resource_id, :skill_id, :name, :description, :content,
+                    :content_tokens, :created_at, :updated_at
+                )
+                """,
+                row,
             )
-            """,
-            row,
-        )
-        await self._db.commit()
         return await self.get_resource(resource.resource_id)
 
     async def get_resource(self, resource_id: str) -> SkillResource:
@@ -719,62 +727,62 @@ class SkillStore:
             set_parts.append(f"{key} = :{key}")
             params[key] = val
         if len(set_parts) > 1:
-            await self._db.execute(
-                f"UPDATE skill_resources SET {', '.join(set_parts)} WHERE resource_id = :resource_id",
-                params,
-            )
-            await self._db.commit()
+            async with write_transaction(self._db):
+                await self._db.execute(
+                    f"UPDATE skill_resources SET {', '.join(set_parts)} WHERE resource_id = :resource_id",
+                    params,
+                )
         return await self.get_resource(resource_id)
 
     async def delete_resource(self, resource_id: str) -> None:
-        await self._db.execute("DELETE FROM skill_resources WHERE resource_id = ?", (resource_id,))
-        await self._db.commit()
+        async with write_transaction(self._db):
+            await self._db.execute("DELETE FROM skill_resources WHERE resource_id = ?", (resource_id,))
 
     # ── init helpers ──────────────────────────────────────────────────────────
 
     async def seed_builtins(self) -> None:
         """Insert built-in skills/resources if not already present."""
-        for skill in BUILTIN_SKILLS:
-            async with self._db.execute(
-                "SELECT 1 FROM skills WHERE skill_id = ?", (skill.skill_id,)
-            ) as cur:
-                exists = await cur.fetchone()
-            if not exists:
-                await self._db.execute(
-                    """
-                    INSERT INTO skills (
-                        skill_id, name, description, version, summary,
-                        instructions, required_tools, recommended_tools,
-                        activation_mode, trigger_patterns, trigger_tool_presence,
-                        priority, tags, author, is_builtin, created_at, updated_at
-                    ) VALUES (
-                        :skill_id, :name, :description, :version, :summary,
-                        :instructions, :required_tools, :recommended_tools,
-                        :activation_mode, :trigger_patterns, :trigger_tool_presence,
-                        :priority, :tags, :author, :is_builtin, :created_at, :updated_at
+        async with write_transaction(self._db):
+            for skill in BUILTIN_SKILLS:
+                async with self._db.execute(
+                    "SELECT 1 FROM skills WHERE skill_id = ?", (skill.skill_id,)
+                ) as cur:
+                    exists = await cur.fetchone()
+                if not exists:
+                    await self._db.execute(
+                        """
+                        INSERT INTO skills (
+                            skill_id, name, description, version, summary,
+                            instructions, required_tools, recommended_tools,
+                            activation_mode, trigger_patterns, trigger_tool_presence,
+                            priority, tags, author, is_builtin, created_at, updated_at
+                        ) VALUES (
+                            :skill_id, :name, :description, :version, :summary,
+                            :instructions, :required_tools, :recommended_tools,
+                            :activation_mode, :trigger_patterns, :trigger_tool_presence,
+                            :priority, :tags, :author, :is_builtin, :created_at, :updated_at
+                        )
+                        """,
+                        skill.to_row(),
                     )
-                    """,
-                    skill.to_row(),
-                )
-        for res in BUILTIN_RESOURCES:
-            async with self._db.execute(
-                "SELECT 1 FROM skill_resources WHERE resource_id = ?", (res.resource_id,)
-            ) as cur:
-                exists = await cur.fetchone()
-            if not exists:
-                await self._db.execute(
-                    """
-                    INSERT INTO skill_resources (
-                        resource_id, skill_id, name, description, content,
-                        content_tokens, created_at, updated_at
-                    ) VALUES (
-                        :resource_id, :skill_id, :name, :description, :content,
-                        :content_tokens, :created_at, :updated_at
+            for res in BUILTIN_RESOURCES:
+                async with self._db.execute(
+                    "SELECT 1 FROM skill_resources WHERE resource_id = ?", (res.resource_id,)
+                ) as cur:
+                    exists = await cur.fetchone()
+                if not exists:
+                    await self._db.execute(
+                        """
+                        INSERT INTO skill_resources (
+                            resource_id, skill_id, name, description, content,
+                            content_tokens, created_at, updated_at
+                        ) VALUES (
+                            :resource_id, :skill_id, :name, :description, :content,
+                            :content_tokens, :created_at, :updated_at
+                        )
+                        """,
+                        res.to_row(),
                     )
-                    """,
-                    res.to_row(),
-                )
-        await self._db.commit()
         logger.info("Built-in skills seeded")
 
 

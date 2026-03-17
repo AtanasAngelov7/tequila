@@ -109,13 +109,24 @@ def test_needs_approval_require_confirmation_low_safety() -> None:
     assert ex._needs_approval(td, _policy(require_confirmation=["safe_but_confirm"]), SESSION_KEY) is True
 
 
-def test_needs_approval_allow_all_overrides() -> None:
+def test_needs_approval_allow_all_overrides_destructive() -> None:
+    """allow_all bypasses approval for destructive tools."""
+    registry = _make_registry()
+    _add_tool(registry, "rm", "destructive")
+    ex = _executor(registry)
+    td, _ = registry.get("rm")  # type: ignore[misc]
+    ex.set_allow_all(SESSION_KEY)
+    assert ex._needs_approval(td, _policy(), SESSION_KEY) is False
+
+
+def test_needs_approval_critical_always_requires() -> None:
+    """TD-154: critical tools ALWAYS require approval, even with allow_all."""
     registry = _make_registry()
     _add_tool(registry, "crit", "critical")
     ex = _executor(registry)
     td, _ = registry.get("crit")  # type: ignore[misc]
     ex.set_allow_all(SESSION_KEY)
-    assert ex._needs_approval(td, _policy(), SESSION_KEY) is False
+    assert ex._needs_approval(td, _policy(), SESSION_KEY) is True
 
 
 # ── execute: allowed ──────────────────────────────────────────────────────────
@@ -281,19 +292,21 @@ async def test_execute_destructive_timeout(monkeypatch: pytest.MonkeyPatch) -> N
 
 
 @pytest.mark.asyncio
-async def test_set_allow_all_bypasses_approval() -> None:
+async def test_set_allow_all_bypasses_approval_destructive() -> None:
+    """allow_all bypasses approval for destructive (but not critical) tools."""
     registry = _make_registry()
-    _add_tool(registry, "crit_tool", "critical", lambda **kw: "ok")
+    _add_tool(registry, "rm_tool", "destructive", lambda **kw: "deleted")
     ex = _executor(registry)
     ex.set_allow_all(SESSION_KEY)
     result = await ex.execute(
         tool_call_id=CALL_ID,
-        tool_name="crit_tool",
+        tool_name="rm_tool",
         arguments={},
         policy=_policy(),
         session_key=SESSION_KEY,
     )
     assert result.success is True
+    assert result.result == "deleted"
 
 
 def test_clear_turn_state_removes_allow_all() -> None:

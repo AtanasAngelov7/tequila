@@ -91,7 +91,8 @@ async def list_agents(
 ) -> dict[str, Any]:
     store = get_agent_store()
     agents = await store.list(status=status, role=role, q=q, limit=limit, offset=offset)
-    return {"agents": [_agent_response(a) for a in agents], "count": len(agents)}
+    total = await store.count(status=status, role=role, q=q)
+    return {"agents": [_agent_response(a) for a in agents], "count": len(agents), "total": total}
 
 
 @router.post("", status_code=201, summary="Create agent")
@@ -233,8 +234,17 @@ async def export_agent(
 async def import_agent(
     body: dict[str, Any],
 ) -> dict[str, Any]:
-    store = get_agent_store()
+    # TD-233: Validate required fields in import body
     agent_data = body.get("agent", body)
+    _required = {"name"}
+    _allowed = {"name", "provider", "default_model", "persona", "soul", "role", "is_admin",
+                "instructions", "schema_version", "agent"}
+    unexpected = set(agent_data.keys()) - _allowed
+    if unexpected:
+        raise HTTPException(status_code=422, detail=f"Unexpected fields: {sorted(unexpected)}")
+    if not agent_data.get("name"):
+        raise HTTPException(status_code=422, detail="'name' is required.")
+    store = get_agent_store()
     soul_data = agent_data.pop("soul", None)
     soul = SoulConfig(**soul_data) if soul_data else None
     agent = await store.create(

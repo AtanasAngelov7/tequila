@@ -11,7 +11,7 @@ from app.plugins.hooks.models import HookContext, HookPoint, HookResult, Pipelin
 
 
 def make_spec(
-    point: HookPoint = "pre_prompt",
+    point: HookPoint = "pre_prompt_assembly",
     priority: int = 50,
     plugin_id: str = "test",
 ) -> PipelineHookSpec:
@@ -23,7 +23,7 @@ def make_spec(
     )
 
 
-def make_ctx(point: HookPoint = "pre_prompt") -> HookContext:
+def make_ctx(point: HookPoint = "pre_prompt_assembly") -> HookContext:
     return HookContext(
         hook_point=point,
         session_id="s1",
@@ -43,7 +43,7 @@ async def test_register_and_list():
 
     spec = make_spec()
     engine.register(spec, hook)
-    assert len(engine.list_hooks("pre_prompt")) == 1
+    assert len(engine.list_hooks("pre_prompt_assembly")) == 1
 
 
 @pytest.mark.asyncio
@@ -56,7 +56,7 @@ async def test_unregister_by_plugin_id():
     spec = make_spec(plugin_id="plugin_a")
     engine.register(spec, hook)
     engine.unregister_plugin("plugin_a")
-    assert len(engine.list_hooks("pre_prompt")) == 0
+    assert len(engine.list_hooks("pre_prompt_assembly")) == 0
 
 
 # ── Priority ordering ─────────────────────────────────────────────────────────
@@ -162,7 +162,7 @@ async def test_hooks_scoped_to_point():
         fired.append("post")
         return HookResult()
 
-    engine.register(make_spec(point="post_prompt", plugin_id="pp"), post_hook)
-    ctx = make_ctx(point="pre_prompt")
+    engine.register(make_spec(point="post_prompt_assembly", plugin_id="pp"), post_hook)
+    ctx = make_ctx(point="pre_prompt_assembly")
     await engine.run(ctx)
     assert fired == []

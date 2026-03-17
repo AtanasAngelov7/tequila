@@ -65,7 +65,9 @@ async def restore_backup(file: UploadFile) -> dict[str, Any]:
     # Save upload to a temp file
     suffix = Path(file.filename or "backup.tar.gz").suffix if file.filename else ".tar.gz"
     with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as tmp:
-        shutil.copyfileobj(file.file, tmp)
+        # TD-165: Use asyncio.to_thread to avoid blocking the event loop
+        import asyncio
+        await asyncio.to_thread(shutil.copyfileobj, file.file, tmp)
         tmp_path = Path(tmp.name)
 
     try:

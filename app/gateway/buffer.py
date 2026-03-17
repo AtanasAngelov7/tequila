@@ -105,6 +105,16 @@ class BufferRegistry:
         """Remove and discard the buffer for *session_key* (if it exists)."""
         self._buffers.pop(session_key, None)
 
+    def evict_stale(self, active_keys: set[str]) -> int:
+        """Remove buffers whose session_key is NOT in *active_keys* (TD-205).
+
+        Returns the number of evicted buffers.
+        """
+        stale = [k for k in self._buffers if k not in active_keys]
+        for k in stale:
+            self._buffers.pop(k, None)
+        return len(stale)
+
     def active_count(self) -> int:
         """Return the number of sessions with an active buffer."""
         return len(self._buffers)
@@ -201,8 +211,8 @@ class EventBuffer:
             return [], False
 
         oldest_seq = self._ring[0].seq
-        if last_seq < oldest_seq - 1:
-            # last_seq older than our oldest surviving entry → resync
+        if last_seq < oldest_seq:
+            # TD-216: Fixed off-by-one — resync when last_seq < oldest surviving seq
             return [], True
 
         events = [

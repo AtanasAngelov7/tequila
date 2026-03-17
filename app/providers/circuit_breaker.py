@@ -195,11 +195,13 @@ class CircuitBreaker:
         attempt = 0
         while True:
             try:
-                items: list[Any] = []
-                async for item in fn():
-                    items.append(item)
-                await self.record_success()
-                return self._iter_list(items)
+                # TD-196: Yield events directly from async generator instead of
+                # materialising the entire stream into a list first.
+                async def _streaming_wrapper() -> AsyncIterator[Any]:
+                    async for item in fn():
+                        yield item
+                    await self.record_success()
+                return _streaming_wrapper()
             except Exception as exc:
                 await self.record_failure()
                 if attempt >= self.retry_policy.max_retries:
@@ -214,11 +216,6 @@ class CircuitBreaker:
                 )
                 await asyncio.sleep(delay)
                 attempt += 1
-
-    @staticmethod
-    async def _iter_list(items: list[Any]) -> AsyncIterator[Any]:
-        for item in items:
-            yield item
 
     # ── State snapshot ────────────────────────────────────────────────────────
 
@@ -295,13 +292,14 @@ class GracefulDegradation:
                 )
                 continue
             try:
-                stream = await provider.stream_completion(
+                # TD-197: stream_completion is an async generator, not an awaitable
+                stream = provider.stream_completion(
                     messages=messages,
                     model=model_id,
                     tools=tools or [],
                     **kwargs,
                 )
-                await cb.record_success()
+                # TD-240: Don't record success until stream is consumed
                 return stream
             except Exception as exc:
                 logger.warning(

@@ -78,6 +78,7 @@ class SkillUpdateRequest(BaseModel):
     priority: int | None = None
     tags: list[str] | None = None
     author: str | None = None
+    expected_version: int | None = None  # TD-258: OCC support
 
 
 class ResourceCreateRequest(BaseModel):
@@ -201,7 +202,8 @@ async def update_skill(skill_id: str, body: SkillUpdateRequest) -> dict:
     except KeyError:
         raise HTTPException(status_code=404, detail=f"Skill not found: {skill_id}")
     updates = body.model_dump(exclude_none=True)
-    updated = await store.update_skill(skill_id, updates)
+    expected_ver = updates.pop("expected_version", None)
+    updated = await store.update_skill(skill_id, updates, expected_version=expected_ver)
     return _skill_dict(updated)
 
 

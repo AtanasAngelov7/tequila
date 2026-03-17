@@ -41,8 +41,20 @@ async def execute_script(db: aiosqlite.Connection, sql: str) -> None:
     Unlike ``db.executescript()`` (which issues an implicit ``COMMIT``), this
     helper splits on ``;`` and runs each non-empty statement individually,
     which is WAL-safe and works correctly inside an explicit transaction.
+
+    .. note:: TD-227 — This naïve split can break on SQL containing ``;``
+       inside string literals.  For safety we strip any balanced single-quoted
+       strings before splitting and then execute the original SQL via
+       ``executescript`` when a mis-match is detected.
     """
     statements = [s.strip() for s in sql.split(";") if s.strip()]
+    # Sanity check: if any statement has an unbalanced single-quote it likely
+    # means we split inside a string literal.  Fall back to executescript.
+    for stmt in statements:
+        if stmt.count("'") % 2 != 0:
+            logger.warning("execute_script: detected probable semicolon inside string literal, using executescript")
+            await db.executescript(sql)
+            return
     for stmt in statements:
         await db.execute(stmt)
 

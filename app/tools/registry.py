@@ -27,7 +27,7 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-from typing import Any, Callable, Literal
+from typing import Any, Callable, Literal, Union
 
 from pydantic import BaseModel
 
@@ -77,15 +77,31 @@ class ToolRegistry:
 
     def __init__(self) -> None:
         self._tools: dict[str, tuple[ToolDefinition, Callable[..., Any]]] = {}
+        self._frozen = False  # TD-208: Prevent overwrites after startup
+
+    def freeze(self) -> None:
+        """Prevent further overwrites of existing tool registrations."""
+        self._frozen = True
 
     # ── Registration ─────────────────────────────────────────────────────────
 
     def register(self, td: ToolDefinition, fn: Callable[..., Any]) -> None:
         """Register *td* with its implementation *fn*."""
         if td.name in self._tools:
+            if self._frozen:
+                logger.warning("Tool %r overwrite blocked (registry frozen)", td.name)
+                return
             logger.warning("Tool %r already registered — overwriting", td.name)
         self._tools[td.name] = (td, fn)
         logger.debug("Tool registered: %s (safety=%s)", td.name, td.safety)
+
+    def unregister(self, name: str) -> bool:
+        """Remove a tool by name. Returns True if found and removed."""
+        if name in self._tools:
+            del self._tools[name]
+            logger.debug("Tool unregistered: %s", name)
+            return True
+        return False
 
     # ── Lookup ────────────────────────────────────────────────────────────────
 
@@ -139,9 +155,11 @@ def get_tool_registry() -> ToolRegistry:
 def _build_json_schema(fn: Callable[..., Any]) -> dict[str, Any]:
     """Derive a simple JSON Schema from *fn*'s type annotations.
 
-    Only handles primitive types (str, int, float, bool) and
-    ``list[str]``.  Complex types default to ``{"type": "string"}``.
+    Handles primitive types (str, int, float, bool), ``list[str]``,
+    ``Optional[T]`` / ``T | None``, and ``dict[str, Any]``.
+    Complex types default to ``{"type": "string"}``.
     """
+    import types
     sig = inspect.signature(fn)
     hints = fn.__annotations__
 
@@ -161,8 +179,26 @@ def _build_json_schema(fn: Callable[..., Any]) -> dict[str, Any]:
             prop = {"type": "string"}
         else:
             origin = getattr(annotation, "__origin__", None)
-            if origin is list:
+            args = getattr(annotation, "__args__", ())
+
+            # TD-238: Handle Optional[T] / Union[T, None]
+            if origin is types.UnionType or origin is Union:
+                non_none = [a for a in args if a is not type(None)]
+                if len(non_none) == 1:
+                    inner = non_none[0]
+                    inner_origin = getattr(inner, "__origin__", None)
+                    if inner_origin is list:
+                        prop = {"type": "array", "items": {"type": "string"}}
+                    elif inner_origin is dict:
+                        prop = {"type": "object"}
+                    else:
+                        prop = {"type": type_map.get(inner, "string")}
+                else:
+                    prop = {"type": "string"}
+            elif origin is list:
                 prop = {"type": "array", "items": {"type": "string"}}
+            elif origin is dict:
+                prop = {"type": "object"}
             else:
                 prop = {"type": type_map.get(annotation, "string")}
 

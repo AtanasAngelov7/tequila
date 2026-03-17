@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 
 /**
@@ -7,6 +7,7 @@ import { useChatStore } from '../../stores/chatStore';
  */
 export default function ApprovalBanner() {
   const { pendingApproval, approveToolCall, denyToolCall, allowAllTools } = useChatStore();
+  const [showArgs, setShowArgs] = useState(false);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -54,6 +55,40 @@ export default function ApprovalBanner() {
           {pendingApproval.tool_name}
         </code>{' '}
         wants to execute.
+        {/* TD-250: Show tool arguments preview */}
+        {pendingApproval.tool_args && Object.keys(pendingApproval.tool_args).length > 0 && (
+          <button
+            onClick={() => setShowArgs(!showArgs)}
+            style={{
+              marginLeft: 6,
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: 12,
+              color: 'var(--color-primary, #3b82f6)',
+              textDecoration: 'underline',
+            }}
+          >
+            {showArgs ? 'Hide args' : 'Show args'}
+          </button>
+        )}
+        {showArgs && pendingApproval.tool_args && (
+          <pre
+            style={{
+              margin: '4px 0 0',
+              padding: '4px 8px',
+              background: 'rgba(0,0,0,0.05)',
+              borderRadius: 4,
+              fontSize: 11,
+              maxHeight: 120,
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }}
+          >
+            {JSON.stringify(pendingApproval.tool_args, null, 2)}
+          </pre>
+        )}
       </span>
 
       <div style={{ display: 'flex', gap: 6 }}>

@@ -44,6 +44,8 @@ class GatewayRouter:
         self._seq: int = 0
         """Monotonic sequence counter.  Incremented by ``_next_seq()`` only."""
         self._running: bool = False
+        # TD-204: Strong references to background tasks so GC doesn't kill them
+        self._background_tasks: set[asyncio.Task[Any]] = set()
 
     # ── Lifecycle ──────────────────────────────────────────────────────────────
 
@@ -66,8 +68,10 @@ class GatewayRouter:
         Use ``"*"`` as *event_type* to receive all events.
         Registering the same handler twice for the same type is a no-op.
         """
-        if handler not in self._handlers[event_type]:
-            self._handlers[event_type].append(handler)
+        # TD-158: Copy-on-write to avoid mutation during emit iteration
+        current = self._handlers[event_type]
+        if handler not in current:
+            self._handlers[event_type] = [*current, handler]
             logger.debug(
                 "Handler registered",
                 extra={"event_type": event_type, "handler": handler.__qualname__},
@@ -75,8 +79,12 @@ class GatewayRouter:
 
     def off(self, event_type: str, handler: EventHandler) -> None:
         """Deregister *handler* from *event_type*.  Silently ignores unknown handlers."""
+        # TD-158: Copy-on-write to avoid mutation during emit iteration
+        current = self._handlers.get(event_type, [])
         try:
-            self._handlers[event_type].remove(handler)
+            new_list = list(current)
+            new_list.remove(handler)
+            self._handlers[event_type] = new_list
         except ValueError:
             pass
 
@@ -147,10 +155,13 @@ class GatewayRouter:
         callback or a ``__del__`` handler).  The returned task is *not*
         returned — callers that need the sequence number must use ``emit()``.
         """
-        asyncio.create_task(
+        # TD-204: Hold a strong reference so GC doesn't destroy the task.
+        task = asyncio.create_task(
             self.emit(event),
             name=f"gateway_emit_{event.event_type}_{event.event_id[:8]}",
         )
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
 
 
 # ── Process-wide singleton ────────────────────────────────────────────────────

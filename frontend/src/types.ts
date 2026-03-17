@@ -101,4 +101,5 @@ export type TurnPhase = 'idle' | 'thinking' | 'tool_calling' | 'responding';
 export interface PendingApproval {
   tool_call_id: string;
   tool_name: string;
+  tool_args?: Record<string, unknown>;  // TD-250: show args before approval
 }

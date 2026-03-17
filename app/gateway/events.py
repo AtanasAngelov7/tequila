@@ -6,11 +6,14 @@ for every valid ``event_type`` so callers never hard-code raw strings.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+logger = logging.getLogger(__name__)
 
 
 # ── Event source ──────────────────────────────────────────────────────────────
@@ -100,6 +103,14 @@ class GatewayEvent(BaseModel):
 
     payload: dict[str, Any] = Field(default_factory=dict)
     """Event-type-specific data.  Schema varies by ``event_type``."""
+
+    # TD-217: Validate event_type at construction
+    @model_validator(mode="after")
+    def _check_event_type(self) -> "GatewayEvent":
+        # Import lazily to avoid circular import (EVENT_TYPES defined below)
+        if hasattr(self, "event_type") and EVENT_TYPES and self.event_type not in EVENT_TYPES:
+            logger.warning("Unknown event_type: %r", self.event_type)
+        return self
 
 
 # ── Event type catalog ────────────────────────────────────────────────────────
@@ -198,6 +209,13 @@ class ET:
     # Scheduler
     SCHEDULER_SKIPPED: str = "scheduler.skipped"
     """Cron job was skipped due to contention (§20.8)."""
+
+    # TD-262: Cancellation and timeout event types
+    AGENT_RUN_CANCELLED: str = "agent.run.cancelled"
+    """Agent turn was cancelled by user or system."""
+
+    AGENT_RUN_TIMEOUT: str = "agent.run.timeout"
+    """Agent turn exceeded maximum allowed execution time."""
 
 
 # ── Validation set ────────────────────────────────────────────────────────────

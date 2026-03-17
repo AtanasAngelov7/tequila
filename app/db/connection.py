@@ -32,15 +32,46 @@ PRAGMA synchronous = NORMAL;
 PRAGMA foreign_keys = ON;
 """
 
-# ── Per-path write locks ──────────────────────────────────────────────────────
+# ── Per-path write locks (TD-235: reentrant) ─────────────────────────────────
 
-_write_locks: dict[Path, asyncio.Lock] = {}
+class _ReentrantAsyncLock:
+    """Async lock that allows the **same** asyncio Task to re-acquire."""
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._owner: asyncio.Task[Any] | None = None
+        self._count: int = 0
+
+    async def acquire(self) -> None:
+        me = asyncio.current_task()
+        if me is not None and me is self._owner:
+            self._count += 1
+            return
+        await self._lock.acquire()
+        self._owner = me
+        self._count = 1
+
+    def release(self) -> None:
+        self._count -= 1
+        if self._count == 0:
+            self._owner = None
+            self._lock.release()
+
+    async def __aenter__(self) -> "_ReentrantAsyncLock":
+        await self.acquire()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        self.release()
 
 
-def _get_write_lock(path: Path) -> asyncio.Lock:
-    """Return (creating if necessary) the write lock for *path*."""
+_write_locks: dict[Path, _ReentrantAsyncLock] = {}
+
+
+def _get_write_lock(path: Path) -> _ReentrantAsyncLock:
+    """Return (creating if necessary) the reentrant write lock for *path*."""
     if path not in _write_locks:
-        _write_locks[path] = asyncio.Lock()
+        _write_locks[path] = _ReentrantAsyncLock()
     return _write_locks[path]
 
 

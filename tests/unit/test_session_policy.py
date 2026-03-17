@@ -237,8 +237,9 @@ def test_check_policy_inter_session_denied() -> None:
 # ── check_policy: unknown event type ──────────────────────────────────────────
 
 
-def test_check_policy_unknown_event_type_is_allowed() -> None:
-    """Forward-compatible: unknown event types are always allowed."""
+def test_check_policy_unknown_event_type_is_denied() -> None:
+    """Security: unknown event types default to denied (TD-231)."""
     policy = SessionPolicyPresets.READ_ONLY
     result = check_policy(policy, "future_event_type_xyz")
-    assert result.allowed is True
+    assert result.allowed is False
+    assert result.error_code == "unknown_event_type"

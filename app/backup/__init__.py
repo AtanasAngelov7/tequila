@@ -93,6 +93,13 @@ class BackupManager:
         return BackupConfig()
 
     async def set_config(self, config: BackupConfig) -> BackupConfig:
+        # TD-153: Validate backup_dir — reject path traversal attempts
+        bdir = config.backup_dir
+        if bdir:
+            from pathlib import PurePosixPath, PureWindowsPath
+            p = PurePosixPath(bdir) if "/" in bdir else PureWindowsPath(bdir)
+            if ".." in p.parts:
+                raise ValueError(f"Invalid backup_dir: path traversal ('..') not allowed: {bdir!r}")
         async with write_transaction(self._db):
             await self._db.execute(
                 """
@@ -240,13 +247,20 @@ class BackupManager:
         except Exception as exc:
             logger.warning("Could not create pre-restore backup: %s", exc)
 
-        # 3. Extract
-        from app.paths import data_dir
+        # 3. Close database connection before overwriting DB file (TD-141)
+        from app.db.connection import shutdown as db_shutdown, startup as db_startup
+        from app.paths import data_dir, db_path as get_db_path
         data = data_dir()
-        await asyncio.to_thread(self._extract_archive, archive_path, data)
-        result["steps"].append("extracted")
+        await db_shutdown()
+        try:
+            await asyncio.to_thread(self._extract_archive, archive_path, data)
+            result["steps"].append("extracted")
+        finally:
+            # Reopen connection regardless of extraction outcome
+            await db_startup(get_db_path())
 
         # 4. Run Alembic migrations
+        migration_ok = False
         try:
             from app.paths import alembic_dir
             import subprocess
@@ -259,11 +273,19 @@ class BackupManager:
             )
             if proc.returncode != 0:
                 logger.warning("Alembic migration after restore had issues: %s", proc.stderr)
-            result["steps"].append("migrations_applied")
+                result["steps"].append("migration_failed")
+            else:
+                result["steps"].append("migrations_applied")
+                migration_ok = True
         except Exception as exc:
             logger.warning("Post-restore migrations failed: %s", exc)
+            result["steps"].append("migration_failed")
 
-        result["steps"].append("complete")
+        # TD-164: Only report complete when migrations succeeded
+        if migration_ok:
+            result["steps"].append("complete")
+        else:
+            result["steps"].append("complete_with_errors")
         logger.info("Restore complete from %s", archive_path)
         return result
 
@@ -278,7 +300,17 @@ class BackupManager:
                 if top not in safe_prefixes:
                     logger.debug("Skipping unexpected archive member: %s", member.name)
                     continue
-                tar.extract(member, path=str(data_root), filter="tar")
+                # TD-157: Explicit path traversal check — resolved target must
+                # stay inside data_root regardless of Python version.
+                resolved_target = (data_root / member.name).resolve()
+                if not str(resolved_target).startswith(str(data_root.resolve())):
+                    logger.warning("Tar path traversal blocked: %s", member.name)
+                    continue
+                try:
+                    tar.extract(member, path=str(data_root), filter="tar")
+                except TypeError:
+                    # Python < 3.11.4 doesn't support filter= parameter
+                    tar.extract(member, path=str(data_root))
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────

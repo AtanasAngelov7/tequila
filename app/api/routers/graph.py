@@ -131,7 +131,7 @@ async def get_orphans(
             rows = await cur.fetchall()
         orphans.extend(r[0] for r in rows)
     except Exception:
-        pass
+        logger.warning("Failed to query memory orphans", exc_info=True)
 
     # Entity orphans if limit not reached
     remaining = limit - len(orphans)
@@ -154,7 +154,7 @@ async def get_orphans(
                 rows = await cur.fetchall()
             orphans.extend(r[0] for r in rows if r[0] not in orphans)
         except Exception:
-            pass
+            logger.warning("Failed to query entity orphans", exc_info=True)
 
     return {"orphan_ids": orphans[:limit], "count": len(orphans[:limit])}
 

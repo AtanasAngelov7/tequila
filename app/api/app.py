@@ -95,12 +95,19 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("ConfigStore hydrated.")
 
     # 6b. Initialise credential encryption (Sprint 12).
+    # TD-194: Derive key from env var instead of storing in plaintext DB.
+    import os
     from app.auth.encryption import init_encryption, generate_key
-    _enc_key = config_store.get("auth.encryption_key", None)
+    _enc_key = os.environ.get("TEQUILA_SECRET_KEY")
+    if not _enc_key:
+        # Fallback: check config store (legacy)
+        _enc_key = config_store.get("auth.encryption_key", None)
     if not _enc_key:
         _enc_key = generate_key()
-        await config_store.set("auth.encryption_key", _enc_key)
-        logger.info("Generated new Fernet encryption key.")
+        logger.warning(
+            "No TEQUILA_SECRET_KEY env var set. Generated ephemeral key. "
+            "Set TEQUILA_SECRET_KEY for persistent credential encryption."
+        )
     init_encryption(_enc_key)
     logger.info("Credential encryption ready.")
 
@@ -413,7 +420,20 @@ def create_app() -> FastAPI:
     # ── CORS ──────────────────────────────────────────────────────────────────
     _default_origins = "http://localhost:5173,http://localhost:5174,http://127.0.0.1:5173,http://127.0.0.1:5174"
     _cors_origins_raw = os.environ.get("TEQUILA_CORS_ORIGINS", _default_origins)
-    _cors_origins = [o.strip() for o in _cors_origins_raw.split(",") if o.strip()]
+    _cors_origins: list[str] = []
+    import re as _re
+    for _origin in _cors_origins_raw.split(","):
+        _origin = _origin.strip()
+        if not _origin:
+            continue
+        # TD-215: Reject wildcard and non-URL origins
+        if _origin == "*":
+            logger.warning("CORS: rejecting wildcard origin '*' — use explicit origins")
+            continue
+        if not _re.match(r"^https?://", _origin):
+            logger.warning("CORS: rejecting malformed origin %r", _origin)
+            continue
+        _cors_origins.append(_origin)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_cors_origins,

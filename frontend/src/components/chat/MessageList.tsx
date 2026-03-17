@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import StreamingMessage from './StreamingMessage';
 import ToolCallDisplay from './ToolCallDisplay';
@@ -225,10 +225,25 @@ function MessageBubble({ msg }: { msg: Message }) {
 export default function MessageList() {
   const { messages, isLoadingMessages, isStreaming, streamingContent } = useChatStore();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isNearBottom = useRef(true);
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-scroll to bottom on new messages or stream updates
+  // Track whether user is near the bottom of the scroll container
+  const handleScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    isNearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  }, []);
+
+  // TD-251: Debounce auto-scroll; only scroll if user was already at bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!isNearBottom.current) return;
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    scrollTimer.current = setTimeout(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 120);
+    return () => { if (scrollTimer.current) clearTimeout(scrollTimer.current); };
   }, [messages, streamingContent]);
 
   if (isLoadingMessages) {
@@ -241,6 +256,8 @@ export default function MessageList() {
 
   return (
     <div
+      ref={containerRef}
+      onScroll={handleScroll}
       style={{
         flex: 1,
         overflowY: 'auto',

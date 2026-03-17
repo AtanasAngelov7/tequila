@@ -40,9 +40,16 @@ class ProviderRegistry:
 
     @classmethod
     def global_registry(cls) -> "ProviderRegistry":
-        """Return (creating if necessary) the application-level singleton."""
+        """Return (creating if necessary) the application-level singleton.
+
+        TD-264: Uses a lock to prevent duplicate creation in concurrent contexts.
+        In practice, asyncio is single-threaded so the lock is a safety net.
+        """
         if cls._instance is None:
-            cls._instance = cls()
+            import threading
+            with threading.Lock():
+                if cls._instance is None:
+                    cls._instance = cls()
         return cls._instance
 
     # ── Registration ──────────────────────────────────────────────────────────

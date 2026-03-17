@@ -169,60 +169,66 @@ class OpenAIProvider(LLMProvider):
         # Track in-progress tool calls keyed by index
         tool_call_buf: dict[int, dict[str, Any]] = {}
 
-        async for chunk in await self._client.chat.completions.create(**kwargs):
-            # Usage event (sent in the last chunk when stream_options.include_usage=True)
-            if chunk.usage:
-                yield ProviderStreamEvent(
-                    kind="usage",
-                    input_tokens=chunk.usage.prompt_tokens,
-                    output_tokens=chunk.usage.completion_tokens,
-                )
+        # TD-210: Wrap stream in try/except so errors yield proper events
+        try:
+            async for chunk in await self._client.chat.completions.create(**kwargs):
+                # Usage event (sent in the last chunk when stream_options.include_usage=True)
+                if chunk.usage:
+                    yield ProviderStreamEvent(
+                        kind="usage",
+                        input_tokens=chunk.usage.prompt_tokens,
+                        output_tokens=chunk.usage.completion_tokens,
+                    )
 
-            for choice in chunk.choices:
-                delta = choice.delta
+                for choice in chunk.choices:
+                    delta = choice.delta
 
-                # Text delta
-                if delta.content:
-                    yield ProviderStreamEvent(kind="text_delta", text=delta.content)
+                    # Text delta
+                    if delta.content:
+                        yield ProviderStreamEvent(kind="text_delta", text=delta.content)
 
-                # Tool call deltas
-                if delta.tool_calls:
-                    for tc_delta in delta.tool_calls:
-                        idx = tc_delta.index
-                        if idx not in tool_call_buf:
-                            tc_id = tc_delta.id or str(uuid.uuid4())
-                            tc_name = tc_delta.function.name if tc_delta.function else ""
-                            tool_call_buf[idx] = {"id": tc_id, "name": tc_name, "args_raw": ""}
-                            yield ProviderStreamEvent(
-                                kind="tool_call_start",
-                                tool_call_id=tc_id,
-                                tool_name=tc_name,
-                            )
-                        else:
-                            if tc_delta.function and tc_delta.function.arguments:
-                                tool_call_buf[idx]["args_raw"] += tc_delta.function.arguments
+                    # Tool call deltas
+                    if delta.tool_calls:
+                        for tc_delta in delta.tool_calls:
+                            idx = tc_delta.index
+                            if idx not in tool_call_buf:
+                                tc_id = tc_delta.id or str(uuid.uuid4())
+                                tc_name = tc_delta.function.name if tc_delta.function else ""
+                                tool_call_buf[idx] = {"id": tc_id, "name": tc_name, "args_raw": ""}
                                 yield ProviderStreamEvent(
-                                    kind="tool_call_delta",
-                                    tool_call_id=tool_call_buf[idx]["id"],
-                                    tool_args_delta=tc_delta.function.arguments,
+                                    kind="tool_call_start",
+                                    tool_call_id=tc_id,
+                                    tool_name=tc_name,
                                 )
+                            else:
+                                if tc_delta.function and tc_delta.function.arguments:
+                                    tool_call_buf[idx]["args_raw"] += tc_delta.function.arguments
+                                    yield ProviderStreamEvent(
+                                        kind="tool_call_delta",
+                                        tool_call_id=tool_call_buf[idx]["id"],
+                                        tool_args_delta=tc_delta.function.arguments,
+                                    )
 
-                # Finish reason — flush completed tool calls
-                if choice.finish_reason in ("tool_calls", "stop"):
-                    for buf in tool_call_buf.values():
-                        try:
-                            parsed_args = json.loads(buf["args_raw"] or "{}")
-                        except json.JSONDecodeError:
-                            parsed_args = {}
-                        yield ProviderStreamEvent(
-                            kind="tool_call_end",
-                            tool_call_id=buf["id"],
-                            tool_name=buf["name"],
-                            tool_args=parsed_args,
-                        )
-                    tool_call_buf.clear()
+                    # Finish reason — flush completed tool calls
+                    if choice.finish_reason in ("tool_calls", "stop"):
+                        for buf in tool_call_buf.values():
+                            try:
+                                parsed_args = json.loads(buf["args_raw"] or "{}")
+                            except json.JSONDecodeError:
+                                parsed_args = {}
+                            yield ProviderStreamEvent(
+                                kind="tool_call_end",
+                                tool_call_id=buf["id"],
+                                tool_name=buf["name"],
+                                tool_args=parsed_args,
+                            )
+                        tool_call_buf.clear()
 
-        yield ProviderStreamEvent(kind="done")
+            yield ProviderStreamEvent(kind="done")
+        except Exception as exc:
+            logger.error("OpenAI stream error: %s", exc)
+            yield ProviderStreamEvent(kind="error", error=str(exc))
+            yield ProviderStreamEvent(kind="done")
 
     async def count_tokens(self, messages: list[Message], model: str) -> int:
         """Estimate token count using tiktoken."""

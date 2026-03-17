@@ -161,11 +161,21 @@ class SoulEditor:
 
 
 def _build_generation_prompt(description: str) -> str:
+    # TD-176: Sanitize description to reduce prompt injection risk
+    import re
+    # Remove instruction-like patterns (lines starting with "ignore", "system:", etc.)
+    sanitized = re.sub(
+        r'(?mi)^(ignore|system:|assistant:|you must|override|forget).*$',
+        '',
+        description,
+    ).strip()
+    # Truncate to reasonable length
+    sanitized = sanitized[:2000]
     return f"""You are a soul configuration generator for an AI assistant system.
 Given a description of a desired AI personality, generate a structured configuration.
 
 Personality description:
-{description}
+{sanitized}
 
 Return ONLY a JSON object with these fields (no explanation, no markdown fences):
 {{

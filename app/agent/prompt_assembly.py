@@ -159,10 +159,10 @@ async def assemble_prompt(ctx: AssemblyContext) -> list[Message]:
     if ctx.memory_always:
         mem_tokens = _estimate_tokens(ctx.memory_always)
         if mem_tokens <= budget.memory_always_recall_budget:
+            # TD-222: Use system message instead of fake user/assistant pairs
             messages.append(
-                Message(role="user", content=f"[system memory]\n{ctx.memory_always}")
+                Message(role="system", content=f"[system memory]\n{ctx.memory_always}")
             )
-            messages.append(Message(role="assistant", content="Understood."))
             ctx.tokens_used += mem_tokens
 
     # ── Step 3: Per-turn memory recall ────────────────────────────────────
@@ -170,9 +170,8 @@ async def assemble_prompt(ctx: AssemblyContext) -> list[Message]:
         tokens = _estimate_tokens(ctx.memory_recall)
         if tokens <= budget.memory_recall_budget and ctx.remaining() > tokens:
             messages.append(
-                Message(role="user", content=f"[recalled context]\n{ctx.memory_recall}")
+                Message(role="system", content=f"[recalled context]\n{ctx.memory_recall}")
             )
-            messages.append(Message(role="assistant", content="Got it."))
             ctx.tokens_used += tokens
 
     # ── Step 3a: Knowledge source context ────────────────────────────────
@@ -180,21 +179,14 @@ async def assemble_prompt(ctx: AssemblyContext) -> list[Message]:
         tokens = _estimate_tokens(ctx.knowledge_context)
         if tokens <= budget.knowledge_source_budget and ctx.remaining() > tokens:
             messages.append(
-                Message(role="user", content=f"[knowledge]\n{ctx.knowledge_context}")
+                Message(role="system", content=f"[knowledge]\n{ctx.knowledge_context}")
             )
-            messages.append(Message(role="assistant", content="Noted."))
             ctx.tokens_used += tokens
 
-    # ── Step 4: Track skill token budget (already embedded in system prompt) ──
-    # Level 1 (skill_index) and Level 2 (active_skills) are injected into the
-    # system prompt via Jinja2 template slots in Step 1.  Here we track their
-    # token cost against the respective budgets.
-    if ctx.skill_index:
-        idx_tokens = _estimate_tokens(ctx.skill_index)
-        ctx.tokens_used += min(idx_tokens, budget.skill_index_budget)
-    if ctx.active_skills:
-        instr_tokens = _estimate_tokens(ctx.active_skills)
-        ctx.tokens_used += min(instr_tokens, budget.skill_instruction_budget)
+    # ── Step 4: Skill tokens (already counted in system prompt) ────────────
+    # TD-202: Level 1 (skill_index) and Level 2 (active_skills) are embedded
+    # into the system prompt via Jinja2 in Step 1.  Their tokens are already
+    # counted as part of sys_tokens.  We do NOT add them again here.
 
     # ── Step 5: Tool definitions ──────────────────────────────────────────
     # Tool defs are passed separately to provider.stream_completion() as
@@ -218,10 +210,10 @@ async def assemble_prompt(ctx: AssemblyContext) -> list[Message]:
             ctx.tokens_used += tokens
 
     # ── Step 7: Session history (budget-capped) ────────────────────────────
-    history_budget = budget.history_budget - ctx.tokens_used
-    # Estimate current user message tokens and reserve that
+    # TD-203: Use remaining() for history budget instead of subtracting from
+    # a slot-specific budget which can go negative.
     user_msg_tokens = _estimate_tokens(ctx.user_message)
-    history_budget -= user_msg_tokens
+    history_budget = max(0, ctx.remaining() - user_msg_tokens)
 
     if history_budget > 0 and ctx.session_history:
         # Walk history newest-first, collect until budget exhausted
@@ -232,9 +224,10 @@ async def assemble_prompt(ctx: AssemblyContext) -> list[Message]:
             row_tokens = _estimate_tokens(row_text)
             if used + row_tokens > history_budget:
                 if len(selected) < budget.min_recent_messages:
-                    # Must include at least min_recent_messages
+                    # TD-223: Must include at least min_recent_messages
                     selected.append(row)
                     used += row_tokens
+                    continue  # keep going until min_recent_messages met
                 break
             selected.append(row)
             used += row_tokens

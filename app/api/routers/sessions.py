@@ -139,9 +139,16 @@ async def list_sessions(
         limit=limit,
         offset=offset,
     )
+    # TD-161: Get true total from a count query, not page length
+    total = await store.count(
+        status=status_filter,
+        kind=kind,
+        agent_id=agent_id,
+        q=q,
+    )
     return SessionListResponse(
         sessions=[_session_to_response(s) for s in sessions],
-        total=len(sessions),
+        total=total,
     )
 
 
@@ -308,17 +315,23 @@ async def regenerate_response(
     session = await get_session_store().get_by_id(session_id)
 
     from app.sessions.branching import regenerate
+    # TD-162: Validate before create_task so errors propagate to caller
     try:
-        asyncio.create_task(
-            regenerate(
-                session_id=session_id,
-                session_key=session.session_key,
-                message_id=body.message_id,
-            )
-        )
+        from app.sessions.messages import get_message_store
+        msg_store = get_message_store()
+        msg = await msg_store.get(body.message_id)
+        if msg is None:
+            raise NotFoundError(f"Message {body.message_id} not found")
     except (NotFoundError, ValidationError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    asyncio.create_task(
+        regenerate(
+            session_id=session_id,
+            session_key=session.session_key,
+            message_id=body.message_id,
+        )
+    )
     return BranchResponse(status="started", session_id=session_id)
 
 
@@ -380,16 +393,22 @@ async def edit_and_resubmit(
     session = await get_session_store().get_by_id(session_id)
 
     from app.sessions.branching import edit_and_resubmit as _edit
+    # TD-162: Validate before create_task so errors propagate to caller
     try:
-        asyncio.create_task(
-            _edit(
-                session_id=session_id,
-                session_key=session.session_key,
-                message_id=body.message_id,
-                new_content=body.content,
-            )
-        )
+        from app.sessions.messages import get_message_store
+        msg_store = get_message_store()
+        msg = await msg_store.get(body.message_id)
+        if msg is None:
+            raise NotFoundError(f"Message {body.message_id} not found")
     except (NotFoundError, ValidationError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    asyncio.create_task(
+        _edit(
+            session_id=session_id,
+            session_key=session.session_key,
+            message_id=body.message_id,
+            new_content=body.content,
+        )
+    )
     return BranchResponse(status="started", session_id=session_id)

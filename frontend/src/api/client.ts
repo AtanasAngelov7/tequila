@@ -2,17 +2,23 @@
 
 const BASE = '/api';
 
+// TD-259: Shared auth headers helper for all HTTP requests
+export function getAuthHeaders(): Record<string, string> {
+  const token = import.meta.env.VITE_GATEWAY_TOKEN ?? '';
+  return token ? { 'X-Gateway-Token': token } : {};
+}
+
 async function request<T>(
   method: string,
   path: string,
   body?: unknown,
 ): Promise<T> {
-  const token = import.meta.env.VITE_GATEWAY_TOKEN ?? '';
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      // TD-255: Use X-Gateway-Token to match backend expectation
+      ...getAuthHeaders(),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });

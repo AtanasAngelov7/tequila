@@ -29,6 +29,8 @@ class ExportOptions:
     include_tool_calls: bool = False
     include_system_messages: bool = False
     include_costs: bool = False
+    # TD-182: Configurable message limit (default 5000)
+    max_messages: int = 5000
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -89,7 +91,7 @@ class SessionExporter:
         session = await self._ss.get(session_id)
         messages = await self._ms.list_by_session(
             session_id,
-            limit=5000,
+            limit=opts.max_messages,  # TD-182: configurable limit
             active_only=True,
         )
 
@@ -121,7 +123,7 @@ class SessionExporter:
         session = await self._ss.get(session_id)
         messages = await self._ms.list_by_session(
             session_id,
-            limit=5000,
+            limit=opts.max_messages,  # TD-182: configurable limit
             active_only=True,
         )
 

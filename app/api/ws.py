@@ -204,7 +204,7 @@ async def websocket_endpoint(
         from app.sessions.messages import get_message_store
 
         content: str = params.get("content", "")
-        role: str = params.get("role", "user")
+        role: str = "user"  # TD-229: Force role=user for client-sent messages
 
         try:
             msg_store = get_message_store()

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
+import { getAuthHeaders } from '../../api/client';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import TurnProgress from './TurnProgress';
@@ -8,15 +9,18 @@ import ApprovalBanner from './ApprovalBanner';
 function ExportMenu({ sessionId }: { sessionId: string }) {
   const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  // TD-260: Use inline error state instead of blocking alert()
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const doExport = async (format: 'markdown' | 'json' | 'pdf') => {
     setOpen(false);
     setExporting(true);
+    setExportError(null);
     try {
-      const token = (import.meta as any).env?.VITE_GATEWAY_TOKEN ?? '';
+      // TD-259: Use shared auth headers helper
       const url = `/api/sessions/${sessionId}/export?format=${format}&include_costs=true`;
       const res = await fetch(url, {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error(`Export failed: ${res.status}`);
       const blob = await res.blob();
@@ -28,7 +32,8 @@ function ExportMenu({ sessionId }: { sessionId: string }) {
       a.click();
       URL.revokeObjectURL(objectUrl);
     } catch (e) {
-      alert(`Export error: ${e}`);
+      // TD-260: Show inline error instead of alert()
+      setExportError(String(e));
     } finally {
       setExporting(false);
     }
@@ -67,6 +72,16 @@ function ExportMenu({ sessionId }: { sessionId: string }) {
               {fmt.toUpperCase()}
             </button>
           ))}
+        </div>
+      )}
+      {exportError && (
+        <div style={{
+          position: 'absolute', right: 0, top: '110%', zIndex: 100,
+          background: '#fdd', padding: '8px 12px', borderRadius: 6, fontSize: 12,
+          color: '#c00', maxWidth: 240, wordBreak: 'break-word',
+        }}>
+          {exportError}
+          <button onClick={() => setExportError(null)} style={{ marginLeft: 8, cursor: 'pointer', border: 'none', background: 'none', color: '#c00' }}>✕</button>
         </div>
       )}
     </div>

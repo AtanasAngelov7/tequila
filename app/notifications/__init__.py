@@ -179,11 +179,12 @@ class NotificationStore:
 
     async def mark_read(self, notification_id: str) -> bool:
         async with write_transaction(self._db):
-            await self._db.execute(
+            cursor = await self._db.execute(
                 "UPDATE notifications SET read = 1 WHERE id = ?",
                 (notification_id,),
             )
-        return True
+        # TD-181: Return False if notification doesn't exist
+        return cursor.rowcount > 0
 
     async def mark_all_read(self) -> int:
         async with write_transaction(self._db):
@@ -296,8 +297,9 @@ class NotificationDispatcher:
             if event_type != "notification.push":
                 try:
                     self._router.on(event_type, self._handle_event)
-                except Exception:
-                    pass  # Router may reject unknown event types in strict mode
+                except Exception as exc:  # noqa: BLE001
+                    # TD-172: Log instead of silently swallowing
+                    logger.debug("Could not register handler for %r: %s", event_type, exc)
 
     async def _handle_event(self, event: Any) -> None:
         """Gateway event handler — converts to Notification and dispatches."""
@@ -311,6 +313,29 @@ class NotificationDispatcher:
 
         notification_type, severity, title_template = mapping
         payload = getattr(event, "payload", {}) or (event.get("payload", {}) if isinstance(event, dict) else {})
+
+        # TD-180: _passthrough events are dispatched but not persisted
+        if notification_type == "_passthrough":
+            real_type = payload.get("notification_type", "general")
+            real_title = payload.get("title", "")
+            real_body = payload.get("body", "")
+            real_severity = payload.get("severity", "info")
+            # Emit via gateway only — no DB round-trip for internal passthrough
+            try:
+                from app.gateway.events import GatewayEvent
+                evt = GatewayEvent(
+                    event_type="notification.push",
+                    payload={
+                        "notification_type": real_type,
+                        "title": real_title,
+                        "body": real_body,
+                        "severity": real_severity,
+                    },
+                )
+                await self._router.emit(evt)
+            except Exception as exc:
+                logger.debug("Passthrough notification emit failed: %s", exc)
+            return
 
         # Build body from payload
         body = payload.get("error", payload.get("body", payload.get("message", str(payload)[:200] if payload else "")))
@@ -407,13 +432,17 @@ class NotificationDispatcher:
             from app.sessions.messages import get_message_store
             ss = get_session_store()
             ms = get_message_store()
-            # Find the most recently active webchat session
-            sessions = await ss.list_sessions(kind="webchat", limit=1)
-            if not sessions:
-                return
-            active = sessions[0]
+            # TD-163: Use source_session_key if available, fall back to most-recent webchat
+            target_session = None
+            if notif.source_session_key:
+                target_session = await ss.get(notif.source_session_key)
+            if target_session is None:
+                sessions = await ss.list_sessions(kind="webchat", limit=1)
+                if not sessions:
+                    return
+                target_session = sessions[0]
             await ms.insert(
-                session_id=active.session_id,
+                session_id=target_session.session_id,
                 role="system",
                 content=inject_text,
                 provenance="notification_injection",

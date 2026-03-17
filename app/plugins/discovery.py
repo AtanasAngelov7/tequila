@@ -98,7 +98,17 @@ def _load_plugin_class(
     module_name = f"_custom_plugin_{pkg_name}"
 
     # Add package root to sys.path so relative imports work inside the plugin.
+    # TD-171: Save and restore sys.path to prevent permanent mutation.
     pkg_parent = str(pkg_path.parent)
+    _saved_path = sys.path[:]
+
+    # TD-142: Log warning about arbitrary code execution from custom plugins.
+    logger.warning(
+        "Loading custom plugin %r from %s — no sandbox. "
+        "Only load trusted plugin code.",
+        pkg_name, plugin_file,
+    )
+
     if pkg_parent not in sys.path:
         sys.path.insert(0, pkg_parent)
 
@@ -113,6 +123,9 @@ def _load_plugin_class(
     except Exception as exc:  # noqa: BLE001
         logger.exception("Failed to load custom plugin %r: %s", pkg_name, exc)
         return None
+    finally:
+        # TD-171: Restore sys.path to prevent permanent mutation
+        sys.path[:] = _saved_path
 
     # Look for a PluginBase subclass in the module.
     plugin_class = getattr(module, "Plugin", None)
@@ -193,7 +206,7 @@ async def start_watcher(
             await asyncio.sleep(poll_interval)
 
     global _watcher_task  # noqa: PLW0603
-    import asyncio
+    # TD-189: asyncio already imported at line 187
     _watcher_task = asyncio.create_task(_poll(), name="plugin-discovery-watcher")
 
 

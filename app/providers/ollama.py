@@ -145,10 +145,12 @@ class OllamaProvider(LLMProvider):
                                 tc_id = tc_delta.get("id") or str(uuid.uuid4())
                                 fn = tc_delta.get("function", {})
                                 tc_name = fn.get("name", "")
+                                # TD-263: Accumulate args from first chunk too
+                                first_args = fn.get("arguments", "")
                                 tool_call_buf[idx] = {
                                     "id": tc_id,
                                     "name": tc_name,
-                                    "args_raw": "",
+                                    "args_raw": first_args,
                                 }
                                 yield ProviderStreamEvent(
                                     kind="tool_call_start",
@@ -193,6 +195,14 @@ class OllamaProvider(LLMProvider):
                 kind="error",
                 error_message=str(exc),
                 error_code="http_error",
+            )
+        except Exception as exc:  # noqa: BLE001
+            # TD-210: Catch-all to avoid unhandled stream errors propagating
+            logger.exception("Unexpected error during Ollama streaming")
+            yield ProviderStreamEvent(
+                kind="error",
+                error_message=str(exc),
+                error_code="stream_error",
             )
 
         yield ProviderStreamEvent(kind="done")

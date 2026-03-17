@@ -129,6 +129,12 @@ class SchedulerEngine:
             if nra.tzinfo is None:
                 nra = nra.replace(tzinfo=timezone.utc)
             if nra <= now:
+                # TD-211: Update next_run_at BEFORE firing to prevent duplicate execution
+                try:
+                    nxt = next_run(task.cron_expression, after=now)
+                    await update_next_run(task.id, nxt, self._db)
+                except Exception as exc:
+                    logger.warning("Cannot pre-compute next_run for task %s: %s", task.id, exc)
                 asyncio.create_task(self._run_task_with_deferral(task))
 
     async def _run_task_with_deferral(self, task: ScheduledTask) -> None:
@@ -159,13 +165,7 @@ class SchedulerEngine:
                 logger.error("Scheduler task %s failed: %s", task.id, exc, exc_info=True)
                 await update_task_run(task.id, status="error", error=str(exc), db=self._db)
 
-        # Re-compute next run
-        try:
-            from datetime import timezone as _tz
-            nxt = next_run(task.cron_expression, after=datetime.now(tz=_tz.utc))
-            await update_next_run(task.id, nxt, self._db)
-        except Exception as exc:
-            logger.warning("Cannot compute next_run for task %s: %s", task.id, exc)
+        # next_run_at already updated optimistically in _tick(); no re-computation needed
 
     async def _fire_task(self, task: ScheduledTask, override_prompt: str | None = None) -> str:
         """Create a cron session and inject the prompt."""
@@ -200,18 +200,18 @@ class SchedulerEngine:
             event = GatewayEvent(
                 event_type=ET.INBOUND_MESSAGE,
                 session_key=session_key,
-                payload={"text": prompt, "role": "user"},
+                payload={"session_id": session_key, "content": prompt, "role": "user"},
                 source=EventSource(kind="scheduler", id=task.id),
             )
             await router.emit(event)
 
         return session_key
 
-    def _is_turn_active(self, agent_id: str) -> bool:  # noqa: ARG002
-        """Return True if any session currently has an active turn (§20.8)."""
+    def _is_turn_active(self, agent_id: str) -> bool:
+        """Return True if the given agent currently has an active turn (§20.8)."""
         try:
-            from app.sessions.store import active_turn_count
-            return active_turn_count() > 0
+            from app.sessions.store import is_agent_turn_active
+            return is_agent_turn_active(agent_id)
         except Exception:
             return False  # If we can't check, don't block
 

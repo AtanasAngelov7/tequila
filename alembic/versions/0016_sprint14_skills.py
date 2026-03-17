@@ -71,11 +71,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # TD-243: Only drop artifacts uniquely added by 0016.
+    # skills and skill_resources were originally created by 0004 — DO NOT drop them
+    # here or 0004's downgrade expectations break.
     op.execute("DROP INDEX IF EXISTS idx_soul_versions_agent")
     op.execute("DROP TABLE IF EXISTS soul_versions")
-    op.execute("DROP INDEX IF EXISTS idx_skill_resources_skill")
-    op.execute("DROP TABLE IF EXISTS skill_resources")
+    # The indexes idx_skills_activation was added by 0016, drop it.
     op.execute("DROP INDEX IF EXISTS idx_skills_activation")
-    op.execute("DROP INDEX IF EXISTS idx_skills_builtin")
-    op.execute("DROP INDEX IF EXISTS idx_skills_tags")
-    op.execute("DROP TABLE IF EXISTS skills")
