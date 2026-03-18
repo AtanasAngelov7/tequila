@@ -11,7 +11,7 @@ Credential lifecycle:
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import aiosqlite
@@ -32,7 +32,7 @@ KNOWN_PROVIDERS = {"openai", "anthropic", "ollama"}
 
 
 def _now() -> str:
-    return datetime.now(UTC).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 async def _get_row(db: aiosqlite.Connection, credential_key: str) -> dict[str, Any] | None:

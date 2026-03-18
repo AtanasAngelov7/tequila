@@ -5,6 +5,7 @@ import SessionList from '../session/SessionList';
 import ThemeToggle from '../ThemeToggle';
 import ShortcutsHelp from '../ShortcutsHelp';
 import ConnectionStatus from '../ConnectionStatus';
+import UpdateBanner from '../UpdateBanner';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -112,6 +113,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
             <div style={navLinkStyle('/backup')} role="button" tabIndex={0} onClick={() => navigate('/backup')}>
               💾 Backup
             </div>
+            <div style={navLinkStyle('/files')} role="button" tabIndex={0} onClick={() => navigate('/files')}>
+              📁 Files
+            </div>
           </div>
         </aside>
       )}
@@ -139,6 +143,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
           </div>
         )}
+        <UpdateBanner />
         {children}
       </main>
 

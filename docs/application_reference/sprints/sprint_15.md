@@ -2,7 +2,7 @@
 
 **Phase**: 6 – Polish (II) (**Phase Gate Sprint**)
 **Duration**: 2 weeks
-**Status**: ⬜ Not Started
+**Status**: ✅ Done
 **Build Sequence Items**: BS-56, BS-57, BS-58, BS-59
 > **📖 Spec reference**: For full design context, data models, and acceptance details, consult [tequila_v2_specification.md](../tequila_v2_specification.md) at the §-sections listed in the Spec References table below.
 ---

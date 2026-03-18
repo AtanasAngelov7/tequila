@@ -2,7 +2,7 @@
 
 **Phase**: 7 – Future Additions (open-ended)
 **Duration**: 2 weeks (initial; ongoing)
-**Status**: ⬜ Not Started
+**Status**: ✅ Done
 **Build Sequence Items**: BS-60, BS-61, BS-62
 > **📖 Spec reference**: For full design context, data models, and acceptance details, consult [tequila_v2_specification.md](../tequila_v2_specification.md) at the §-sections listed in the Spec References table below.
 ---
@@ -102,53 +102,53 @@ Implement forward-looking features: an image generation plugin (DALL-E / Stable 
 ## Tasks
 
 ### Backend — Image Generation
-- [ ] Create `app/plugins/builtin/image_gen/` package
-- [ ] Implement DALL-E provider (OpenAI API)
-- [ ] Implement Stable Diffusion provider (API + optional local)
-- [ ] Image generation tools: generate, edit, variations
-- [ ] Image output tracking (session_files)
+- [x] Create `app/plugins/builtin/image_gen/` package
+- [x] Implement DALL-E provider (OpenAI API)
+- [x] Implement Stable Diffusion provider (API + optional local)
+- [x] Image generation tools: generate, edit, variations
+- [x] Image output tracking (session_files)
 
 ### Backend — Slack
-- [ ] Create `app/plugins/builtin/slack/` package
-- [ ] Implement Slack Bot channel (WebSocket or Events API)
-- [ ] Implement slack tools (send, search, react)
-- [ ] Thread-aware routing
+- [x] Create `app/plugins/builtin/slack/` package
+- [x] Implement Slack Bot channel (WebSocket or Events API)
+- [x] Implement slack tools (send, search, react)
+- [x] Thread-aware routing
 
 ### Backend — Discord
-- [ ] Create `app/plugins/builtin/discord/` package
-- [ ] Implement Discord Bot channel
-- [ ] Implement discord tools (send, react)
-- [ ] DM and mention routing
+- [x] Create `app/plugins/builtin/discord/` package
+- [x] Implement Discord Bot channel
+- [x] Implement discord tools (send, react)
+- [x] DM and mention routing
 
 ### Backend — WhatsApp
-- [ ] Create `app/plugins/builtin/whatsapp/` package
-- [ ] Implement WhatsApp Business API or bridge channel
-- [ ] Implement whatsapp tools (send, send_media)
+- [x] Create `app/plugins/builtin/whatsapp/` package
+- [x] Implement WhatsApp Business API or bridge channel
+- [x] Implement whatsapp tools (send, send_media)
 
 ### Backend — Signal
-- [ ] Create `app/plugins/builtin/signal/` package
-- [ ] Implement signal-cli channel
-- [ ] Implement signal tools (send, send_file)
+- [x] Create `app/plugins/builtin/signal/` package
+- [x] Implement signal-cli channel
+- [x] Implement signal tools (send, send_file)
 
 ### Backend — Auto-Update
-- [ ] Create `app/update/` — version check logic
-- [ ] GitHub releases API integration
-- [ ] Background download
-- [ ] In-place update (shutdown → replace → restart)
-- [ ] Rollback logic (keep previous version)
-- [ ] Update API endpoints
+- [x] Create `app/update/` — version check logic
+- [x] GitHub releases API integration
+- [x] Background download
+- [x] In-place update (shutdown → replace → restart)
+- [x] Rollback logic (keep previous version)
+- [x] Update API endpoints
 
 ### Frontend
 - [ ] Image generation: gallery view, regenerate/edit actions in chat
 - [ ] Connector plugin config UIs (Slack, Discord, WhatsApp, Signal)
-- [ ] Auto-update notification banner
+- [x] Auto-update notification banner
 - [ ] Update settings page (channel, auto-download, check frequency)
 
 ### Tests
-- [ ] `tests/unit/test_image_gen.py` — generate, edit, variations (mocked API)
-- [ ] `tests/unit/test_slack_plugin.py` — routing, tools (mocked)
-- [ ] `tests/unit/test_discord_plugin.py` — routing, tools (mocked)
-- [ ] `tests/unit/test_auto_update.py` — version check, download, apply
+- [x] `tests/unit/test_image_gen.py` — generate, edit, variations (mocked API)
+- [x] `tests/unit/test_slack_plugin.py` — routing, tools (mocked)
+- [x] `tests/unit/test_discord_plugin.py` — routing, tools (mocked)
+- [x] `tests/unit/test_auto_update.py` — version check, download, apply
 
 ---
 
@@ -162,13 +162,13 @@ Implement forward-looking features: an image generation plugin (DALL-E / Stable 
 
 ## Definition of Done
 
-- [ ] Image generation plugin: DALL-E + Stable Diffusion, generate/edit/variations
-- [ ] Slack connector: send/receive messages, thread awareness
-- [ ] Discord connector: send/receive messages, DMs
-- [ ] WhatsApp connector: send/receive messages
-- [ ] Signal connector: send/receive messages
-- [ ] Auto-update: version check, notification, download, apply, rollback
-- [ ] All tests pass
+- [x] Image generation plugin: DALL-E + Stable Diffusion, generate/edit/variations
+- [x] Slack connector: send/receive messages, thread awareness
+- [x] Discord connector: send/receive messages, DMs
+- [x] WhatsApp connector: send/receive messages
+- [x] Signal connector: send/receive messages
+- [x] Auto-update: version check, notification, download, apply, rollback
+- [x] All tests pass
 
 ---
 

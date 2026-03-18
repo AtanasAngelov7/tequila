@@ -6,7 +6,7 @@ plugin system.  Runtime plugin instances subclass ``PluginBase`` (see
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -98,7 +98,7 @@ class PluginHealthResult(BaseModel):
     details: dict[str, Any] = {}
     """Provider-specific diagnostics — never contains credentials."""
 
-    checked_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    checked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     """Timestamp when the check was performed."""
 
 
@@ -167,5 +167,5 @@ class PluginRecord(BaseModel):
     error_message: str | None = None
     """Last error message if ``status == "error"``."""
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

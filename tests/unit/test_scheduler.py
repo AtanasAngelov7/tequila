@@ -1,7 +1,7 @@
 """Unit tests for Sprint 13 D7 — Scheduler (cronparser, models, store, engine)."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -28,14 +28,14 @@ def test_validate_cron_rejects_invalid():
 
 
 def test_next_run_returns_future():
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     nxt = next_run("* * * * *", after=now)
     assert nxt is not None
     assert nxt > now
 
 
 def test_next_run_hourly():
-    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+    base = datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     nxt = next_run("0 * * * *", after=base)
     assert nxt is not None
     assert nxt.minute == 0
@@ -44,7 +44,7 @@ def test_next_run_hourly():
 
 def test_next_run_specific_time():
     """Test that next_run finds the next occurrence of a specific time."""
-    base = datetime(2025, 1, 1, 8, 0, 0, tzinfo=UTC)
+    base = datetime(2025, 1, 1, 8, 0, 0, tzinfo=timezone.utc)
     # Should fire at 9:00 the same day
     nxt = next_run("0 9 * * *", after=base)
     assert nxt.hour == 9
@@ -54,12 +54,12 @@ def test_next_run_specific_time():
 
 def test_next_run_invalid_raises():
     with pytest.raises((ValueError, Exception)):
-        next_run("not-valid", after=datetime.now(UTC))
+        next_run("not-valid", after=datetime.now(timezone.utc))
 
 
 def test_next_run_advances_past_now():
     """next_run always returns a time strictly after 'after'."""
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     nxt = next_run("*/5 * * * *", after=now)
     assert nxt > now
 
@@ -68,7 +68,7 @@ def test_next_run_advances_past_now():
 
 
 def test_scheduled_task_defaults():
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     task = ScheduledTask(
         id="test-id",
         name="Test Task",
@@ -86,7 +86,7 @@ def test_scheduled_task_defaults():
 
 
 def test_scheduled_task_with_all_fields():
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     task = ScheduledTask(
         id="full-task",
         name="Full",
@@ -114,7 +114,7 @@ def test_scheduled_task_with_all_fields():
 async def test_store_save_and_get(migrated_db):
     from app.scheduler.store import load_task, save_task
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     task = ScheduledTask(
         id="t1",
         name="Daily",
@@ -135,7 +135,7 @@ async def test_store_save_and_get(migrated_db):
 async def test_store_list_all(migrated_db):
     from app.scheduler.store import load_all_tasks, save_task
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     for i in range(3):
         await save_task(ScheduledTask(
             id=f"task-{i}",
@@ -154,7 +154,7 @@ async def test_store_list_all(migrated_db):
 async def test_store_delete(migrated_db):
     from app.scheduler.store import delete_task, load_task, save_task
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     await save_task(ScheduledTask(
         id="del-me",
         name="Delete Me",
@@ -185,7 +185,7 @@ async def test_engine_skips_disabled_task(migrated_db):
     """Tasks with enabled=False must not be in the enabled tasks list."""
     from app.scheduler.store import load_enabled_tasks, save_task
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     task = ScheduledTask(
         id="disabled-task",
         name="Disabled",
@@ -208,7 +208,7 @@ async def test_engine_includes_enabled_task(migrated_db):
     """Tasks with enabled=True must appear in load_enabled_tasks."""
     from app.scheduler.store import load_enabled_tasks, save_task
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     task = ScheduledTask(
         id="enabled-task",
         name="Enabled",

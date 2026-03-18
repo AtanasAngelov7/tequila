@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from app.plugins.base import PluginBase
@@ -167,7 +167,7 @@ class GoogleCalendarPlugin(PluginBase):
     ) -> list[dict[str, Any]]:
         if not self._service:
             raise RuntimeError("Plugin not activated.")
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         params: dict[str, Any] = {
             "calendarId": calendar_id or self._default_calendar,
             "timeMin": time_min or now.isoformat(),

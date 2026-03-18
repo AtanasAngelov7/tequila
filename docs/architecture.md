@@ -50,7 +50,7 @@ app/db/schema.py      ─── schema introspection helpers used by Alembic env
 
 ```
 1. ServerSettings loaded from env / .env
-2. Filesystem paths created (data/, data/vault/, data/uploads/, …)  [app.paths]
+2. Filesystem paths created (data/, data/vault/, data/uploads/, data/files/, …)  [app.paths]
 3. Database opened with WAL pragmas                                  [app.db.connection.startup]
 4. Alembic migrations run (alembic upgrade head)                     [alembic/]
 5. GatewayRouter initialised and started                             [app.gateway.router.init_router]
@@ -59,14 +59,16 @@ app/db/schema.py      ─── schema introspection helpers used by Alembic env
 7. FastAPI routers registered                                        [app.api.app]
 8. HTTP server ready — uvicorn accepts connections
 8r. PluginRegistry created; built-in plugins registered; health loop started [app.plugins.registry.init_plugin_registry]
+8f. FileCleanupService started (daily orphan/quota/soft-delete pass) [app.files.cleanup.FileCleanupService]
 ```
 
 On shutdown (SIGTERM / KeyboardInterrupt):
 
 ```
-1. PluginRegistry stopped (deactivate all active plugins)
-2. GatewayRouter stopped (drain in-flight events)
-3. Database connection closed cleanly
+1. FileCleanupService stopped
+2. PluginRegistry stopped (deactivate all active plugins)
+3. GatewayRouter stopped (drain in-flight events)
+4. Database connection closed cleanly
 ```
 
 ---

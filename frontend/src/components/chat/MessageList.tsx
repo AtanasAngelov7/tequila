@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import StreamingMessage from './StreamingMessage';
 import ToolCallDisplay from './ToolCallDisplay';
+import InlineMedia from './InlineMedia';
 import type { Message } from '../../types';
 
 const roleColors: Record<string, string> = {
@@ -187,6 +188,11 @@ function MessageBubble({ msg }: { msg: Message }) {
           }}
         >
           {msg.content}
+
+          {/* Inline media (images, audio, PDFs, code files) */}
+          {msg.content_blocks && msg.content_blocks.length > 0 && (
+            <InlineMedia blocks={msg.content_blocks} />
+          )}
 
           {/* Tool calls (assistant messages) */}
           {msg.tool_calls && msg.tool_calls.length > 0 && (

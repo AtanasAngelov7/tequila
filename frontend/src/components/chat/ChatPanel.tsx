@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { getAuthHeaders } from '../../api/client';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import TurnProgress from './TurnProgress';
 import ApprovalBanner from './ApprovalBanner';
+import SessionFilesPanel from './SessionFilesPanel';
 
 function ExportMenu({ sessionId }: { sessionId: string }) {
   const [open, setOpen] = useState(false);
@@ -90,6 +91,14 @@ function ExportMenu({ sessionId }: { sessionId: string }) {
 
 export default function ChatPanel() {
   const { activeSessionId, sendMessage } = useChatStore();
+  const [filesPanelOpen, setFilesPanelOpen] = useState(false);
+
+  // Ctrl+Shift+F global shortcut wired via custom event from App.tsx
+  useEffect(() => {
+    const handler = () => setFilesPanelOpen((v) => !v);
+    window.addEventListener('tequila:toggle-files-panel', handler);
+    return () => window.removeEventListener('tequila:toggle-files-panel', handler);
+  }, []);
 
   if (!activeSessionId) {
     return (
@@ -116,12 +125,24 @@ export default function ChatPanel() {
         padding: '4px 12px', borderBottom: '1px solid var(--color-border)',
         gap: 8, flexShrink: 0,
       }}>
+        <button
+          onClick={() => setFilesPanelOpen((v) => !v)}
+          title="Session files (Ctrl+Shift+F)"
+          style={{
+            padding: '4px 10px', borderRadius: 6, border: '1px solid var(--color-border)',
+            background: filesPanelOpen ? 'var(--color-primary-muted, rgba(99,102,241,0.15))' : 'var(--color-surface)',
+            color: 'var(--color-on-surface)', cursor: 'pointer', fontSize: 12,
+          }}
+        >
+          📎 Files
+        </button>
         <ExportMenu sessionId={activeSessionId} />
       </div>
       <MessageList />
       <TurnProgress />
       <ApprovalBanner />
       <MessageInput onSend={sendMessage} />
+      {filesPanelOpen && <SessionFilesPanel onClose={() => setFilesPanelOpen(false)} />}
     </div>
   );
 }

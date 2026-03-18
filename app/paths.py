@@ -99,6 +99,15 @@ def embeddings_dir() -> Path:
     return data_dir() / "embeddings"
 
 
+def files_dir() -> Path:
+    """Agent-generated and uploaded file storage root (``data/files/``).
+
+    Distinct from ``uploads_dir()`` which stores raw upload bytes before
+    processing; this directory holds the final tracked files.
+    """
+    return data_dir() / "files"
+
+
 # ── App sub-directories ───────────────────────────────────────────────────────
 
 
@@ -149,6 +158,7 @@ def ensure_dirs() -> None:
         browser_profiles_dir(),
         logs_dir(),
         embeddings_dir(),
+        files_dir(),
     ]
     for directory in dirs:
         directory.mkdir(parents=True, exist_ok=True)

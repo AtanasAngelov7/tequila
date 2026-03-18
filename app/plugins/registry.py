@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
 
 import aiosqlite
@@ -173,7 +173,7 @@ class PluginRegistry:
         plugin_id = plugin_class.plugin_id
         self._instances[plugin_id] = plugin_class()  # type: ignore[call-arg]
 
-        now = datetime.now(UTC)
+        now = datetime.now(timezone.utc)
         record = PluginRecord(
             plugin_id=plugin_id,
             name=plugin_class.name,
@@ -432,4 +432,41 @@ def _register_builtins(registry: PluginRegistry) -> None:
         registry.register_class(MCPPlugin)
     except ImportError as exc:
         if exc.name and "mcp" not in exc.name:
+            raise
+
+    # Sprint 16: new connectors + image generation ────────────────────────────
+
+    try:
+        from app.plugins.builtin.image_gen.plugin import ImageGenPlugin
+        registry.register_class(ImageGenPlugin)
+    except ImportError as exc:
+        if exc.name and "image_gen" not in exc.name:
+            raise
+
+    try:
+        from app.plugins.builtin.slack.plugin import SlackPlugin
+        registry.register_class(SlackPlugin)
+    except ImportError as exc:
+        if exc.name and "slack" not in exc.name:
+            raise
+
+    try:
+        from app.plugins.builtin.discord.plugin import DiscordPlugin
+        registry.register_class(DiscordPlugin)
+    except ImportError as exc:
+        if exc.name and "discord" not in exc.name:
+            raise
+
+    try:
+        from app.plugins.builtin.whatsapp.plugin import WhatsAppPlugin
+        registry.register_class(WhatsAppPlugin)
+    except ImportError as exc:
+        if exc.name and "whatsapp" not in exc.name:
+            raise
+
+    try:
+        from app.plugins.builtin.signal.plugin import SignalPlugin
+        registry.register_class(SignalPlugin)
+    except ImportError as exc:
+        if exc.name and "signal" not in exc.name:
             raise

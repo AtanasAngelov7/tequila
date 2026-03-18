@@ -15,6 +15,8 @@ import NotificationsPage from './pages/NotificationsPage';
 import AuditLogPage from './pages/AuditLogPage';
 import BudgetPage from './pages/BudgetPage';
 import BackupPage from './pages/BackupPage';
+import FilesPage from './pages/FilesPage';
+import SearchPalette from './components/SearchPalette';
 import { wsClient } from './api/ws';
 import { shortcutManager } from './lib/shortcuts';
 import { applyTheme, watchSystemTheme } from './lib/theme';
@@ -27,6 +29,7 @@ type AppMode = 'loading' | 'setup' | 'app' | 'error';
 function MainApp() {
   const { theme, toggleSidebar, toggleShortcutsHelp, closeShortcutsHelp } = useUiStore();
   const { createSession, setActiveSession } = useChatStore();
+  const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
 
   // Apply theme reactively
   useEffect(() => {
@@ -74,13 +77,21 @@ function MainApp() {
         handler: closeShortcutsHelp,
       }),
       shortcutManager.register({
+        key: 'f',
+        ctrl: true,
+        shift: true,
+        description: 'Toggle session files panel',
+        handler: () => {
+          // Files panel toggle is handled inside ChatPanel via local state;
+          // emit a custom event that ChatPanel can listen to if needed.
+          window.dispatchEvent(new CustomEvent('tequila:toggle-files-panel'));
+        },
+      }),
+      shortcutManager.register({
         key: 'k',
         ctrl: true,
-        description: 'Command palette (stub)',
-        handler: () => {
-          // TODO: Sprint 05+ will implement full command palette
-          console.info('Command palette — coming soon');
-        },
+        description: 'Command palette',
+        handler: () => setSearchPaletteOpen((o) => !o),
       }),
     ];
 
@@ -91,7 +102,9 @@ function MainApp() {
   }, [toggleSidebar, toggleShortcutsHelp, closeShortcutsHelp, createSession, setActiveSession]);
 
   return (
-    <Routes>
+    <>
+      <SearchPalette open={searchPaletteOpen} onClose={() => setSearchPaletteOpen(false)} />
+      <Routes>
       <Route
         path="/"
         element={
@@ -196,8 +209,17 @@ function MainApp() {
           </AppLayout>
         }
       />
+      <Route
+        path="/files"
+        element={
+          <AppLayout>
+            <FilesPage />
+          </AppLayout>
+        }
+      />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 

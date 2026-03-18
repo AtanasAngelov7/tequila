@@ -241,6 +241,78 @@ The gateway is the event bus for all inbound and outbound interactions. Everythi
 
 ---
 
+## `app/files/` package *(Sprint 15)*
+
+File management subsystem — storage, export, and lifecycle for agent-generated and user-uploaded files (§21.6, §21.7).
+
+### `app/files/models.py`
+
+**Responsibility**: Pydantic data models for the file subsystem.
+
+**Key exports:**
+
+| Symbol | Notes |
+|--------|-------|
+| `FileRecord` | Core file record: `file_id`, `filename`, `mime_type`, `size_bytes`, `storage_path`, `session_id`, `origin`, `pinned`, `deleted_at`, `created_at` |
+| `FileCard` | Serialised card sent to frontend in message content (§21.6) |
+| `SessionFileEntry` | Join model: `session_files` row with optional joined file fields |
+| `FileStorageConfig` | Runtime config: `max_storage_mb`, orphan/soft-delete retention, cleanup interval, `warn_at_percent` |
+| `FileStorageStats` | Stats DTO: `total_files`, `total_size_mb`, `quota_mb`, `usage_percent`, `orphaned_files`, `pinned_files` |
+
+**Spec ref**: §21.6, §21.7
+
+---
+
+### `app/files/store.py`
+
+**Responsibility**: CRUD and query layer for the `session_files` and `files` tables.
+
+**Key exports:**
+
+| Symbol | Notes |
+|--------|-------|
+| `FileStore` | Constructor: `FileStore(db)`. Methods: `create()`, `get()`, `list_for_session()`, `pin()`, `unpin()`, `soft_delete()`, `hard_delete()`, `find_orphans()`, `find_expired_soft_deletes()`, `get_storage_stats()` |
+| `get_file_store()` | Returns the singleton `FileStore` bound to the app lifetime DB |
+
+**Spec ref**: §21.7
+
+---
+
+### `app/files/export.py`
+
+**Responsibility**: File serving and local OS actions — download, preview, open, reveal.
+
+**Key exports:**
+
+| Symbol | Notes |
+|--------|-------|
+| `FileExportService` | `get_download_info(file_id)`, `get_preview(file_id)`, `open_file(file_id)`, `reveal_file(file_id)` |
+
+- `open_file` → `os.startfile()` on Windows, `xdg-open` on Linux.
+- `reveal_file` → `explorer /select,<path>` on Windows, `xdg-open <dir>` on Linux.
+
+**Spec ref**: §21.6
+
+---
+
+### `app/files/cleanup.py`
+
+**Responsibility**: Periodic background task — orphan detection, quota enforcement, soft-delete lifecycle.
+
+**Key exports:**
+
+| Symbol | Notes |
+|--------|-------|
+| `FileCleanupService` | `start()`, `stop()`, `run_once() → FileStorageStats`, `check_quota()` |
+| `get_file_cleanup_service()` | Returns the singleton, raises `RuntimeError` if not started |
+
+- Runs every `cleanup_interval_hours` (default: 24 h).
+- Emits `storage_warning` notification when `usage_percent ≥ warn_at_percent` (default: 80%).
+
+**Spec ref**: §21.7
+
+---
+
 ## `app/api/` package
 
 ### `app/api/app.py`
@@ -478,6 +550,28 @@ New migrations follow the naming pattern `NNNN_<slug>.py` where `NNNN` is the fo
 | `POST` | `/api/sessions/{id}/messages` | 201 / 404 | `Message` |
 
 **Spec ref**: §3.4, §13.2
+
+---
+
+## `app/api/routers/files.py` *(Sprint 15)*
+
+**Responsibility**: File management REST endpoints — list, stats, cleanup, download, preview, pin, open, reveal (§21.6, §21.7).
+
+**Routes:**
+
+| Method | Path | Auth | Response |
+|--------|------|------|----------|
+| `GET` | `/api/sessions/{id}/files` | Gateway token | `SessionFilesResponse` |
+| `GET` | `/api/files/stats` | Gateway token | `FileStorageStats` |
+| `POST` | `/api/files/cleanup` | Gateway token | `FileStorageStats` |
+| `GET` | `/api/files/{id}/download` | Gateway token | File bytes with `Content-Disposition` |
+| `GET` | `/api/files/{id}/preview` | Gateway token | Preview bytes |
+| `POST` | `/api/files/{id}/pin` | Gateway token | `{ok: true}` |
+| `DELETE` | `/api/files/{id}/pin` | Gateway token | `{ok: true}` |
+| `POST` | `/api/files/{id}/open` | Gateway token | `{ok: true}` |
+| `POST` | `/api/files/{id}/reveal` | Gateway token | `{ok: true}` |
+
+**Spec ref**: §21.6, §21.7
 
 ---
 
@@ -1354,3 +1448,89 @@ React 18 + Vite 6 + TypeScript + Tailwind CSS v4 + Zustand + TanStack Query.
 | `AgentsPage.tsx` | `/agents` | Agent list and management *(Sprint 11+)* |
 | `PluginsPage.tsx` | `/plugins` | Plugin management: install/activate/deactivate/test per plugin, status badges *(Sprint 12)* |
 | `AuthSettingsPage.tsx` | `/auth` | Provider API key management: save encrypted keys, revoke, configured status *(Sprint 12)* |
+
+---
+
+## Sprint 16 additions *(Sprint 16)*
+
+### `app/update/` *(Sprint 16 §29.5)*
+
+Auto-update service — version check, download, apply.
+
+| Symbol | Role |
+|--------|------|
+| `app/update/models.py` | `UpdateState` (status machine: idle/available/downloading/ready/error), `UpdateConfig`, `VersionInfo` Pydantic models |
+| `app/update/checker.py` | `check_github_releases(repo)` — async GitHub releases API call; `_parse_version()`, `_is_newer()`, `is_newer_than_current()` helpers |
+| `app/update/service.py` | `UpdateService` singleton — `check()` / `download()` / `apply()` / `start()` / `stop()` async methods; `init_update_service()` / `get_update_service()` module-level helpers |
+
+### `app/api/routers/update.py` *(Sprint 16)*
+
+| Endpoint | Role |
+|----------|------|
+| `GET /api/update/status` | Return current `UpdateState` (no I/O) |
+| `POST /api/update/check` | Trigger GitHub release check |
+| `POST /api/update/download` | Start background installer download |
+| `POST /api/update/apply` | Launch installer and exit process |
+
+### `app/plugins/builtin/image_gen/` *(Sprint 16 §8.6)*
+
+Image generation plugin (DALL-E 3 + Stable Diffusion).
+
+| Symbol | Role |
+|--------|------|
+| `ImageGenPlugin` | `plugin_id="image_gen"`, `plugin_type="tool"` |
+| `image_generate` | Tool: text-to-image via DALL-E 3 or SD |
+| `image_edit` | Tool: inpainting / edit with mask |
+| `image_variations` | Tool: generate variations of an existing image |
+
+### `app/plugins/builtin/slack/` *(Sprint 16 §8.6)*
+
+Slack connector plugin (Slack Web API).
+
+| Symbol | Role |
+|--------|------|
+| `SlackPlugin` | `plugin_id="slack"`, `plugin_type="connector"`, credential: bot_token |
+| `slack_send` | Tool: post a message to a channel |
+| `slack_search` | Tool: search messages in workspace |
+| `slack_react` | Tool: add emoji reaction to a message |
+
+### `app/plugins/builtin/discord/` *(Sprint 16 §8.6)*
+
+Discord connector plugin (Discord REST API v10).
+
+| Symbol | Role |
+|--------|------|
+| `DiscordPlugin` | `plugin_id="discord"`, `plugin_type="connector"`, credential: bot_token |
+| `discord_send` | Tool: send a message to a channel |
+| `discord_react` | Tool: add reaction to a message |
+| `discord_get_messages` | Tool: fetch recent messages from a channel |
+
+### `app/plugins/builtin/whatsapp/` *(Sprint 16 §8.6)*
+
+WhatsApp connector plugin (Meta Graph API v19).
+
+| Symbol | Role |
+|--------|------|
+| `WhatsAppPlugin` | `plugin_id="whatsapp"`, `plugin_type="connector"`, credentials: phone_number_id + access_token |
+| `whatsapp_send` | Tool: send a text message to a phone number |
+| `whatsapp_send_media` | Tool: upload and send a media file |
+
+### `app/plugins/builtin/signal/` *(Sprint 16 §8.6)*
+
+Signal connector plugin (signal-cli JSON-RPC HTTP bridge).
+
+| Symbol | Role |
+|--------|------|
+| `SignalPlugin` | `plugin_id="signal"`, `plugin_type="connector"`, credentials: account (E.164) + http_url |
+| `signal_send` | Tool: send a text message via signal-cli |
+| `signal_send_file` | Tool: send a file attachment |
+
+### `frontend/src/components/UpdateBanner.tsx` *(Sprint 16)*
+
+Auto-update notification banner.
+
+- Polls `GET /api/update/status` every 60 s (2 s during download)
+- Shows when status is `available`, `downloading`, or `ready`
+- "Download" button → `POST /api/update/download`
+- "Install Now" button → `POST /api/update/apply`
+- Progress bar during download; dismiss button (local state)

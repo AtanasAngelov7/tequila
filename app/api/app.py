@@ -301,6 +301,30 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_backup_manager(db_conn.get_app_db())
     logger.info("BackupManager initialised.")
 
+    # 8z3. Initialise FileStore and FileCleanupService (Sprint 15).
+    from app.files.store import init_file_store as _init_fs
+    from app.files.cleanup import init_file_cleanup_service, FileCleanupService as _FCS
+    from app.files.models import FileStorageConfig as _FSConfig
+    _file_store = _init_fs(db_conn.get_app_db())
+    _fs_config = _FSConfig()
+    _cleanup_svc = init_file_cleanup_service(_file_store, _fs_config)
+    await _cleanup_svc.start()
+    logger.info("FileStore and FileCleanupService initialised.")
+
+    # 8z4. Initialise UpdateService (Sprint 16).
+    from app.update.service import init_update_service as _init_upd
+    from app.update.models import UpdateConfig as _UpdateConfig
+    _upd_cfg = _UpdateConfig(
+        enabled=config_store.get("update.enabled", True),
+        check_interval_hours=int(config_store.get("update.check_interval_hours", 24)),
+        github_repo=config_store.get("update.github_repo", "tequila-ai/tequila"),
+        auto_download=config_store.get("update.auto_download", False),
+        update_channel=config_store.get("update.update_channel", "stable"),
+    )
+    _update_svc = _init_upd(_upd_cfg)
+    await _update_svc.start()
+    logger.info("UpdateService initialised.")
+
     # 9. Start background idle-detection task (§3.7).
     _idle_task = asyncio.create_task(idle_detection_task())
 
@@ -363,6 +387,20 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         from app.knowledge.sources.registry import get_knowledge_source_registry as _get_ksr
         await _get_ksr().stop()
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Sprint 15: Stop FileCleanupService.
+    try:
+        from app.files.cleanup import get_file_cleanup_service as _get_fcs
+        await _get_fcs().stop()
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Sprint 16: Stop UpdateService.
+    try:
+        from app.update.service import get_update_service as _get_upd
+        await _get_upd().stop()
     except Exception:  # noqa: BLE001
         pass
 
@@ -475,6 +513,8 @@ def create_app() -> FastAPI:
     from app.api.routers import audit as audit_router
     from app.api.routers import app_lock as app_lock_router
     from app.api.routers import backup as backup_router
+    from app.api.routers import files as files_router
+    from app.api.routers import update as update_router
     from app.api import ws
     from app.workflows import api as workflows_api
     from app.auth import api as auth_api
@@ -508,6 +548,9 @@ def create_app() -> FastAPI:
     app.include_router(audit_router.router)
     app.include_router(app_lock_router.router)
     app.include_router(backup_router.router)
+    app.include_router(files_router.router)
+    app.include_router(files_router.sessions_files_router)
+    app.include_router(update_router.router)
     app.include_router(ws.router)
 
     # ── Static frontend (placeholder) ─────────────────────────────────────────

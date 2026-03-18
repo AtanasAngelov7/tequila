@@ -102,9 +102,9 @@ class PluginBase(ABC):
         Override to add real connectivity checks.  The default always
         returns ``healthy=True``.
         """
-        from datetime import UTC, datetime
+        from datetime import datetime, timezone
 
-        return PluginHealthResult(healthy=True, checked_at=datetime.now(UTC))
+        return PluginHealthResult(healthy=True, checked_at=datetime.now(timezone.utc))
 
     async def test(self) -> PluginTestResult:
         """Run a one-shot connectivity / integration test.

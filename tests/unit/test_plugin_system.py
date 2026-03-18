@@ -1,7 +1,7 @@
 """Unit tests for the plugin system core — models, store, registry (Sprint 12)."""
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 
 import pytest
 
@@ -20,7 +20,7 @@ from app.plugins.models import (
 
 
 def test_plugin_record_defaults():
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     rec = PluginRecord(
         plugin_id="test",
         name="Test Plugin",
@@ -70,7 +70,7 @@ async def test_save_and_load_plugin(migrated_db):
     init_encryption(generate_key())
     from app.plugins.store import save_plugin, load_plugin
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     rec = PluginRecord(
         plugin_id="testplugin",
         name="Test",
@@ -91,7 +91,7 @@ async def test_load_all_plugins(migrated_db):
     init_encryption(generate_key())
     from app.plugins.store import save_plugin, load_all_plugins
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     for i in range(3):
         await save_plugin(
             migrated_db,
@@ -107,7 +107,7 @@ async def test_update_plugin_status(migrated_db):
     init_encryption(generate_key())
     from app.plugins.store import save_plugin, update_plugin_status, load_plugin
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     rec = PluginRecord(plugin_id="sp1", name="SP1", plugin_type="connector", created_at=now, updated_at=now)
     await save_plugin(migrated_db, rec)
     await update_plugin_status(migrated_db, "sp1", "error", "test error")
@@ -121,7 +121,7 @@ async def test_delete_plugin(migrated_db):
     init_encryption(generate_key())
     from app.plugins.store import save_plugin, delete_plugin, load_plugin
 
-    now = datetime.now(UTC)
+    now = datetime.now(timezone.utc)
     rec = PluginRecord(plugin_id="dp1", name="DP1", plugin_type="connector", created_at=now, updated_at=now)
     await save_plugin(migrated_db, rec)
     deleted = await delete_plugin(migrated_db, "dp1")
