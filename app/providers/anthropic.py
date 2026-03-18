@@ -6,6 +6,7 @@ maps Anthropic's SSE stream back to ``ProviderStreamEvent``.
 """
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from typing import Any, AsyncIterator
@@ -89,11 +90,12 @@ def _messages_to_anthropic(
     Anthropic takes ``system`` as a top-level parameter, not a message.
     Returns ``(system_text | None, anthropic_messages)``.
     """
-    system: str | None = None
+    system_parts: list[str] = []
     out: list[dict[str, Any]] = []
     for msg in messages:
         if msg.role == "system":
-            system = msg.content if isinstance(msg.content, str) else str(msg.content)
+            part = msg.content if isinstance(msg.content, str) else str(msg.content)
+            system_parts.append(part)
         elif msg.role == "tool":
             # Tool result message — attach to the preceding assistant turn or
             # wrap in a user message as a tool_result content block
@@ -141,6 +143,7 @@ def _messages_to_anthropic(
                     ),
                 }
             )
+    system = "\n\n".join(system_parts) if system_parts else None
     return system, out
 
 
@@ -186,6 +189,10 @@ class AnthropicProvider(LLMProvider):
         if api_tools:
             kwargs["tools"] = api_tools
 
+        # TD-273/274: Send extended thinking params if model supports it
+        if caps.supports_thinking:
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": min(_max_tokens, 10_000)}
+
         # Track active tool calls during stream
         active_tool: dict[str, Any] | None = None
         # TD-239: Accumulate usage across stream events for a single combined event
@@ -209,11 +216,15 @@ class AnthropicProvider(LLMProvider):
                                 tool_call_id=block.id,
                                 tool_name=block.name,
                             )
+                        elif block.type == "thinking":
+                            pass  # thinking deltas will follow
 
                     elif event_type == "RawContentBlockDeltaEvent":
                         delta = event.delta
                         if delta.type == "text_delta":
                             yield ProviderStreamEvent(kind="text_delta", text=delta.text)
+                        elif delta.type == "thinking_delta":
+                            yield ProviderStreamEvent(kind="thinking_delta", text=getattr(delta, "thinking", ""))
                         elif delta.type == "input_json_delta":
                             if active_tool:
                                 active_tool["args_raw"] += delta.partial_json
@@ -225,7 +236,6 @@ class AnthropicProvider(LLMProvider):
 
                     elif event_type == "RawContentBlockStopEvent":
                         if active_tool:
-                            import json
                             try:
                                 parsed_args = json.loads(active_tool["args_raw"] or "{}")
                             except json.JSONDecodeError:
@@ -262,7 +272,7 @@ class AnthropicProvider(LLMProvider):
             yield ProviderStreamEvent(kind="done")
         except Exception as exc:
             logger.error("Anthropic stream error: %s", exc)
-            yield ProviderStreamEvent(kind="error", error=str(exc))
+            yield ProviderStreamEvent(kind="error", error_message=str(exc), error_code="stream_error")
             yield ProviderStreamEvent(kind="done")
 
     async def count_tokens(self, messages: list[Message], model: str) -> int:

@@ -94,6 +94,15 @@ class ToolExecutor:
         # session_key → set of tool names approved for the whole session (Sprint 07)
         self._session_approvals: dict[str, set[str]] = {}
 
+    def cleanup_session(self, session_key: str) -> None:
+        """Remove all state for *session_key* (TD-296).
+
+        Called when a session is archived or deleted.
+        """
+        self._pending.pop(session_key, None)
+        self._allow_all.pop(session_key, None)
+        self._session_approvals.pop(session_key, None)
+
     # ── Policy helpers ────────────────────────────────────────────────────────
 
     def _is_allowed(self, tool_name: str, allowed_tools: list[str]) -> bool:

@@ -289,6 +289,16 @@ async def install_dependencies(
         if not _re.match(r'^[a-zA-Z0-9_.-]+$', pkg_name_only):
             results.append({"package": pkg_spec, "success": False, "output": "Invalid package name"})
             continue
+        # TD-332: Reject specs that could inject pip arguments (e.g. --index-url)
+        if pkg_spec.startswith("-") or " -" in pkg_spec or any(
+            c in pkg_spec for c in (";", "|", "&", "`", "$", "\n")
+        ):
+            results.append({"package": pkg_spec, "success": False, "output": "Suspicious package spec rejected"})
+            continue
+        # Only allow name[extras]<version_constraints> — no URLs or paths
+        if not _re.match(r'^[a-zA-Z0-9_.-]+(\[[a-zA-Z0-9_,.-]+\])?(([><=!~]+[a-zA-Z0-9_.*]+)(,[><=!~]+[a-zA-Z0-9_.*]+)*)?$', pkg_spec.strip()):
+            results.append({"package": pkg_spec, "success": False, "output": "Package spec format not allowed"})
+            continue
         try:
             # TD-148: Use asyncio.create_subprocess_exec instead of blocking subprocess.run
             proc = await asyncio.create_subprocess_exec(

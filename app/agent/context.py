@@ -283,12 +283,22 @@ class ContextBudget:
         preserved_tail = non_system[-2:] if len(non_system) >= 2 else non_system[:]
         candidate_body = non_system[:-2] if len(non_system) >= 2 else []
 
-        # TD-261: Remove from the front using index+slice instead of O(n²) pop(0)
+        # TD-321: Pre-compute per-message token counts for O(n) trimming
+        # instead of recomputing entire list each iteration.
+        system_token_total = self.count_messages(system_msgs)
+        tail_token_total = self.count_messages(preserved_tail)
+        fixed_tokens = system_token_total + tail_token_total
+        target_tokens = target_ratio * self.total_budget if self.total_budget > 0 else 0
+
+        # Compute cumulative token count from front of candidate_body
+        candidate_tokens = [self.count_tokens(getattr(m, "content", "") or "") for m in candidate_body]
+        total_candidate = sum(candidate_tokens)
+
         drop_count = 0
-        while drop_count < len(candidate_body) and self.usage_ratio(
-            system_msgs + candidate_body[drop_count:] + preserved_tail
-        ) > target_ratio:
+        running_drop = 0
+        while drop_count < len(candidate_body) and (fixed_tokens + total_candidate - running_drop) > target_tokens:
             removed = candidate_body[drop_count]
+            running_drop += candidate_tokens[drop_count]
             logger.debug(
                 "compress_trim_oldest: dropped message (role=%s)",
                 getattr(removed, "role", "?"),

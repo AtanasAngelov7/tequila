@@ -26,33 +26,12 @@ from typing import Any
 class _JSONFormatter(logging.Formatter):
     """Emit each log record as a single-line JSON object."""
 
-    # Fields that should not be repeated in the structured output.
-    _SKIP_EXTRA: frozenset[str] = frozenset(
-        {
-            "name",
-            "msg",
-            "args",
-            "levelname",
-            "levelno",
-            "pathname",
-            "filename",
-            "module",
-            "exc_info",
-            "exc_text",
-            "stack_info",
-            "lineno",
-            "funcName",
-            "created",
-            "msecs",
-            "relativeCreated",
-            "thread",
-            "threadName",
-            "processName",
-            "process",
-            "message",
-            "taskName",
-        }
-    )
+    # Standard LogRecord attributes that should never appear as extra fields.
+    # Using a comprehensive allow-list of known standard attributes prevents
+    # leakage of new attributes added in future Python versions (TD-322).
+    _STANDARD_ATTRS: frozenset[str] = frozenset(
+        vars(logging.LogRecord("", 0, "", 0, "", (), None)).keys()
+    ) | frozenset({"message", "asctime"})
 
     def format(self, record: logging.LogRecord) -> str:  # noqa: A003
         record.message = record.getMessage()
@@ -62,9 +41,10 @@ class _JSONFormatter(logging.Formatter):
             "module": record.name,
             "message": record.message,
         }
-        # Merge any ``extra={}`` fields the caller passed.
+        # Merge only caller-provided ``extra={}`` fields — anything not in the
+        # standard LogRecord attribute set.
         for key, val in record.__dict__.items():
-            if key not in self._SKIP_EXTRA:
+            if key not in self._STANDARD_ATTRS:
                 entry[key] = val
         if record.exc_info:
             entry["exc_info"] = self.formatException(record.exc_info)

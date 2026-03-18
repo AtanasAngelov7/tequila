@@ -76,7 +76,24 @@ class TurnLoop:
         self._executor = tool_executor or get_tool_executor()
         self._registry = tool_registry or get_tool_registry()
         # TD-201: Per-session lock to prevent parallel turns corrupting state
+        # TD-283: Use OrderedDict with max size to prevent unbounded growth
         self._session_locks: dict[str, asyncio.Lock] = {}
+        self._max_session_locks = 1000
+
+    def _get_session_lock(self, session_key: str) -> asyncio.Lock:
+        """Return the lock for *session_key*, evicting oldest if at capacity."""
+        if session_key in self._session_locks:
+            # Move to end (most recently used)
+            lock = self._session_locks.pop(session_key)
+            self._session_locks[session_key] = lock
+            return lock
+        if len(self._session_locks) >= self._max_session_locks:
+            # Evict oldest entry
+            oldest = next(iter(self._session_locks))
+            del self._session_locks[oldest]
+        lock = asyncio.Lock()
+        self._session_locks[session_key] = lock
+        return lock
 
     # ── Gateway handler ───────────────────────────────────────────────────────
 
@@ -131,9 +148,8 @@ class TurnLoop:
     ) -> None:
         """Execute one full turn: user message → assistant response."""
         # TD-201: Acquire per-session lock to prevent parallel turns
-        if session_key not in self._session_locks:
-            self._session_locks[session_key] = asyncio.Lock()
-        async with self._session_locks[session_key]:
+        # TD-283: Use LRU-evicting helper instead of raw dict access
+        async with self._get_session_lock(session_key):
             # TD-206: Track active turns for accurate counting
             from app.sessions.store import mark_turn_active, mark_turn_inactive
             mark_turn_active(session_key)
@@ -391,17 +407,34 @@ class TurnLoop:
         current_content = ""
 
         if active_chain:
-            # Last message is the user message to send
+            # TD-276: Detect tool continuation — last message may be a tool_result,
+            # not a user message. Only treat final message as user input if role=user.
             last = active_chain[-1]
-            current_content = last.content
-            history_rows = [
-                {
-                    "role": m.role if m.role != "tool_result" else "tool",
-                    "content": m.content,
-                    "tool_call_id": m.tool_call_id,
-                }
-                for m in active_chain[:-1]
-            ]
+            is_tool_continuation = last.role in ("tool_result", "tool")
+
+            if is_tool_continuation:
+                # All messages go into history; user_message is empty for continuation
+                current_content = ""
+                history_rows = [
+                    {
+                        "role": m.role if m.role != "tool_result" else "tool",
+                        "content": m.content,
+                        "tool_call_id": m.tool_call_id,
+                        "tool_calls": [tc.model_dump() for tc in m.tool_calls] if m.tool_calls else None,
+                    }
+                    for m in active_chain
+                ]
+            else:
+                current_content = last.content
+                history_rows = [
+                    {
+                        "role": m.role if m.role != "tool_result" else "tool",
+                        "content": m.content,
+                        "tool_call_id": m.tool_call_id,
+                        "tool_calls": [tc.model_dump() for tc in m.tool_calls] if m.tool_calls else None,
+                    }
+                    for m in active_chain[:-1]
+                ]
 
         ctx = AssemblyContext(
             agent_config=agent_config,

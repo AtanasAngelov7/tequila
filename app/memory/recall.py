@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
@@ -20,6 +21,39 @@ if TYPE_CHECKING:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_search_keywords(text: str, max_keywords: int = 5) -> str:
+    """Extract meaningful keywords from user message for FTS fallback (TD-315).
+
+    Returns a space-joined string of up to *max_keywords* significant words,
+    or empty string if nothing useful can be extracted.
+    """
+    # Strip punctuation, lowercase, split into words
+    words = re.findall(r"[a-zA-Z0-9]+", text.lower())
+    # Filter out stopwords and very short words
+    _STOP = frozenset({
+        "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
+        "have", "has", "had", "do", "does", "did", "will", "would", "could",
+        "should", "may", "might", "can", "shall", "to", "of", "in", "for",
+        "on", "with", "at", "by", "from", "as", "into", "through", "during",
+        "before", "after", "above", "below", "and", "but", "or", "not", "no",
+        "if", "then", "than", "so", "too", "very", "just", "about", "what",
+        "which", "who", "whom", "this", "that", "these", "those", "it", "its",
+        "my", "your", "his", "her", "our", "their", "me", "him", "us", "them",
+        "i", "you", "he", "she", "we", "they", "how", "when", "where", "why",
+    })
+    keywords = [w for w in words if len(w) > 2 and w not in _STOP]
+    # Deduplicate while preserving order
+    seen: set[str] = set()
+    unique: list[str] = []
+    for k in keywords:
+        if k not in seen:
+            seen.add(k)
+            unique.append(k)
+        if len(unique) >= max_keywords:
+            break
+    return " ".join(unique)
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -197,14 +231,14 @@ class RecallPipeline:
 
             from app.memory.store import get_memory_store
             mem_store = get_memory_store()
+            # TD-298: Batch-fetch all source IDs in one query instead of N+1
+            source_ids = [r.source_id for r in emb_results if r.source_id]
+            mems_by_id = await mem_store.get_batch(source_ids)
             for r in emb_results:
                 obj_id = r.source_id
-                if not obj_id:
+                if not obj_id or obj_id not in mems_by_id:
                     continue
-                try:
-                    mem = await mem_store.get(obj_id)
-                except Exception:
-                    continue
+                mem = mems_by_id[obj_id]
                 score = float(r.similarity)
                 candidates.append({
                     "id": mem.id,
@@ -221,19 +255,22 @@ class RecallPipeline:
             try:
                 from app.memory.store import get_memory_store
                 mem_store = get_memory_store()
-                fts_results = await mem_store.list(
-                    agent_id=agent_id,
-                    search=user_message[:200],  # LIKE query
-                    limit=cfg.max_per_turn_results,
-                )
-                for r in fts_results:
-                    candidates.append({
-                        "id": r.id,
-                        "content": r.content,
-                        "memory_type": r.memory_type,
-                        "confidence": r.confidence,
-                        "_score": r.confidence,
-                    })
+                # TD-315: Extract keywords instead of raw user message as LIKE pattern
+                keywords = _extract_search_keywords(user_message)
+                if keywords:
+                    fts_results = await mem_store.list(
+                        agent_id=agent_id,
+                        search=keywords,
+                        limit=cfg.max_per_turn_results,
+                    )
+                    for r in fts_results:
+                        candidates.append({
+                            "id": r.id,
+                            "content": r.content,
+                            "memory_type": r.memory_type,
+                            "confidence": r.confidence,
+                            "_score": r.confidence,
+                        })
             except Exception as exc:
                 logger.debug("FTS memory search failed: %s", exc)
 
@@ -253,6 +290,9 @@ class RecallPipeline:
         memory_block = _format_memory_block(candidates)
         if _estimate_tokens(memory_block) > cfg.max_per_turn_tokens:
             memory_block = memory_block[: cfg.max_per_turn_tokens * 4]
+
+        # Store recalled IDs for prefetch_background to touch
+        self._last_recalled_ids = [c["id"] for c in candidates if "id" in c]
 
         # 2f — KB federation
         knowledge_block = ""
@@ -302,20 +342,23 @@ class RecallPipeline:
                     memory_ids = await entity_store.get_memories(entity.id)
                 except NotFoundError:
                     continue
-                for memory_id in memory_ids[: cfg.entity_expansion_hops * 3]:
-                    if memory_id not in existing_ids:
-                        try:
-                            mem = await mem_store.get(memory_id)
-                        except NotFoundError:
-                            continue
-                        existing_ids.add(memory_id)
-                        candidates.append({
-                            "id": mem.id,
-                            "content": mem.content,
-                            "memory_type": mem.memory_type,
-                            "confidence": mem.confidence,
-                            "_score": mem.confidence + cfg.entity_match_bonus,
-                        })
+                # TD-299: Collect IDs to batch-fetch instead of N+1
+                needed_ids = [
+                    mid for mid in memory_ids[: cfg.entity_expansion_hops * 3]
+                    if mid not in existing_ids
+                ]
+                if not needed_ids:
+                    continue
+                batch = await mem_store.get_batch(needed_ids)
+                for memory_id, mem in batch.items():
+                    existing_ids.add(memory_id)
+                    candidates.append({
+                        "id": mem.id,
+                        "content": mem.content,
+                        "memory_type": mem.memory_type,
+                        "confidence": mem.confidence,
+                        "_score": mem.confidence + cfg.entity_match_bonus,
+                    })
 
         return candidates
 
@@ -338,23 +381,15 @@ class RecallPipeline:
             from app.memory.store import get_memory_store
             mem_store = get_memory_store()
 
-            # Bump access timestamps for recalled memories (basic implementation)
-            # In a future sprint this will do full graph traversal
             logger.debug(
-                "Stage 3 prefetch running for session %s (stub)", session_id
+                "Stage 3 prefetch running for session %s", session_id
             )
 
-            # Update last_accessed for any memory accessed this turn
-            # This is a lightweight stub — full graph traversal is a future sprint
-            results = await mem_store.list(
-                agent_id=agent_id,
-                search=user_message[:200],
-                limit=5,
-            )
-            for mem in results:
+            # Touch memories that were actually recalled this turn
+            recalled_ids = getattr(self, "_last_recalled_ids", None) or []
+            for mem_id in recalled_ids:
                 try:
-                    # touch() bumps last_accessed + access_count (TD-62: get() no longer does this)
-                    await mem_store.touch(mem.id)
+                    await mem_store.touch(mem_id)
                 except Exception:
                     pass  # silently skip access tracking failures
 

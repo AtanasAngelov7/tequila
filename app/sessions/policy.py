@@ -98,10 +98,19 @@ class SessionPolicy(BaseModel):
         return channel in self.allowed_channels
 
     def allows_path(self, path: str) -> bool:
-        """Return ``True`` if *path* is within an allowed path prefix."""
+        """Return ``True`` if *path* is within an allowed path prefix.
+
+        TD-320: Paths are normalised via ``os.path.normpath`` to prevent
+        ``../`` traversal bypasses.
+        """
+        import os
         if self.allowed_paths == ["*"]:
             return True
-        return any(path.startswith(allowed) for allowed in self.allowed_paths)
+        norm = os.path.normpath(path)
+        return any(
+            norm.startswith(os.path.normpath(allowed))
+            for allowed in self.allowed_paths
+        )
 
     def needs_confirmation(self, tool_name: str) -> bool:
         """Return ``True`` if *tool_name* must pass an approval gate.
@@ -182,7 +191,8 @@ class SessionPolicyPresets:
             raise ValueError(
                 f"Unknown preset '{name}'. Valid values: {list(preset_map.keys())}"
             )
-        return preset_map[key]
+        import copy
+        return copy.deepcopy(preset_map[key])
 
 
 # ── PolicyResult & check_policy (Sprint 07) ───────────────────────────────────

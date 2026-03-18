@@ -81,20 +81,27 @@ async def regenerate(
         )
 
     # Deactivate from assistant message onward
-    count = await store.deactivate_from(session_id, from_message_id=message_id)
-    logger.info(
-        "regenerate: deactivated %d messages from %s onward (session=%s)",
-        count, message_id, session_id,
-    )
-
-    # Trigger new turn — insert new user message + run
+    # TD-319: Acquire session lock to prevent interleaved turns during branching
     turn_loop = get_turn_loop()
-    await turn_loop.run_turn_from_api(
-        session_id=session_id,
-        session_key=session_key,
-        user_content=preceding_user_content,
-        user_name=user_name,
-    )
+    async with turn_loop._get_session_lock(session_key):
+        count = await store.deactivate_from(session_id, from_message_id=message_id)
+        logger.info(
+            "regenerate: deactivated %d messages from %s onward (session=%s)",
+            count, message_id, session_id,
+        )
+
+        # Trigger new turn — reuse inner method (lock already held)
+        from app.sessions.store import mark_turn_active, mark_turn_inactive
+        mark_turn_active(session_key)
+        try:
+            await turn_loop._run_full_turn_inner(
+                session_key=session_key,
+                session_id=session_id,
+                user_content=preceding_user_content,
+                user_name=user_name,
+            )
+        finally:
+            mark_turn_inactive(session_key)
 
 
 async def edit_and_resubmit(
@@ -136,17 +143,24 @@ async def edit_and_resubmit(
         raise ValidationError("new_content must not be empty.")
 
     # Deactivate from user message onward
-    count = await store.deactivate_from(session_id, from_message_id=message_id)
-    logger.info(
-        "edit_and_resubmit: deactivated %d messages from %s onward (session=%s)",
-        count, message_id, session_id,
-    )
-
-    # Run new turn with edited content
+    # TD-319: Acquire session lock for atomic deactivation + turn
     turn_loop = get_turn_loop()
-    await turn_loop.run_turn_from_api(
-        session_id=session_id,
-        session_key=session_key,
-        user_content=new_content.strip(),
-        user_name=user_name,
-    )
+    async with turn_loop._get_session_lock(session_key):
+        count = await store.deactivate_from(session_id, from_message_id=message_id)
+        logger.info(
+            "edit_and_resubmit: deactivated %d messages from %s onward (session=%s)",
+            count, message_id, session_id,
+        )
+
+        # Run new turn with edited content (lock already held)
+        from app.sessions.store import mark_turn_active, mark_turn_inactive
+        mark_turn_active(session_key)
+        try:
+            await turn_loop._run_full_turn_inner(
+                session_key=session_key,
+                session_id=session_id,
+                user_content=new_content.strip(),
+                user_name=user_name,
+            )
+        finally:
+            mark_turn_inactive(session_key)

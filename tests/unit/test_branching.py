@@ -1,6 +1,7 @@
 """Unit tests for app/sessions/branching.py."""
 from __future__ import annotations
 
+import asyncio
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -52,20 +53,23 @@ async def test_regenerate_deactivates_and_triggers_turn(migrated_db) -> None:
     user_msg, asst_msg = msgs
 
     mock_loop = MagicMock()
-    mock_loop.run_turn_from_api = AsyncMock()
+    mock_loop._run_full_turn_inner = AsyncMock()
+    mock_loop._get_session_lock = MagicMock(return_value=asyncio.Lock())
 
     with patch("app.agent.turn_loop.get_turn_loop", return_value=mock_loop):
         with patch("app.sessions.messages.get_message_store", return_value=msg_store):
-            await regenerate(
-                session_id=sid,
-                session_key=key,
-                message_id=asst_msg.id,
-                user_name="tester",
-            )
+            with patch("app.sessions.store.mark_turn_active"):
+                with patch("app.sessions.store.mark_turn_inactive"):
+                    await regenerate(
+                        session_id=sid,
+                        session_key=key,
+                        message_id=asst_msg.id,
+                        user_name="tester",
+                    )
 
     # Turn loop was called with the user's original content
-    mock_loop.run_turn_from_api.assert_called_once()
-    call_kwargs = mock_loop.run_turn_from_api.call_args.kwargs
+    mock_loop._run_full_turn_inner.assert_called_once()
+    call_kwargs = mock_loop._run_full_turn_inner.call_args.kwargs
     assert call_kwargs["user_content"] == "Hello!"
     assert call_kwargs["session_id"] == sid
 
@@ -140,20 +144,23 @@ async def test_edit_and_resubmit_deactivates_and_triggers_turn(migrated_db) -> N
     user_msg, asst_msg = msgs
 
     mock_loop = MagicMock()
-    mock_loop.run_turn_from_api = AsyncMock()
+    mock_loop._run_full_turn_inner = AsyncMock()
+    mock_loop._get_session_lock = MagicMock(return_value=asyncio.Lock())
 
     with patch("app.agent.turn_loop.get_turn_loop", return_value=mock_loop):
         with patch("app.sessions.messages.get_message_store", return_value=msg_store):
-            await edit_and_resubmit(
-                session_id=sid,
-                session_key=key,
-                message_id=user_msg.id,
-                new_content="Edited question",
-                user_name="tester",
-            )
+            with patch("app.sessions.store.mark_turn_active"):
+                with patch("app.sessions.store.mark_turn_inactive"):
+                    await edit_and_resubmit(
+                        session_id=sid,
+                        session_key=key,
+                        message_id=user_msg.id,
+                        new_content="Edited question",
+                        user_name="tester",
+                    )
 
     # Turn loop called with new content
-    call_kwargs = mock_loop.run_turn_from_api.call_args.kwargs
+    call_kwargs = mock_loop._run_full_turn_inner.call_args.kwargs
     assert call_kwargs["user_content"] == "Edited question"
 
     # Both original messages deactivated

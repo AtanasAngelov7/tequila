@@ -325,7 +325,9 @@ async def regenerate_response(
     except (NotFoundError, ValidationError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    asyncio.create_task(
+    # TD-326: Track task reference
+    from app.api.tasks import track_task
+    track_task(
         regenerate(
             session_id=session_id,
             session_key=session.session_key,
@@ -403,7 +405,9 @@ async def edit_and_resubmit(
     except (NotFoundError, ValidationError) as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
-    asyncio.create_task(
+    # TD-326: Track task reference
+    from app.api.tasks import track_task
+    track_task(
         _edit(
             session_id=session_id,
             session_key=session.session_key,

@@ -11,10 +11,15 @@ import aiosqlite
 
 from app.db.connection import write_transaction
 from app.db.schema import row_to_dict
-from app.exceptions import NotFoundError
+from app.exceptions import ConflictError, NotFoundError
 from app.memory.entities import Entity, extract_entity_mentions
 
 logger = logging.getLogger(__name__)
+
+
+def _escape_like(term: str) -> str:
+    """Escape LIKE wildcards in user-supplied search terms (TD-297)."""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def _now_iso() -> str:
@@ -103,8 +108,9 @@ class EntityStore:
             clauses.append("entity_type = ?")
             params.append(entity_type)
         if search:
-            clauses.append("(name LIKE ? OR summary LIKE ?)")
-            params += [f"%{search}%", f"%{search}%"]
+            escaped = _escape_like(search)
+            clauses.append("(name LIKE ? ESCAPE '\\' OR summary LIKE ? ESCAPE '\\')")
+            params += [f"%{escaped}%", f"%{escaped}%"]
 
         where = " AND ".join(clauses)
         params += [limit, offset]
@@ -165,13 +171,13 @@ class EntityStore:
         """Update selected fields on *entity_id*.
 
         Uses an optimistic concurrency guard: the UPDATE includes
-        ``WHERE updated_at = <snapshot>`` so a concurrent modification
-        is detected.  Retries up to 3 times on conflict (TD-83).
+        ``WHERE version = <snapshot>`` so a concurrent modification
+        is detected.  Retries up to 3 times on conflict (TD-83, TD-300).
         """
         _MAX_RETRIES = 3
         for attempt in range(1, _MAX_RETRIES + 1):
             entity = await self.get(entity_id)
-            snapshot_updated_at = entity.updated_at.isoformat() if entity.updated_at else None
+            snapshot_version = entity.version
             new_name = name if name is not None else entity.name
             new_aliases = aliases if aliases is not None else entity.aliases
             new_summary = summary if summary is not None else entity.summary
@@ -185,14 +191,15 @@ class EntityStore:
                     """
                     UPDATE entities
                        SET name = ?, aliases = ?, summary = ?, properties = ?,
-                           status = ?, merged_into = ?, updated_at = ?
+                           status = ?, merged_into = ?, updated_at = ?,
+                           version = version + 1
                      WHERE id = ?
-                       AND (updated_at = ? OR (updated_at IS NULL AND ? IS NULL))
+                       AND version = ?
                     """,
                     (
                         new_name, json.dumps(new_aliases), new_summary,
                         json.dumps(new_props), new_status, new_merged, now,
-                        entity_id, snapshot_updated_at, snapshot_updated_at,
+                        entity_id, snapshot_version,
                     ),
                 )
                 # Check if the UPDATE hit a row
@@ -213,8 +220,11 @@ class EntityStore:
                     "EntityStore.update: gave up after %d retries on %s",
                     _MAX_RETRIES, entity_id,
                 )
-                # Return best-effort current state rather than raising
-                return await self.get(entity_id)
+                raise ConflictError(
+                    f"Entity '{entity_id}' version conflict after {_MAX_RETRIES} retries"
+                )
+        # Unreachable — the for loop always returns or raises
+        raise ConflictError(f"Entity '{entity_id}' update failed")  # pragma: no cover
 
     async def add_alias(self, entity_id: str, alias: str) -> Entity:
         """Add *alias* to *entity_id*'s alias list if not already present."""

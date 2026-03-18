@@ -213,8 +213,19 @@ class SQLiteEmbeddingStore(EmbeddingStore):
 
     # ── Cache helpers ─────────────────────────────────────────────────────────
 
-    def _invalidate(self) -> None:
-        self._cache = None
+    def _invalidate(self, source_type: str | None = None) -> None:
+        if self._cache is None:
+            return
+        if source_type is None:
+            self._cache = None
+        else:
+            # Only evict cache entries that include this source_type
+            keys_to_drop = []
+            for key in self._cache:
+                if key is None or source_type in key:
+                    keys_to_drop.append(key)
+            for key in keys_to_drop:
+                del self._cache[key]
 
     async def _load_vectors(
         self, source_types: list[str] | None = None
@@ -290,7 +301,7 @@ class SQLiteEmbeddingStore(EmbeddingStore):
                 (row_id, source_type, source_id, self._provider.model_id(),
                  vec.tobytes(), dims, text_hash, now),
             )
-        self._invalidate()
+        self._invalidate(source_type)
 
     async def add_batch(self, items: list[EmbeddingItem]) -> None:
         """Embed and store a batch of items."""
@@ -322,7 +333,10 @@ class SQLiteEmbeddingStore(EmbeddingStore):
                     (row_id, item.source_type, item.source_id, model,
                      vec.tobytes(), len(vec_list), text_hash, now),
                 )
-        self._invalidate()
+        # Invalidate cache entries for all affected source types
+        affected_types = {it.source_type for it in items}
+        for st in affected_types:
+            self._invalidate(st)
 
     async def search(
         self,
@@ -375,7 +389,7 @@ class SQLiteEmbeddingStore(EmbeddingStore):
                 "DELETE FROM embeddings WHERE source_type = ? AND source_id = ?",
                 (source_type, source_id),
             )
-        self._invalidate()
+        self._invalidate(source_type)
 
     async def reindex(self, source_type: str | None = None) -> ReindexResult:
         """Re-embed all tracked items from their source tables.

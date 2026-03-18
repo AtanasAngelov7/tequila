@@ -202,11 +202,14 @@ async def shutdown() -> None:
     """Close the application-lifetime connection gracefully.
 
     Called inside the FastAPI lifespan shutdown handler.
+    TD-329: Also resets ``_app_db_path`` and ``_write_locks`` for clean restarts.
     """
-    global _app_conn  # noqa: PLW0603
+    global _app_conn, _app_db_path  # noqa: PLW0603
     if _app_conn is not None:
         await _app_conn.close()
         _app_conn = None
+        _app_db_path = None
+        _write_locks.clear()
         logger.info("Database connection closed.")
 
 

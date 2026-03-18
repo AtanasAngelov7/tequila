@@ -280,13 +280,16 @@ def test_parse_json_response_handles_nested_structures():
     assert result == [1]
 
 
-def test_parse_json_response_non_greedy_regex_literal():
-    """Verify the non-greedy `.*?` is present in the source code."""
+def test_parse_json_response_balanced_bracket_matching():
+    """Verify _parse_json_response uses balanced bracket matching (TD-310)."""
     import pathlib
     src = pathlib.Path(
         "c:\\Users\\aiang\\PycharmProjects\\AtanasAngelov\\tequila\\app\\memory\\extraction.py"
     ).read_text(encoding="utf-8")
-    assert r"\[.*?\]" in src, "Extraction should use non-greedy \\[.*?\\] regex"
+    # TD-310: replaced non-greedy regex with balanced bracket matching
+    assert "depth" in src and 'text.find("[")' in src, (
+        "Extraction should use balanced bracket matching, not non-greedy regex"
+    )
 
 
 # ── T8: entity link failures logged (TD-89) ──────────────────────────────────

@@ -143,9 +143,10 @@ async def list_messages(
         offset=offset,
         active_only=active_only,
     )
+    total = await store.count_by_session(session_id, active_only=active_only)
     return MessageListResponse(
         messages=[_message_to_response(m) for m in messages],
-        total=len(messages),
+        total=total,
     )
 
 
@@ -172,7 +173,9 @@ async def create_message(
             from app.agent.turn_loop import get_turn_loop
             turn_loop = get_turn_loop()
             import asyncio
-            asyncio.create_task(
+            # TD-326: Track task reference
+            from app.api.tasks import track_task
+            track_task(
                 turn_loop.run_turn_from_api(
                     session_id=session_id,
                     session_key=session.session_key,

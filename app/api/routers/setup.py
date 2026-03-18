@@ -257,6 +257,9 @@ async def run_setup(
     await config.set("setup.provider", body.provider)
     await config.set("setup.default_model", default_model)
     await config.set("setup.main_agent_id", agent_id)
+    # TD-324: Persist the API key so the provider can use it.
+    if body.api_key:
+        await config.set(f"provider.{body.provider}.api_key", body.api_key)
     await config.set("setup.complete", True)
 
     logger.info(

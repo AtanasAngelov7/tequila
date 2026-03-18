@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from typing import Any
 
 from app.providers.base import LLMProvider, ModelCapabilities, ModelInfo
 
 logger = logging.getLogger(__name__)
+
+# TD-281: Module-level lock for thread-safe singleton creation
+_registry_lock = threading.Lock()
 
 
 class ProviderRegistry:
@@ -34,6 +38,7 @@ class ProviderRegistry:
     def __init__(self) -> None:
         self._providers: dict[str, LLMProvider] = {}
         self._caps_cache: dict[str, ModelCapabilities] = {}
+        self._caps_cache_max = 200  # TD-284: Bound capability cache size
         self._lock = asyncio.Lock()
 
     # ── Singleton helpers ─────────────────────────────────────────────────────
@@ -46,8 +51,7 @@ class ProviderRegistry:
         In practice, asyncio is single-threaded so the lock is a safety net.
         """
         if cls._instance is None:
-            import threading
-            with threading.Lock():
+            with _registry_lock:
                 if cls._instance is None:
                     cls._instance = cls()
         return cls._instance
@@ -68,6 +72,12 @@ class ProviderRegistry:
         stale = [k for k in self._caps_cache if k.startswith(f"{provider_id}:")]
         for k in stale:
             del self._caps_cache[k]
+        # TD-289: Also remove the circuit breaker for this provider
+        try:
+            from app.providers.circuit_breaker import remove_circuit_breaker
+            remove_circuit_breaker(provider_id)
+        except Exception:
+            pass
 
     # ── Lookup ────────────────────────────────────────────────────────────────
 
@@ -98,7 +108,12 @@ class ProviderRegistry:
     # ── Capability cache ──────────────────────────────────────────────────────
 
     def cache_capabilities(self, provider_id: str, model: str, caps: ModelCapabilities) -> None:
-        self._caps_cache[f"{provider_id}:{model}"] = caps
+        key = f"{provider_id}:{model}"
+        # TD-284: Evict oldest if at capacity
+        if key not in self._caps_cache and len(self._caps_cache) >= self._caps_cache_max:
+            oldest = next(iter(self._caps_cache))
+            del self._caps_cache[oldest]
+        self._caps_cache[key] = caps
 
     def get_cached_capabilities(self, provider_id: str, model: str) -> ModelCapabilities | None:
         return self._caps_cache.get(f"{provider_id}:{model}")
@@ -117,20 +132,22 @@ class ProviderRegistry:
 
     async def list_all_models(self) -> list[ModelInfo]:
         """Gather models from all registered providers concurrently."""
-        results: list[ModelInfo] = []
 
-        async def _fetch(provider: LLMProvider) -> None:
+        async def _fetch(provider: LLMProvider) -> list[ModelInfo]:
             try:
-                models = await provider.list_models()
-                results.extend(models)
+                return await provider.list_models()
             except Exception as exc:
                 logger.warning(
                     "ProviderRegistry: could not list models for '%s': %s",
                     provider.provider_id,
                     exc,
                 )
+                return []
 
-        await asyncio.gather(*[_fetch(p) for p in self.list_providers()])
+        per_provider = await asyncio.gather(*[_fetch(p) for p in self.list_providers()])
+        results: list[ModelInfo] = []
+        for models in per_provider:
+            results.extend(models)
         return results
 
     async def health_check_all(self) -> dict[str, bool]:

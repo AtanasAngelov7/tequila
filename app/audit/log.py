@@ -138,8 +138,10 @@ async def query_audit_log(
         clauses.append("actor = ?")
         params.append(actor)
     if action:
-        clauses.append("action LIKE ?")
-        params.append(f"{action}%")
+        # TD-288: Escape LIKE wildcards in user-supplied action filter
+        escaped = action.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        clauses.append("action LIKE ? ESCAPE '\\'")
+        params.append(f"{escaped}%")
     if outcome:
         clauses.append("outcome = ?")
         params.append(outcome)

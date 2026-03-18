@@ -230,7 +230,9 @@ async def websocket_endpoint(
                 try:
                     from app.agent.turn_loop import get_turn_loop
                     turn_loop = get_turn_loop()
-                    asyncio.create_task(
+                    # TD-326: Track task reference to prevent GC and log exceptions
+                    from app.api.tasks import track_task
+                    track_task(
                         turn_loop.run_turn_from_api(
                             session_id=active_session_id,
                             session_key=active_session_key,

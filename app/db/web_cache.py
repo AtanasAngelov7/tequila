@@ -150,38 +150,30 @@ class WebCache:
             )
 
     async def purge_expired(self) -> int:
-        """Delete all stale entries.  Returns the number of rows deleted."""
+        """Delete all stale entries.  Returns the number of rows deleted.
+
+        TD-330: Uses SQL-only filtering instead of loading entire table into Python.
+        """
         from app.db.connection import write_transaction
 
-        # SQLite doesn't support datetime arithmetic natively, so we load and filter.
-        async with self._db.execute(
-            "SELECT url, fetched_at, ttl_s FROM web_cache"
-        ) as cursor:
-            rows = await cursor.fetchall()
+        async with write_transaction(self._db):
+            await self._db.execute(
+                """
+                DELETE FROM web_cache
+                WHERE (julianday('now') - julianday(
+                    REPLACE(REPLACE(fetched_at, 'T', ' '), '+00:00', '')
+                )) * 86400.0 > COALESCE(ttl_s, ?)
+                """,
+                (self._default_ttl_s,),
+            )
+            async with self._db.execute("SELECT changes()") as cur:
+                row = await cur.fetchone()
+                deleted = row[0] if row else 0
 
-        now = datetime.now(tz=timezone.utc)
-        stale_urls: list[str] = []
-        for row in rows:
-            try:
-                fetched_at = datetime.fromisoformat(row["fetched_at"])
-                if fetched_at.tzinfo is None:
-                    fetched_at = fetched_at.replace(tzinfo=timezone.utc)
-                ttl = row["ttl_s"] or self._default_ttl_s
-                if (now - fetched_at).total_seconds() > ttl:
-                    stale_urls.append(row["url"])
-            except Exception:
-                stale_urls.append(row["url"])  # remove unparseable entries
+        if deleted > 0:
+            logger.info("web_cache: purged %d expired entries", deleted)
 
-        if stale_urls:
-            async with write_transaction(self._db):
-                placeholders = ",".join("?" * len(stale_urls))
-                await self._db.execute(
-                    f"DELETE FROM web_cache WHERE url IN ({placeholders})",
-                    stale_urls,
-                )
-            logger.info("web_cache: purged %d expired entries", len(stale_urls))
-
-        return len(stale_urls)
+        return deleted
 
 
 # ── Singleton ─────────────────────────────────────────────────────────────────

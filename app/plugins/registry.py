@@ -381,47 +381,55 @@ def _register_builtins(registry: PluginRegistry) -> None:
     try:
         from app.plugins.builtin.telegram.plugin import TelegramPlugin
         registry.register_class(TelegramPlugin)
-    except ImportError:
-        pass
+    except ImportError as exc:
+        if exc.name and "telegram" not in exc.name:
+            raise
 
     try:
         from app.plugins.builtin.gmail.plugin import GmailPlugin
         registry.register_class(GmailPlugin)
-    except ImportError:
-        pass
+    except ImportError as exc:
+        if exc.name and "gmail" not in exc.name:
+            raise
 
     try:
         from app.plugins.builtin.smtp_imap.plugin import SmtpImapPlugin
         registry.register_class(SmtpImapPlugin)
-    except ImportError:
-        pass
+    except ImportError as exc:
+        if exc.name and "smtp_imap" not in exc.name:
+            raise
 
     try:
         from app.plugins.builtin.google_calendar.plugin import GoogleCalendarPlugin
         registry.register_class(GoogleCalendarPlugin)
-    except ImportError:
-        pass
+    except ImportError as exc:
+        if exc.name and "google_calendar" not in exc.name:
+            raise
 
     try:
         from app.plugins.builtin.webhooks.plugin import WebhooksPlugin
         registry.register_class(WebhooksPlugin)
-    except ImportError:
-        pass
+    except ImportError as exc:
+        if exc.name and "webhooks" not in exc.name:
+            raise
 
     try:
         from app.plugins.builtin.documents.plugin import DocumentsPlugin
         registry.register_class(DocumentsPlugin)
-    except ImportError:
-        pass
+    except ImportError as exc:
+        if exc.name and "documents" not in exc.name:
+            raise
 
     try:
         from app.plugins.builtin.browser.plugin import BrowserPlugin
         registry.register_class(BrowserPlugin)
-    except ImportError:
-        pass
+    except ImportError as exc:
+        if exc.name and "browser" not in exc.name:
+            raise
 
     try:
         from app.plugins.mcp.plugin import MCPPlugin
         registry.register_class(MCPPlugin)
-    except ImportError:
-        pass
+    except ImportError as exc:
+        if exc.name and "mcp" not in exc.name:
+            raise

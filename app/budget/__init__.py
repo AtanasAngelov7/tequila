@@ -26,6 +26,29 @@ from app.db.connection import write_transaction
 logger = logging.getLogger(__name__)
 
 
+def _date_range(date_or_month: str) -> tuple[str, str]:
+    """Convert a YYYY-MM-DD or YYYY-MM string to (start, exclusive_end) range.
+
+    TD-304: Used instead of LIKE patterns for index-friendly range queries.
+    """
+    if len(date_or_month) == 10:  # YYYY-MM-DD
+        from datetime import date as _date
+        d = _date.fromisoformat(date_or_month)
+        next_day = (d + timedelta(days=1)).isoformat()
+        return date_or_month, next_day
+    elif len(date_or_month) == 7:  # YYYY-MM
+        year, month = int(date_or_month[:4]), int(date_or_month[5:7])
+        start = f"{date_or_month}-01"
+        if month == 12:
+            end = f"{year + 1}-01-01"
+        else:
+            end = f"{year}-{month + 1:02d}-01"
+        return start, end
+    else:
+        # Fallback: treat as prefix with next-char boundary
+        return date_or_month, date_or_month + "\xff"
+
+
 # ── Models ────────────────────────────────────────────────────────────────────
 
 
@@ -247,8 +270,13 @@ class BudgetTracker:
                 (cap_id, cap.period, cap.limit_usd, cap.action,
                  datetime.now(timezone.utc).isoformat()),
             )
-        # TD-178: Return cap with the generated id
-        cap.id = cap_id
+            # TD-305: Read back the actual ID (may differ on upsert conflict)
+            cursor = await self._db.execute(
+                "SELECT id FROM budget_caps WHERE period = ?", (cap.period,)
+            )
+            row = await cursor.fetchone()
+            actual_id = row[0] if row else cap_id
+        cap.id = actual_id
         return cap
 
     async def delete_cap(self, period: str) -> None:
@@ -317,6 +345,17 @@ class BudgetTracker:
         ratio = current / cap.limit_usd if cap.limit_usd > 0 else 0.0
         if ratio < 0.8:
             return
+
+        # Throttle: at most one alert per period_label per 60 seconds
+        import time as _time
+        now_mono = _time.monotonic()
+        if not hasattr(self, "_last_alert_times"):
+            self._last_alert_times: dict[str, float] = {}
+        last = self._last_alert_times.get(period_label, 0.0)
+        if now_mono - last < 60.0:
+            return
+        self._last_alert_times[period_label] = now_mono
+
         event_type = "budget.warning" if ratio < 1.0 else "budget.exceeded"
         body = (
             f"{period_label.capitalize()} spending: ${current:.4f} / ${cap.limit_usd:.2f} "
@@ -341,13 +380,17 @@ class BudgetTracker:
         date_str = now.date().isoformat()
         month_str = now.strftime("%Y-%m")
 
-        for period, pattern in [("daily", f"{date_str}%"), ("monthly", f"{month_str}%")]:
+        # TD-303: Use range queries instead of LIKE for index usage
+        for period, start, end in [
+            ("daily", date_str, (now.date() + timedelta(days=1)).isoformat()),
+            ("monthly", f"{month_str}-01", f"{(now.year + 1) if now.month == 12 else now.year}-{1 if now.month == 12 else (now.month + 1):02d}-01"),
+        ]:
             cap = await self._get_cap(period)  # type: ignore[arg-type]
             if not cap or cap.action != "block":
                 continue
             cursor = await self._db.execute(
-                "SELECT COALESCE(SUM(cost_usd), 0) FROM turn_costs WHERE timestamp LIKE ?",
-                (pattern,),
+                "SELECT COALESCE(SUM(cost_usd), 0) FROM turn_costs WHERE timestamp >= ? AND timestamp < ?",
+                (start, end),
             )
             row = await cursor.fetchone()
             if row and float(row[0]) >= cap.limit_usd:
@@ -358,16 +401,17 @@ class BudgetTracker:
 
     async def get_summary(self, *, period: str, date_or_month: str) -> BudgetSummary:
         """Return aggregated cost for a day (YYYY-MM-DD) or month (YYYY-MM)."""
-        like = f"{date_or_month}%"
+        # TD-304: Use range queries instead of LIKE for index usage
+        start, end = _date_range(date_or_month)
         cursor = await self._db.execute(
             """
             SELECT COALESCE(SUM(cost_usd), 0),
                    COALESCE(SUM(input_tokens), 0),
                    COALESCE(SUM(output_tokens), 0),
                    COUNT(*)
-            FROM turn_costs WHERE timestamp LIKE ?
+            FROM turn_costs WHERE timestamp >= ? AND timestamp < ?
             """,
-            (like,),
+            (start, end),
         )
         row = await cursor.fetchone()
         return BudgetSummary(
@@ -381,8 +425,8 @@ class BudgetTracker:
     async def get_by_agent(
         self, *, period: str, date_or_month: str | None = None
     ) -> list[dict[str, Any]]:
-        # TD-179: Use period to determine date_or_month if not specified
-        like = f"{date_or_month or period}%"
+        # TD-179/TD-304: Use range queries instead of LIKE
+        start, end = _date_range(date_or_month or period)
         cursor = await self._db.execute(
             """
             SELECT agent_id,
@@ -390,10 +434,10 @@ class BudgetTracker:
                    COALESCE(SUM(input_tokens), 0) AS total_in,
                    COALESCE(SUM(output_tokens), 0) AS total_out,
                    COUNT(*) AS turns
-            FROM turn_costs WHERE timestamp LIKE ?
+            FROM turn_costs WHERE timestamp >= ? AND timestamp < ?
             GROUP BY agent_id ORDER BY total_cost DESC
             """,
-            (like,),
+            (start, end),
         )
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
@@ -401,8 +445,8 @@ class BudgetTracker:
     async def get_by_provider(
         self, *, period: str, date_or_month: str | None = None
     ) -> list[dict[str, Any]]:
-        # TD-179: Use period to determine date_or_month if not specified
-        like = f"{date_or_month or period}%"
+        # TD-179/TD-304: Use range queries instead of LIKE
+        start, end = _date_range(date_or_month or period)
         cursor = await self._db.execute(
             """
             SELECT provider_id, model,
@@ -410,10 +454,10 @@ class BudgetTracker:
                    COALESCE(SUM(input_tokens), 0) AS total_in,
                    COALESCE(SUM(output_tokens), 0) AS total_out,
                    COUNT(*) AS turns
-            FROM turn_costs WHERE timestamp LIKE ?
+            FROM turn_costs WHERE timestamp >= ? AND timestamp < ?
             GROUP BY provider_id, model ORDER BY total_cost DESC
             """,
-            (like,),
+            (start, end),
         )
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]

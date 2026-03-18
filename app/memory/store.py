@@ -16,6 +16,11 @@ from app.memory.models import MEMORY_SCOPES, MEMORY_TYPES, MemoryExtract
 logger = logging.getLogger(__name__)
 
 
+def _escape_like(term: str) -> str:
+    """Escape LIKE wildcards in user-supplied search terms (TD-297)."""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -114,6 +119,27 @@ class MemoryStore:
             raise NotFoundError(resource="MemoryExtract", id=memory_id)
         return MemoryExtract.from_row(row_to_dict(row))
 
+    async def get_batch(self, memory_ids: list[str]) -> dict[str, MemoryExtract]:
+        """Fetch multiple memories in a single query (TD-298).
+
+        Returns a dict mapping *memory_id → MemoryExtract* for all found IDs.
+        Missing IDs are silently omitted.
+        """
+        if not memory_ids:
+            return {}
+        placeholders = ",".join("?" * len(memory_ids))
+        async with self._db.execute(
+            f"SELECT * FROM memory_extracts WHERE id IN ({placeholders})",
+            memory_ids,
+        ) as cur:
+            rows = await cur.fetchall()
+        result: dict[str, MemoryExtract] = {}
+        for row in rows:
+            d = row_to_dict(row)
+            mem = MemoryExtract.from_row(d)
+            result[mem.id] = mem
+        return result
+
     async def touch(self, memory_id: str) -> None:
         """Bump ``last_accessed`` and ``access_count`` for *memory_id* (TD-62).
 
@@ -164,8 +190,8 @@ class MemoryStore:
         if always_recall_only:
             clauses.append("always_recall = 1")
         if search:
-            clauses.append("content LIKE ?")
-            params.append(f"%{search}%")
+            clauses.append("content LIKE ? ESCAPE '\\'")
+            params.append(f"%{_escape_like(search)}%")
 
         where = " AND ".join(clauses)
 
@@ -270,14 +296,15 @@ class MemoryStore:
         """Rebuild the entity_ids JSON column from the link table (TD-112).
 
         Makes the link table the single source of truth.
+        TD-307: SELECT and UPDATE share the same write_transaction for atomicity.
         """
-        async with self._db.execute(
-            "SELECT entity_id FROM memory_entity_links WHERE memory_id = ?",
-            (memory_id,),
-        ) as cur:
-            rows = await cur.fetchall()
-        entity_ids = [r[0] for r in rows]
         async with write_transaction(self._db):
+            async with self._db.execute(
+                "SELECT entity_id FROM memory_entity_links WHERE memory_id = ?",
+                (memory_id,),
+            ) as cur:
+                rows = await cur.fetchall()
+            entity_ids = [r[0] for r in rows]
             await self._db.execute(
                 "UPDATE memory_extracts SET entity_ids = ? WHERE id = ?",
                 (json.dumps(entity_ids), memory_id),

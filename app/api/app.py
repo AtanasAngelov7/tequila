@@ -359,6 +359,18 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except RuntimeError:
         pass
 
+    # TD-282: Close Ollama httpx client if registered.
+    try:
+        from app.providers.registry import ProviderRegistry
+        reg = ProviderRegistry.global_registry()
+        try:
+            ollama = reg.get("ollama")
+            await ollama.close()
+        except (KeyError, AttributeError):
+            pass
+    except Exception:
+        pass
+
     from app.gateway.router import get_router
     try:
         get_router().stop()

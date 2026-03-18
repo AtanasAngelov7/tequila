@@ -191,12 +191,13 @@ async def assemble_prompt(ctx: AssemblyContext) -> list[Message]:
     # ── Step 5: Tool definitions ──────────────────────────────────────────
     # Tool defs are passed separately to provider.stream_completion() as
     # ToolDef objects — not injected into messages.  Token budget tracked here.
+    # Note: tools_block is also embedded in the system prompt (Step 1) via
+    # render_soul_prompt — so we only log a warning if the schema is large,
+    # but do NOT add tool_tokens to ctx.tokens_used (already counted in sys_tokens).
     if ctx.tools:
         tool_text = tools_block
         tool_tokens = _estimate_tokens(tool_text)
-        if tool_tokens <= budget.tool_schema_budget:
-            ctx.tokens_used += tool_tokens
-        else:
+        if tool_tokens > budget.tool_schema_budget:
             logger.warning("Tool schema exceeds budget (%d > %d)", tool_tokens, budget.tool_schema_budget)
 
     # ── Step 6: File context injection ───────────────────────────────────
@@ -241,13 +242,22 @@ async def assemble_prompt(ctx: AssemblyContext) -> list[Message]:
             role = row.get("role", "user")
             content = row.get("content", "")
             if role in ("user", "assistant", "tool", "system"):
-                messages.append(Message(role=role, content=content))  # type: ignore[arg-type]
+                # TD-277: Preserve tool_call_id and tool_calls metadata
+                msg_kwargs: dict[str, Any] = {"role": role, "content": content}
+                if row.get("tool_call_id"):
+                    msg_kwargs["tool_call_id"] = row["tool_call_id"]
+                if row.get("tool_calls"):
+                    msg_kwargs["tool_calls"] = row["tool_calls"]
+                messages.append(Message(**msg_kwargs))  # type: ignore[arg-type]
 
         ctx.tokens_used += used
 
     # ── Step 8: Current user message ─────────────────────────────────────
-    messages.append(Message(role="user", content=ctx.user_message))
-    ctx.tokens_used += user_msg_tokens
+    # TD-276: Only append user message when there's actual user content
+    # (skip on tool continuation rounds where user_message is empty).
+    if ctx.user_message:
+        messages.append(Message(role="user", content=ctx.user_message))
+        ctx.tokens_used += user_msg_tokens
 
     logger.debug(
         "Prompt assembled: %d messages, ~%d tokens (budget=%d)",

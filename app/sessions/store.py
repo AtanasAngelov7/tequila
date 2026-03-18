@@ -444,8 +444,12 @@ class SessionStore:
                 {"id": session_id, "now": now_iso},
             )
 
-        # TD-224: Clean up turn queue for idle sessions
-        remove_turn_queue(session_id)
+        # TD-224 + TD-275: Clean up turn queue using session_key, not session_id
+        try:
+            session = await self.get_by_id(session_id)
+            remove_turn_queue(session.session_key)
+        except Exception:
+            pass  # best-effort cleanup
 
         return self._db.total_changes > before
 
@@ -471,8 +475,8 @@ class SessionStore:
                 {"id": session_id, "now": now_iso},
             )
 
-        # TD-224: Clean up turn queue for archived sessions
-        remove_turn_queue(session_id)
+        # TD-224 + TD-275: Clean up turn queue using session_key, not session_id
+        remove_turn_queue(session.session_key)
 
         # Evict the runtime context budget for this session (TD-12)
         try:
@@ -480,6 +484,13 @@ class SessionStore:
             evict_budget(session_id)
         except Exception:
             logger.warning("Failed to evict context budget for session %s", session_id, exc_info=True)
+
+        # TD-296: Clean up in-memory session state from tool executor
+        try:
+            from app.tools.executor import get_tool_executor
+            get_tool_executor().cleanup_session(session.session_key)
+        except Exception:
+            logger.debug("Tool executor cleanup skipped for %s", session_id)
 
         return await self.get_by_id(session_id)
 
@@ -511,7 +522,8 @@ class SessionStore:
 
         Raises SessionNotFoundError if the session doesn't exist.
         """
-        await self.get_by_id(session_id)  # raises if not found
+        session = await self.get_by_id(session_id)  # raises if not found
+        session_key = session.session_key
 
         async with write_transaction(self._db):
             await self._db.execute(
@@ -520,13 +532,21 @@ class SessionStore:
             await self._db.execute(
                 "DELETE FROM sessions WHERE session_id = ?", (session_id,)
             )
-        remove_turn_queue(session_id)
+        # TD-275: Clean up turn queue using session_key, not session_id
+        remove_turn_queue(session_key)
         # Evict the runtime context budget for this session (TD-12)
         try:
             from app.agent.context import evict_budget
             evict_budget(session_id)
         except Exception:
             logger.warning("Failed to evict context budget for session %s", session_id, exc_info=True)
+
+        # TD-296: Clean up in-memory session state from tool executor
+        try:
+            from app.tools.executor import get_tool_executor
+            get_tool_executor().cleanup_session(session_key)
+        except Exception:
+            logger.debug("Tool executor cleanup skipped for %s", session_id)
 
     # ── Idle detection ────────────────────────────────────────────────────────
 

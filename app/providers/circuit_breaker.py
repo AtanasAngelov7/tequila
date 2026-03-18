@@ -99,13 +99,20 @@ class CircuitBreaker:
         return self._state
 
     def is_available(self) -> bool:
-        """Return ``True`` if the circuit is closed or ready for a probe."""
-        if self._state == CircuitState.CLOSED:
+        """Return ``True`` if the circuit is closed or ready for a probe.
+
+        Reads mutable state that may be written under ``_lock`` — the
+        method itself is synchronous but guards with a snapshot to avoid
+        torn reads on CPython.
+        """
+        state = self._state
+        if state == CircuitState.CLOSED:
             return True
-        if self._state == CircuitState.HALF_OPEN:
+        if state == CircuitState.HALF_OPEN:
             return True
         # OPEN — check if reset timeout has elapsed
-        if self._last_failure_time and (time.monotonic() - self._last_failure_time) >= self.reset_timeout:
+        last_fail = self._last_failure_time
+        if last_fail and (time.monotonic() - last_fail) >= self.reset_timeout:
             return True
         return False
 
@@ -192,30 +199,33 @@ class CircuitBreaker:
                 "provider unavailable. Wait and retry later."
             )
 
-        attempt = 0
-        while True:
-            try:
-                # TD-196: Yield events directly from async generator instead of
-                # materialising the entire stream into a list first.
-                async def _streaming_wrapper() -> AsyncIterator[Any]:
+        # TD-271: Wrap iteration (not creation) of the async generator so
+        # that errors during streaming are caught, recorded, and optionally
+        # retried by the circuit breaker.
+        async def _guarded_stream() -> AsyncIterator[Any]:
+            attempt = 0
+            while True:
+                try:
                     async for item in fn():
                         yield item
                     await self.record_success()
-                return _streaming_wrapper()
-            except Exception as exc:
-                await self.record_failure()
-                if attempt >= self.retry_policy.max_retries:
-                    raise
-                delay = self.retry_policy.delay_for(attempt)
-                logger.warning(
-                    "Circuit breaker [%s]: attempt %d failed (%s), retrying in %.1fs",
-                    self.provider_id,
-                    attempt,
-                    exc,
-                    delay,
-                )
-                await asyncio.sleep(delay)
-                attempt += 1
+                    return  # stream consumed successfully
+                except Exception as exc:
+                    await self.record_failure()
+                    if attempt >= self.retry_policy.max_retries:
+                        raise
+                    delay = self.retry_policy.delay_for(attempt)
+                    logger.warning(
+                        "Circuit breaker [%s]: attempt %d failed (%s), retrying in %.1fs",
+                        self.provider_id,
+                        attempt,
+                        exc,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                    attempt += 1
+
+        return _guarded_stream()
 
     # ── State snapshot ────────────────────────────────────────────────────────
 
@@ -292,15 +302,33 @@ class GracefulDegradation:
                 )
                 continue
             try:
-                # TD-197: stream_completion is an async generator, not an awaitable
+                # TD-197/TD-272: Wrap iteration so fallback fires on streaming errors.
                 stream = provider.stream_completion(
                     messages=messages,
                     model=model_id,
                     tools=tools or [],
                     **kwargs,
                 )
-                # TD-240: Don't record success until stream is consumed
-                return stream
+
+                # Prefetch first event inside try block to catch immediate failures.
+                aiter = stream.__aiter__()
+                first_event = await aiter.__anext__()
+
+                # Re-assemble: yield first event, then rest of stream.
+                async def _chain(first: Any, rest: Any) -> AsyncIterator[Any]:
+                    yield first
+                    async for item in rest:
+                        yield item
+
+                return _chain(first_event, aiter)
+            except StopAsyncIteration:
+                # Empty stream from this provider — try next
+                logger.warning(
+                    "GracefulDegradation: provider %r returned empty stream, trying next",
+                    provider.provider_id,
+                )
+                last_exc = RuntimeError(f"Empty stream from {provider.provider_id}")
+                continue
             except Exception as exc:
                 logger.warning(
                     "GracefulDegradation: provider %r failed (%s), trying next",
@@ -319,6 +347,11 @@ class GracefulDegradation:
 # ── Circuit-breaker registry (Sprint 07) ─────────────────────────────────────
 
 _circuit_registry: dict[str, CircuitBreaker] = {}
+
+
+def remove_circuit_breaker(provider_id: str) -> None:
+    """Remove the circuit breaker for *provider_id* (TD-289)."""
+    _circuit_registry.pop(provider_id, None)
 
 
 def get_circuit_breaker(

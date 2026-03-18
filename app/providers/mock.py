@@ -109,6 +109,7 @@ class MockProvider(LLMProvider):
         async def _generate() -> AsyncIterator[ProviderStreamEvent]:
             input_tokens = self._count_messages(messages)
             output_tokens = 0
+            usage_emitted = False
 
             for event_spec in turn_events:
                 if "text" in event_spec:
@@ -159,13 +160,15 @@ class MockProvider(LLMProvider):
                         input_tokens=u.get("input_tokens", input_tokens),
                         output_tokens=u.get("output_tokens", output_tokens),
                     )
+                    usage_emitted = True
 
-            # Always emit usage + done at end of turn
-            yield ProviderStreamEvent(
-                kind="usage",
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-            )
+            # Emit usage at end of turn only if not already emitted in script
+            if not usage_emitted:
+                yield ProviderStreamEvent(
+                    kind="usage",
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                )
             yield ProviderStreamEvent(kind="done")
 
         return _generate()

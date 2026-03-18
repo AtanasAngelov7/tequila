@@ -86,6 +86,9 @@ class Entity(BaseModel):
     updated_at: datetime = Field(default_factory=_now)
     """UTC timestamp of the last update to this entity record."""
 
+    version: int = 1
+    """Integer OCC counter — incremented on every update (TD-300)."""
+
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> "Entity":
         """Deserialise a DB row into an ``Entity``."""
@@ -102,6 +105,7 @@ class Entity(BaseModel):
             status=row.get("status", "active"),
             merged_into=row.get("merged_into"),
             updated_at=_parse_dt(row.get("updated_at")),
+            version=int(row.get("version", 1)),
         )
 
     def matches(self, name: str) -> bool:

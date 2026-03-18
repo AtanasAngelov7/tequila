@@ -231,19 +231,27 @@ async def system_status(
         all_cbs = get_all_circuit_breakers()
         all_providers = registry.list_providers()
 
+        provider_infos: list[tuple] = []
         for provider in all_providers:
             provider_id = provider.provider_id
             cb = all_cbs.get(provider_id)
             circuit_state = cb.state.value if cb else "closed"
+            provider_infos.append((provider_id, cb, circuit_state))
+
+        # TD-327: Fetch model lists concurrently instead of sequentially
+        async def _probe(p: Any) -> tuple[int, bool]:
             try:
-                models = await provider.list_models()
-                model_count = len(models)
-                available = True
-            except Exception as provider_exc:
-                model_count = 0
-                available = False
-                if circuit_state == "closed" and cb:
-                    circuit_state = cb.state.value
+                models = await p.list_models()
+                return len(models), True
+            except Exception:
+                return 0, False
+
+        import asyncio as _aio
+        probe_results = await _aio.gather(*[_probe(p) for p in all_providers])
+
+        for (provider_id, cb, circuit_state), (model_count, available) in zip(provider_infos, probe_results):
+            if not available and circuit_state == "closed" and cb:
+                circuit_state = cb.state.value
 
             if circuit_state in ("open",):
                 overall_status = "degraded"
@@ -257,6 +265,48 @@ async def system_status(
     except Exception:
         logger.warning("Failed to load provider registry for status", exc_info=True)
 
+    # ── Memory / entity / scheduler counts ──────────────────────────────
+    memory_extract_count = 0
+    entity_count = 0
+    scheduler_status = "stopped"
+    pending_jobs = 0
+
+    try:
+        db = get_app_db()
+        async with db.execute("SELECT COUNT(*) FROM memory_extracts WHERE status = 'active'") as cur:
+            row = await cur.fetchone()
+            if row:
+                memory_extract_count = row[0]
+    except Exception:
+        pass
+
+    try:
+        db = get_app_db()
+        async with db.execute("SELECT COUNT(*) FROM entities") as cur:
+            row = await cur.fetchone()
+            if row:
+                entity_count = row[0]
+    except Exception:
+        pass
+
+    try:
+        from app.workflows.scheduler import get_scheduler
+        sched = get_scheduler()
+        if sched and sched.running:
+            scheduler_status = "running"
+            pending_jobs = len(sched.pending_jobs) if hasattr(sched, "pending_jobs") else 0
+    except Exception:
+        pass
+
+    # ── Plugin listing ────────────────────────────────────────────────────
+    plugin_list: list[str] = []
+    try:
+        from app.plugins.registry import get_plugin_registry
+        preg = get_plugin_registry()
+        plugin_list = [p.name for p in preg.list_plugins()]
+    except Exception:
+        pass
+
     return SystemStatus(
         status=overall_status,
         app=APP_NAME,
@@ -264,17 +314,17 @@ async def system_status(
         uptime_s=round(time.monotonic() - _startup_time, 2),
         started_at=_started_at.isoformat(),
         providers=provider_statuses,
-        plugins=[],            # stub — implemented in Sprint 06
+        plugins=plugin_list,
         db_ok=db_ok,
         db_size_mb=db_size_mb,
         db_wal_size_mb=db_wal_size_mb,
         active_session_count=active_session_count,
         active_turn_count=active_turn_count,
-        memory_extract_count=0,    # stub — Sprint 05
-        entity_count=0,            # stub — Sprint 05
-        embedding_index_status="ready",  # stub
-        scheduler_status="stopped",      # stub — Sprint 07
-        pending_jobs=0,
+        memory_extract_count=memory_extract_count,
+        entity_count=entity_count,
+        embedding_index_status="ready",
+        scheduler_status=scheduler_status,
+        pending_jobs=pending_jobs,
         config_keys=config.key_count(),
     )
 

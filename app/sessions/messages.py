@@ -173,6 +173,21 @@ class MessageStore:
             rows = await cur.fetchall()
         return [Message.from_row(row_to_dict(r)) for r in rows]
 
+    async def count_by_session(
+        self,
+        session_id: str,
+        *,
+        active_only: bool = True,
+    ) -> int:
+        """Return total count of messages for *session_id*."""
+        active_clause = "AND active = 1" if active_only else ""
+        async with self._db.execute(
+            f"SELECT COUNT(*) FROM messages WHERE session_id = ? {active_clause}",
+            (session_id,),
+        ) as cur:
+            row = await cur.fetchone()
+        return row[0] if row else 0
+
     async def get_active_chain(self, session_id: str) -> list[Message]:
         """Return all active messages for *session_id* in chronological order.
 

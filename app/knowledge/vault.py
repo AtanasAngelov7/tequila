@@ -23,6 +23,11 @@ import unicodedata
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+
+
+def _escape_like(term: str) -> str:
+    """Escape LIKE wildcards in user-supplied search terms (TD-297)."""
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 from typing import Any
 
 import aiosqlite
@@ -219,11 +224,17 @@ class VaultStore:
         combined_tags = list(dict.fromkeys((tags or []) + auto_tags))
         content_h = _content_hash(content)
 
-        # Write file to disk first
+        # Write file to disk first — use exclusive create to prevent TOCTOU race
         note_path = self._note_path(filename)
-        if await asyncio.to_thread(note_path.exists):
+
+        def _write_exclusive(path: Path, data: str) -> None:
+            with open(path, "x", encoding="utf-8") as f:
+                f.write(data)
+
+        try:
+            await asyncio.to_thread(_write_exclusive, note_path, content)
+        except FileExistsError:
             raise ConflictError(f"Vault file '{filename}' already exists on disk.")
-        await asyncio.to_thread(note_path.write_text, content, encoding="utf-8")
 
         # Persist metadata
         try:
@@ -296,12 +307,13 @@ class VaultStore:
     ) -> list[VaultNote]:
         """Return all vault notes, optionally filtered by *search* (title match)."""
         if search:
+            escaped = _escape_like(search)
             query = (
                 "SELECT id, title, slug, filename, content_hash, wikilinks, tags, created_at, updated_at "
-                "FROM vault_notes WHERE title LIKE ? "
+                "FROM vault_notes WHERE title LIKE ? ESCAPE '\\' "
                 "ORDER BY updated_at DESC LIMIT ? OFFSET ?"
             )
-            params: tuple = (f"%{search}%", limit, offset)
+            params: tuple = (f"%{escaped}%", limit, offset)
         else:
             query = (
                 "SELECT id, title, slug, filename, content_hash, wikilinks, tags, created_at, updated_at "
@@ -436,7 +448,7 @@ class VaultStore:
 
         # ── Load current DB state ─────────────────────────────────────────────
         async with self._db.execute(
-            "SELECT id, title, slug, filename, content_hash FROM vault_notes"
+            "SELECT id, title, slug, filename, content_hash, updated_at FROM vault_notes"
         ) as cur:
             rows = await cur.fetchall()
 
@@ -461,6 +473,23 @@ class VaultStore:
         # Added or updated
         for filename in fs_files:
             path = self._note_path(filename)
+
+            # TD-308: Skip reading unchanged files — check mtime first
+            if filename in db_by_filename:
+                try:
+                    stat = await asyncio.to_thread(path.stat)
+                    fs_mtime = stat.st_mtime
+                    row = db_by_filename[filename]
+                    # If file mtime hasn't changed since last update, skip
+                    from datetime import datetime as _dt, timezone as _tz
+                    db_updated = _dt.fromisoformat(row.get("updated_at", ""))
+                    if db_updated.tzinfo is None:
+                        db_updated = db_updated.replace(tzinfo=_tz.utc)
+                    if fs_mtime <= db_updated.timestamp():
+                        continue  # file unchanged — skip read + hash
+                except Exception:
+                    pass  # fall through to full check on stat/parse errors
+
             content = await asyncio.to_thread(path.read_text, encoding="utf-8")
             h = _content_hash(content)
 

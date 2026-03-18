@@ -219,9 +219,19 @@ class AgentStore:
                 row = await existing.fetchone()
                 if row is None:
                     raise AgentNotFoundError(agent_id)
-                raise ConflictError(
-                    f"Agent '{agent_id}' version mismatch: expected {version}"
+                if attempt >= MAX_OCC_RETRIES:
+                    raise ConflictError(
+                        f"Agent '{agent_id}' version mismatch: expected {version}"
+                    )
+                # Re-read current version for next attempt
+                fresh = await self._db.execute(
+                    "SELECT version FROM agents WHERE agent_id = :agent_id",
+                    {"agent_id": agent_id},
                 )
+                fresh_row = await fresh.fetchone()
+                if fresh_row:
+                    params["version"] = fresh_row["version"]
+                    params["new_version"] = fresh_row["version"] + 1
 
         return await self.get_by_id(agent_id)
 
@@ -249,6 +259,15 @@ class AgentStore:
             soul=cloned_soul,
             role=source.role,
             is_admin=source.is_admin,
+            status=source.status,
+            extra={
+                "tools": json.dumps(source.tools),
+                "skills": json.dumps(source.skills),
+                "default_policy": source.default_policy.model_dump_json(),
+                "memory_scope": source.memory_scope.model_dump_json(),
+                "escalation": source.escalation.model_dump_json(),
+                "fallback_provider_id": source.fallback_provider_id,
+            },
         )
 
 

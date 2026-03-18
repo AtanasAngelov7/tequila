@@ -476,18 +476,26 @@ class GraphStore:
 
             for i in range(0, len(node_ids), batch_size):
                 batch = node_ids[i : i + batch_size]
-                # TD-198: Fetch actual node content instead of embedding UUID strings
+                # TD-295: Resolve content from actual source tables,
+                # not the non-existent graph_nodes table.
                 content_map: dict[str, str] = {}
-                for nid in batch:
-                    try:
-                        async with self._db.execute(
-                            "SELECT content FROM graph_nodes WHERE id = ?", (nid,)
-                        ) as cur:
-                            row = await cur.fetchone()
-                            if row:
-                                content_map[nid] = row[0] if isinstance(row, (tuple, list)) else row_to_dict(row).get("content", "")
-                    except Exception:
-                        pass  # skip nodes without content
+                _CONTENT_QUERIES: dict[str, str] = {
+                    "memory": "SELECT content FROM memory_extracts WHERE id = ?",
+                    "entity": "SELECT name || ': ' || COALESCE(summary, '') AS content FROM entities WHERE id = ?",
+                    "note": "SELECT content FROM notes WHERE id = ?",
+                }
+                content_q = _CONTENT_QUERIES.get(source_type)
+                if content_q:
+                    for nid in batch:
+                        try:
+                            async with self._db.execute(content_q, (nid,)) as cur:
+                                row = await cur.fetchone()
+                                if row:
+                                    val = row[0] if isinstance(row, (tuple, list)) else row_to_dict(row).get("content", "")
+                                    if val:
+                                        content_map[nid] = val
+                        except Exception:
+                            pass  # skip nodes without content
                 for nid in batch:
                     node_text = content_map.get(nid)
                     if not node_text:
@@ -549,27 +557,37 @@ class GraphStore:
 
         Returns the list of node IDs from *from_id* to *to_id* (inclusive),
         or an empty list if no path is found within *max_depth*.
+
+        Uses a parent-map instead of storing full paths per queue entry
+        to reduce memory from O(V * D) to O(V).
         """
         if from_id == to_id:
             return [from_id]
 
         visited: set[str] = {from_id}
-        queue: deque[list[str]] = deque([[from_id]])  # O(1) popleft (TD-128)
+        parent: dict[str, str] = {}
+        queue: deque[tuple[str, int]] = deque([(from_id, 0)])
 
-        # TD-209: Proper BFS level exploration instead of popping one node per depth
         while queue:
-            path = queue.popleft()
-            if len(path) - 1 >= max_depth:
-                continue  # exceeded hop depth
-            current = path[-1]
+            current, depth = queue.popleft()
+            if depth >= max_depth:
+                continue
             edges = await self.get_neighbors(current, limit=100)
             for edge in edges:
                 neighbor = edge.target_id if edge.source_id == current else edge.source_id
-                if neighbor == to_id:
-                    return path + [neighbor]
                 if neighbor not in visited:
                     visited.add(neighbor)
-                    queue.append(path + [neighbor])
+                    parent[neighbor] = current
+                    if neighbor == to_id:
+                        # Reconstruct path
+                        path = [to_id]
+                        node = to_id
+                        while node != from_id:
+                            node = parent[node]
+                            path.append(node)
+                        path.reverse()
+                        return path
+                    queue.append((neighbor, depth + 1))
 
         return []  # no path found
 

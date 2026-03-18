@@ -350,12 +350,12 @@ async def test_unregister_called_after_zero_delay(migrated_db):
 
 @pytest.mark.asyncio
 async def test_entity_update_occ_where_clause(migrated_db):
-    """EntityStore.update() SQL must include updated_at guard."""
+    """EntityStore.update() SQL must include version-based OCC guard (TD-300)."""
     import inspect
     from app.memory import entity_store as mod
 
     src = inspect.getsource(mod.EntityStore.update)
-    assert "updated_at" in src and "WHERE id" in src
+    assert "version" in src and "WHERE id" in src
     # Ensure retry loop is present
     assert "_MAX_RETRIES" in src or "range(" in src
 
@@ -373,33 +373,31 @@ async def test_entity_update_changes_reflected(migrated_db):
 
 @pytest.mark.asyncio
 async def test_entity_update_occ_retry_logic(migrated_db):
-    """update() should succeed after a simulated concurrent update."""
+    """update() should raise ConflictError after exhausting retries on persistent conflicts."""
     from app.memory.entity_store import EntityStore
     from app.db.connection import write_transaction
+    from app.exceptions import ConflictError
 
     es = EntityStore(migrated_db)
     entity = await es.create(name="Bob", entity_type="person", aliases=[])
 
-    # Simulate concurrent modification between get() and UPDATE by monkey-patching
+    # Simulate persistent concurrent modification on every get()
     original_get = es.get
-    call_count = [0]
 
     async def patched_get(eid):
         result = await original_get(eid)
-        if call_count[0] == 0:
-            # On first get(), do a direct UPDATE to shift updated_at
-            call_count[0] += 1
-            async with write_transaction(migrated_db):
-                await migrated_db.execute(
-                    "UPDATE entities SET name = 'Concurrent', updated_at = datetime('now','+1 second') WHERE id = ?",
-                    (eid,),
-                )
+        # Bump version on every get() so the OCC check always fails (TD-300)
+        async with write_transaction(migrated_db):
+            await migrated_db.execute(
+                "UPDATE entities SET name = 'Concurrent', version = version + 1 WHERE id = ?",
+                (eid,),
+            )
         return result
 
     es.get = patched_get
-    # update() should retry and eventually succeed
-    result = await es.update(entity.id, name="Final Name")
-    assert result.name in ("Final Name", "Concurrent")  # at least one write succeeded
+    # TD-301: update() should raise ConflictError after retries are exhausted
+    with pytest.raises(ConflictError):
+        await es.update(entity.id, name="Final Name")
 
 
 # ── T8: PgVector deactivate (TD-94) ──────────────────────────────────────────

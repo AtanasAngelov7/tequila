@@ -207,6 +207,21 @@ class MemoryExtract(BaseModel):
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> "MemoryExtract":
         """Deserialise a DB row dict into a ``MemoryExtract``."""
+        # TD-309: Safely parse JSON fields — corrupted rows don't crash listing
+        def _safe_json_list(val: Any, default: list | None = None) -> list:
+            if default is None:
+                default = []
+            if isinstance(val, list):
+                return val
+            if not val:
+                return default
+            try:
+                result = json.loads(val)
+                return result if isinstance(result, list) else default
+            except (json.JSONDecodeError, TypeError):
+                logger.warning("Corrupt JSON in memory row: %r", val[:80] if isinstance(val, str) else val)
+                return default
+
         return cls(
             id=row["id"],
             content=row["content"],
@@ -224,8 +239,8 @@ class MemoryExtract(BaseModel):
             source_session_id=row.get("source_session_id"),
             source_message_id=row.get("source_message_id"),
             confidence=float(row.get("confidence", 1.0)),
-            entity_ids=json.loads(row.get("entity_ids", "[]")),
-            tags=json.loads(row.get("tags", "[]")),
+            entity_ids=_safe_json_list(row.get("entity_ids", "[]")),
+            tags=_safe_json_list(row.get("tags", "[]")),
             scope=row.get("scope", "global"),
             agent_id=row.get("agent_id"),
             status=row.get("status", "active"),

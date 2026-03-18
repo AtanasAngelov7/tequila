@@ -64,7 +64,7 @@ _OPENAI_MODELS: dict[str, ModelCapabilities] = {
         supports_vision=False,
         supports_structured_output=True,
         supports_streaming=True,
-        supports_thinking=True,
+        supports_thinking=False,
         input_cost_per_1k=0.015,
         output_cost_per_1k=0.06,
     ),
@@ -78,7 +78,7 @@ _OPENAI_MODELS: dict[str, ModelCapabilities] = {
         supports_vision=False,
         supports_structured_output=True,
         supports_streaming=True,
-        supports_thinking=True,
+        supports_thinking=False,
         input_cost_per_1k=0.0011,
         output_cost_per_1k=0.0044,
     ),
@@ -227,7 +227,7 @@ class OpenAIProvider(LLMProvider):
             yield ProviderStreamEvent(kind="done")
         except Exception as exc:
             logger.error("OpenAI stream error: %s", exc)
-            yield ProviderStreamEvent(kind="error", error=str(exc))
+            yield ProviderStreamEvent(kind="error", error_message=str(exc), error_code="stream_error")
             yield ProviderStreamEvent(kind="done")
 
     async def count_tokens(self, messages: list[Message], model: str) -> int:

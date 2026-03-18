@@ -184,14 +184,14 @@ class MemoryLifecycleManager:
         processed = 0
         updated = 0
         skipped = 0
-        offset = 0
+        last_id = ""  # TD-293: cursor-based pagination (matches run_archive pattern)
         batch = self.consol_cfg.batch_size
 
         while True:
             memories = await self._mem.list(
                 status="active",
                 limit=batch,
-                offset=offset,
+                after_id=last_id,
             )
             if not memories:
                 break
@@ -218,7 +218,7 @@ class MemoryLifecycleManager:
                     metadata={"old_score": mem.decay_score, "new_score": new_score},
                 )
                 updated += 1
-            offset += batch
+            last_id = memories[-1].id
 
         logger.info(
             "Decay pass: processed=%d updated=%d skipped=%d",
@@ -414,10 +414,10 @@ class MemoryLifecycleManager:
                         actor="consolidation",
                         old_content=victim.content,
                         new_content=survivor.content,
-                        reason=f"merged into {survivor.id} (similarity={hit.score:.4f})",
+                        reason=f"merged into {survivor.id} (similarity={hit.similarity:.4f})",
                         metadata={
                             "survivor_id": survivor.id,
-                            "similarity": hit.score,
+                            "similarity": hit.similarity,
                         },
                     )
                     merged += 1
@@ -438,17 +438,18 @@ class MemoryLifecycleManager:
         cutoff = datetime.now(timezone.utc) - timedelta(days=cutoff_days)
         batch = self.consol_cfg.batch_size
         orphans: list[str] = []
-        offset = 0
+        last_id: str | None = None
 
         while True:
             memories = await self._mem.list(
                 status="active",
                 limit=batch,
-                offset=offset,
+                after_id=last_id,
             )
             if not memories:
                 break
             for mem in memories:
+                last_id = mem.id
                 if mem.always_recall or mem.pinned:
                     continue
                 # No entity links?
@@ -462,7 +463,6 @@ class MemoryLifecycleManager:
                 if last_acc >= cutoff:
                     continue
                 orphans.append(mem.id)
-            offset += batch
 
         logger.info("Orphan report: %d orphan memories found.", len(orphans))
         return {"orphan_ids": orphans, "count": len(orphans)}

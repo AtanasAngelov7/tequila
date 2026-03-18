@@ -45,6 +45,8 @@ class ExtractionConfig(BaseModel):
     dedup_similarity_threshold: float = 0.95
     merge_similarity_threshold: float = 0.85
     max_extracts_per_batch: int = 20
+    confidence_boost: float = 0.2
+    confidence_penalty: float = 0.3
     entity_extraction_enabled: bool = True
     contradiction_auto_resolve: bool = False
 
@@ -117,15 +119,23 @@ def _parse_json_response(text: str) -> list[dict[str, Any]]:
             return obj
     except json.JSONDecodeError:
         pass
-    # Fallback: find first [...] block
-    match = re.search(r"\[.*?\]", text, re.DOTALL)
-    if match:
-        try:
-            obj = json.loads(match.group(0))
-            if isinstance(obj, list):
-                return obj
-        except json.JSONDecodeError:
-            pass
+    # Fallback: find first balanced [...] block
+    start = text.find("[")
+    if start != -1:
+        depth = 0
+        for i in range(start, len(text)):
+            if text[i] == "[":
+                depth += 1
+            elif text[i] == "]":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        obj = json.loads(text[start : i + 1])
+                        if isinstance(obj, list):
+                            return obj
+                    except json.JSONDecodeError:
+                        pass
+                    break
     return []
 
 
@@ -210,9 +220,9 @@ class ExtractionPipeline:
         for i, msg in enumerate(weighted):
             rating = msg.get("feedback_rating")
             if rating == "up":
-                weighted[i] = dict(msg, _confidence_boost=0.2)
+                weighted[i] = dict(msg, _confidence_boost=self.config.confidence_boost)
             elif rating == "down":
-                weighted[i] = dict(msg, _confidence_penalty=0.3)
+                weighted[i] = dict(msg, _confidence_penalty=self.config.confidence_penalty)
 
         # ── Step 1: Relevance classification ─────────────────────────────────
         relevant_indices = await self._step1_classify(weighted)
@@ -310,7 +320,7 @@ class ExtractionPipeline:
                 {"role": "user", "content": prompt}
             ])
             raw = _parse_json_response(response)
-            return [int(i) for i in raw if isinstance(i, (int, float))]
+            return [int(i) for i in raw if isinstance(i, (int, float)) and int(i) >= 0 and int(i) < len(messages)]
         except Exception as exc:
             logger.warning("Extraction step 1 failed: %s", exc)
             # Fallback: cap to most-recent N messages to avoid swamping the pipeline

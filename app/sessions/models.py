@@ -164,7 +164,7 @@ class Message(BaseModel):
     session_id: str
     """Session this message belongs to."""
 
-    role: Literal["user", "assistant", "system", "tool_result"]
+    role: Literal["user", "assistant", "system", "tool_result", "tool"]
     """Sender role."""
 
     content: str = ""

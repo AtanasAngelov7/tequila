@@ -38,6 +38,9 @@ _active: dict[str, set[str]] = {}
 # per-parent lock to make the count-check + register atomic (TD-58)
 _spawn_locks: dict[str, asyncio.Lock] = {}
 
+# TD-287: Max tracked parent sessions before evicting idle ones
+_MAX_TRACKED_PARENTS = 500
+
 
 def get_active_count(parent_id: str | None = None) -> int:
     """Return the number of active sub-agents, optionally filtered by parent (TD-126).
@@ -63,9 +66,12 @@ def _register(parent: str, sub_key: str) -> None:
 
 
 def _unregister(parent: str, sub_key: str) -> None:
-    bucket = _active.get(parent)
-    if bucket:
-        bucket.discard(sub_key)
+    if parent in _active:
+        _active[parent].discard(sub_key)
+        # TD-287: Clean up parent entry when no active sub-agents remain
+        if not _active[parent]:
+            del _active[parent]
+            _spawn_locks.pop(parent, None)
 
 
 def _get_spawn_lock(parent: str) -> asyncio.Lock:

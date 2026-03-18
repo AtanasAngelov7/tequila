@@ -217,6 +217,9 @@ async def run_parallel(
 
     async def _task(step: WorkflowStep) -> tuple[str, str | None, str | None]:
         """Return (step_id, result_or_None, error_or_None)."""
+        # TD-331: Check cancel_event before and during parallel steps
+        if cancel_event is not None and cancel_event.is_set():
+            return step.id, None, "cancelled"
         try:
             result = await _run_step_with_retry(step, "", parent_session_key)
             logger.info("Parallel step %r completed (%d chars)", step.id, len(result))
@@ -226,7 +229,35 @@ async def run_parallel(
             return step.id, None, str(exc)
 
     tasks = [asyncio.create_task(_task(s)) for s in workflow.steps]
-    outcomes: list[tuple[str, str | None, str | None]] = await asyncio.gather(*tasks)
+
+    # TD-331: Monitor cancel_event — cancel pending tasks when event fires
+    if cancel_event is not None:
+        async def _cancel_monitor() -> None:
+            """Wait for the cancel event, then cancel all outstanding tasks."""
+            await cancel_event.wait()
+            for t in tasks:
+                if not t.done():
+                    t.cancel()
+
+        monitor = asyncio.create_task(_cancel_monitor())
+    else:
+        monitor = None
+
+    try:
+        outcomes: list[tuple[str, str | None, str | None]] = await asyncio.gather(
+            *tasks, return_exceptions=False,
+        )
+    except asyncio.CancelledError:
+        # Tasks were cancelled by the monitor
+        logger.info("Parallel run %s cancelled during execution", run.id)
+        return await store.update_run_status(run.id, status="cancelled")
+    finally:
+        if monitor is not None and not monitor.done():
+            monitor.cancel()
+            try:
+                await monitor
+            except asyncio.CancelledError:
+                pass
 
     step_results: dict[str, str] = {}
     failed_steps: list[str] = []

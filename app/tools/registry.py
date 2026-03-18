@@ -174,6 +174,9 @@ def _build_json_schema(fn: Callable[..., Any]) -> dict[str, Any]:
     required: list[str] = []
 
     for name, param in sig.parameters.items():
+        # Skip 'self' and 'cls' for bound/class methods
+        if name in ("self", "cls"):
+            continue
         annotation = hints.get(name)
         if annotation is None:
             prop = {"type": "string"}
