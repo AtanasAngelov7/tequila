@@ -149,6 +149,9 @@ class MemoryLifecycleManager:
 
         ``score = max(floor, 0.5 ** (days_since_access / half_life_days))``
         """
+        # TD-337: Guard against zero half-life to prevent ZeroDivisionError
+        if half_life_days <= 0:
+            return 1.0  # no decay when half-life is undefined/zero
         _now = now or datetime.now(timezone.utc)
         # Ensure timezone-aware comparison
         if last_accessed.tzinfo is None:
@@ -195,6 +198,7 @@ class MemoryLifecycleManager:
             )
             if not memories:
                 break
+            batch_updates: list[tuple[str, float]] = []
             for mem in memories:
                 processed += 1
                 if cfg.always_recall_immune and mem.always_recall:
@@ -209,7 +213,7 @@ class MemoryLifecycleManager:
                 if abs(new_score - mem.decay_score) < 0.001:
                     skipped += 1
                     continue
-                await self._mem.update(mem.id, decay_score=new_score)
+                batch_updates.append((mem.id, new_score))
                 await self._audit_log(
                     event_type="decay_recalculated",
                     memory_id=mem.id,
@@ -217,7 +221,11 @@ class MemoryLifecycleManager:
                     reason=f"score changed from {mem.decay_score:.4f} to {new_score:.4f}",
                     metadata={"old_score": mem.decay_score, "new_score": new_score},
                 )
-                updated += 1
+
+            # TD-365: Apply all decay updates in one executemany per batch
+            if batch_updates:
+                n = await self._mem.update_decay_scores_bulk(batch_updates)
+                updated += n
             last_id = memories[-1].id
 
         logger.info(

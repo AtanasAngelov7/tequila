@@ -476,26 +476,29 @@ class GraphStore:
 
             for i in range(0, len(node_ids), batch_size):
                 batch = node_ids[i : i + batch_size]
-                # TD-295: Resolve content from actual source tables,
-                # not the non-existent graph_nodes table.
-                content_map: dict[str, str] = {}
-                _CONTENT_QUERIES: dict[str, str] = {
-                    "memory": "SELECT content FROM memory_extracts WHERE id = ?",
-                    "entity": "SELECT name || ': ' || COALESCE(summary, '') AS content FROM entities WHERE id = ?",
-                    "note": "SELECT content FROM notes WHERE id = ?",
+                # TD-349: Batch-fetch content for all nodes in one query (not N+1)
+                _BATCH_CONTENT_QUERIES: dict[str, str] = {
+                    "memory": "SELECT id, content FROM memory_extracts WHERE id IN ({ph})",
+                    "entity": "SELECT id, name || ': ' || COALESCE(summary, '') AS content FROM entities WHERE id IN ({ph})",
+                    "note": "SELECT id, content FROM vault_notes WHERE id IN ({ph})",
                 }
-                content_q = _CONTENT_QUERIES.get(source_type)
-                if content_q:
-                    for nid in batch:
+                content_q_tpl = _BATCH_CONTENT_QUERIES.get(source_type)
+                content_map: dict[str, str] = {}
+                if content_q_tpl:
+                    # Chunk to respect SQLite's variable limit
+                    for c_start in range(0, len(batch), 900):
+                        c_chunk = batch[c_start : c_start + 900]
+                        ph = ",".join("?" * len(c_chunk))
                         try:
-                            async with self._db.execute(content_q, (nid,)) as cur:
-                                row = await cur.fetchone()
-                                if row:
-                                    val = row[0] if isinstance(row, (tuple, list)) else row_to_dict(row).get("content", "")
-                                    if val:
-                                        content_map[nid] = val
+                            async with self._db.execute(content_q_tpl.format(ph=ph), c_chunk) as cur:
+                                for row in await cur.fetchall():
+                                    d = row_to_dict(row)
+                                    nid_r = d.get("id")
+                                    val = d.get("content", "")
+                                    if nid_r and val:
+                                        content_map[nid_r] = val
                         except Exception:
-                            pass  # skip nodes without content
+                            pass  # skip on any DB error
                 for nid in batch:
                     node_text = content_map.get(nid)
                     if not node_text:

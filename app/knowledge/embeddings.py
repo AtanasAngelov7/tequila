@@ -233,6 +233,8 @@ class SQLiteEmbeddingStore(EmbeddingStore):
         """Load vectors from DB into a dict keyed by source_type.
 
         Results are cached per filter key (TD-78).
+        TD-344: Rows are fetched in chunks rather than all at once to avoid
+        loading very large embedding tables entirely into Python memory.
         """
         import numpy as np  # type: ignore[import-untyped]
 
@@ -246,24 +248,28 @@ class SQLiteEmbeddingStore(EmbeddingStore):
 
         if source_types:
             placeholders = ",".join("?" * len(source_types))
-            async with self._db.execute(
-                f"SELECT source_type, source_id, vector FROM embeddings WHERE source_type IN ({placeholders})",
-                source_types,
-            ) as cur:
-                rows = await cur.fetchall()
+            query = (
+                f"SELECT source_type, source_id, vector FROM embeddings "
+                f"WHERE source_type IN ({placeholders})"
+            )
+            params: list[Any] = list(source_types)
         else:
-            async with self._db.execute(
-                "SELECT source_type, source_id, vector FROM embeddings"
-            ) as cur:
-                rows = await cur.fetchall()
+            query = "SELECT source_type, source_id, vector FROM embeddings"
+            params = []
 
+        _FETCH_CHUNK = 500  # rows per fetchmany call
         result: dict[str, list[tuple[str, Any]]] = {}
-        for row in rows:
-            d = row_to_dict(row)
-            stype = d["source_type"]
-            sid = d["source_id"]
-            vec = np.frombuffer(d["vector"], dtype=np.float32)
-            result.setdefault(stype, []).append((sid, vec))
+        async with self._db.execute(query, params) as cur:
+            while True:
+                rows = await cur.fetchmany(_FETCH_CHUNK)
+                if not rows:
+                    break
+                for row in rows:
+                    d = row_to_dict(row)
+                    stype = d["source_type"]
+                    sid = d["source_id"]
+                    vec = np.frombuffer(d["vector"], dtype=np.float32)
+                    result.setdefault(stype, []).append((sid, vec))
 
         if self._cache is None:
             self._cache = {}

@@ -14,7 +14,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, AsyncIterator, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +58,24 @@ class ToolDef(BaseModel):
 
     safety: Literal["read_only", "side_effect", "destructive", "critical"] = "side_effect"
     """Safety classification — used for policy checks and confirmation gates."""
+
+    @model_validator(mode="after")
+    def _warn_invalid_schema(self) -> "ToolDef":
+        """TD-370: Warn if parameters doesn't look like a valid JSON Schema object."""
+        params = self.parameters
+        if not isinstance(params, dict):
+            logger.warning(
+                "ToolDef %r: parameters is not a dict — tool calls will likely fail",
+                self.name,
+            )
+        elif params.get("type") != "object":
+            logger.debug(
+                "ToolDef %r: parameters.type is %r (expected 'object') — "
+                "some providers may reject this schema",
+                self.name,
+                params.get("type"),
+            )
+        return self
 
 
 class ToolResult(BaseModel):

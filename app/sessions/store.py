@@ -385,12 +385,15 @@ class SessionStore:
                 + " WHERE session_id = :session_id AND version = :expected_version"
             )
 
-            before = self._db.total_changes
+            # TD-351: Use SELECT changes() instead of total_changes, which counts
+            # all rows changed on the connection (including triggers).
             async with write_transaction(self._db):
                 await self._db.execute(sql, params)
-            after = self._db.total_changes
+                async with self._db.execute("SELECT changes()") as chg_cur:
+                    chg_row = await chg_cur.fetchone()
+                    affected = chg_row[0] if chg_row else 0
 
-            if after > before:
+            if affected > 0:
                 return await self.get_by_id(session_id)
 
             if attempt < MAX_OCC_RETRIES:

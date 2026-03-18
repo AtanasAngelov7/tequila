@@ -53,7 +53,7 @@ class WorkflowStepRequest(BaseModel):
     prompt_template: str
     """Prompt sent to the agent.  Use ``{context}`` for previous step output."""
 
-    timeout_s: int = 60
+    timeout_s: int = Field(default=60, ge=1, le=3600)
     """Timeout in seconds for this step."""
 
     retry: int = 0

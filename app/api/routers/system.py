@@ -299,11 +299,20 @@ async def system_status(
         pass
 
     # ── Plugin listing ────────────────────────────────────────────────────
-    plugin_list: list[str] = []
+    plugin_statuses: list[PluginStatus] = []
     try:
         from app.plugins.registry import get_plugin_registry
         preg = get_plugin_registry()
-        plugin_list = [p.name for p in preg.list_plugins()]
+        # TD-338: use list_records() (correct method name) and map to PluginStatus
+        plugin_statuses = [
+            PluginStatus(
+                plugin_id=rec.plugin_id,
+                status=rec.status,
+                healthy=rec.status not in ("error", "disabled"),
+                last_error=rec.error_message,
+            )
+            for rec in preg.list_records()
+        ]
     except Exception:
         pass
 
@@ -314,7 +323,7 @@ async def system_status(
         uptime_s=round(time.monotonic() - _startup_time, 2),
         started_at=_started_at.isoformat(),
         providers=provider_statuses,
-        plugins=plugin_list,
+        plugins=plugin_statuses,
         db_ok=db_ok,
         db_size_mb=db_size_mb,
         db_wal_size_mb=db_wal_size_mb,

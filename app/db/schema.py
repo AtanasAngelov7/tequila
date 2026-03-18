@@ -26,7 +26,14 @@ async def table_exists(db: aiosqlite.Connection, name: str) -> bool:
 
 
 async def column_exists(db: aiosqlite.Connection, table: str, column: str) -> bool:
-    """Return ``True`` if *column* exists in *table* (uses ``PRAGMA table_info``)."""
+    """Return ``True`` if *column* exists in *table* (uses ``PRAGMA table_info``).
+
+    TD-342: *table* is validated against a safe identifier pattern to prevent
+    SQL injection via the PRAGMA f-string interpolation.
+    """
+    import re
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", table):
+        raise ValueError(f"Invalid table name for column_exists: {table!r}")
     cursor = await db.execute(f"PRAGMA table_info({table})")
     rows = await cursor.fetchall()
     return any(row["name"] == column for row in rows)

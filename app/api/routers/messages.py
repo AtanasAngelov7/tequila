@@ -28,7 +28,8 @@ router = APIRouter(tags=["messages"])
 
 
 class CreateMessageRequest(BaseModel):
-    role: str = "user"
+    role: Literal["user", "system"] = "user"
+    """TD-356: Only allowed roles for externally created messages."""
     content: str
     trigger_turn: bool = True
     """If True and role=user, trigger the agent turn loop after inserting."""

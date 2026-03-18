@@ -62,6 +62,7 @@ def _make_lifecycle(memories: list, *, entity_ids_map: dict | None = None):
 
     mem_store.list = _list
     mem_store.update = AsyncMock()
+    mem_store.update_decay_scores_bulk = AsyncMock(return_value=1)  # TD-365
     mem_store.soft_delete = AsyncMock()
     mem_store.link_entity = AsyncMock()
     mem_store.unlink_entity = AsyncMock()
@@ -140,9 +141,11 @@ async def test_run_decay_updates_stale_memory():
 
     assert result["updated"] == 1
     assert result["processed"] == 1
-    mem_store.update.assert_called_once()
-    call_kwargs = mem_store.update.call_args
-    new_score = call_kwargs[1]["decay_score"] if call_kwargs[1] else call_kwargs[0][1]
+    # TD-365: lifecycle now batches updates via update_decay_scores_bulk
+    mem_store.update_decay_scores_bulk.assert_called_once()
+    scores_list = mem_store.update_decay_scores_bulk.call_args[0][0]
+    assert len(scores_list) == 1
+    _mem_id, new_score = scores_list[0]
     assert new_score < 1.0
 
 

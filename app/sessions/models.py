@@ -10,9 +10,12 @@ import json
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.sessions.policy import SessionPolicy
+
+# TD-375: Maximum allowed byte-size of JSON-serialised session metadata
+_MAX_METADATA_BYTES = 65_536  # 64 KiB
 
 
 # ── Session ───────────────────────────────────────────────────────────────────
@@ -56,6 +59,17 @@ class Session(BaseModel):
 
     # Extension
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    # TD-375: Guard against runaway metadata blobs
+    @model_validator(mode="after")
+    def _check_metadata_size(self) -> "Session":
+        raw = json.dumps(self.metadata, default=str)
+        if len(raw.encode()) > _MAX_METADATA_BYTES:
+            raise ValueError(
+                f"Session.metadata exceeds maximum size "
+                f"({len(raw.encode())} B > {_MAX_METADATA_BYTES} B)"
+            )
+        return self
 
     # ── Serialisation helpers ─────────────────────────────────────────────────
 

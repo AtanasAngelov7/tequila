@@ -39,7 +39,7 @@ class ProviderRegistry:
         self._providers: dict[str, LLMProvider] = {}
         self._caps_cache: dict[str, ModelCapabilities] = {}
         self._caps_cache_max = 200  # TD-284: Bound capability cache size
-        self._lock = asyncio.Lock()
+        # TD-363: removed dead self._lock (asyncio.Lock) — never acquired
 
     # ── Singleton helpers ─────────────────────────────────────────────────────
 
@@ -144,10 +144,18 @@ class ProviderRegistry:
                 )
                 return []
 
-        per_provider = await asyncio.gather(*[_fetch(p) for p in self.list_providers()])
+        per_provider = await asyncio.gather(  # TD-390
+            *[_fetch(p) for p in self.list_providers()],
+            return_exceptions=True,
+        )
         results: list[ModelInfo] = []
-        for models in per_provider:
-            results.extend(models)
+        for item in per_provider:
+            if isinstance(item, BaseException):
+                logger.warning(
+                    "ProviderRegistry: unexpected error in model listing: %s", item
+                )
+            else:
+                results.extend(item)
         return results
 
     async def health_check_all(self) -> dict[str, bool]:

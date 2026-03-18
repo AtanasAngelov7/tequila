@@ -221,11 +221,9 @@ async def test_compress_summarize_old_uses_provider():
     cb = CB07.for_model("gpt-4o")
 
     async def _fake_stream_completion(*_, **__):
-        async def _gen():
-            from app.providers.base import ProviderStreamEvent
-            yield ProviderStreamEvent(kind="text_delta", text="This is the summary")
-            yield ProviderStreamEvent(kind="done")
-        return _gen()
+        from app.providers.base import ProviderStreamEvent
+        yield ProviderStreamEvent(kind="text_delta", text="This is the summary")
+        yield ProviderStreamEvent(kind="done")
 
     provider = MagicMock()
     provider.stream_completion = _fake_stream_completion
@@ -242,10 +240,8 @@ async def test_compress_summarize_old_fallback_on_empty_summary():
     cb = CB07(model_id="", context_window=50_000, reserved_output=4_096)
 
     async def _empty_stream(*_, **__):
-        async def _gen():
-            from app.providers.base import ProviderStreamEvent
-            yield ProviderStreamEvent(kind="done")
-        return _gen()
+        from app.providers.base import ProviderStreamEvent
+        yield ProviderStreamEvent(kind="done")
 
     provider = MagicMock()
     provider.stream_completion = _empty_stream

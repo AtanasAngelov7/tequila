@@ -291,7 +291,8 @@ class RecallPipeline:
         if _estimate_tokens(memory_block) > cfg.max_per_turn_tokens:
             memory_block = memory_block[: cfg.max_per_turn_tokens * 4]
 
-        # Store recalled IDs for prefetch_background to touch
+        # TD-348: Store recalled IDs; captured synchronously by turn_loop immediately
+        # after return (before any await) to avoid concurrent-task overwrite.
         self._last_recalled_ids = [c["id"] for c in candidates if "id" in c]
 
         # 2f — KB federation
@@ -369,10 +370,14 @@ class RecallPipeline:
         user_message: str,
         session_id: str,
         agent_id: str | None = None,
+        recalled_ids: list[str] | None = None,
     ) -> None:
         """Stage 3: background async tasks (entity graph traversal, access updates).
 
-        Must be called as ``asyncio.create_task(pipeline.prefetch_background(...))``.
+        Must be called as ``asyncio.create_task(pipeline.prefetch_background(...))``.  
+        TD-348: Pass *recalled_ids* explicitly from the caller (captured just after
+        ``recall_for_turn`` returns, before any await) to avoid concurrent-task
+        overwrite of ``self._last_recalled_ids``.
         """
         if not self._config.prefetch_enabled:
             return
@@ -385,9 +390,11 @@ class RecallPipeline:
                 "Stage 3 prefetch running for session %s", session_id
             )
 
-            # Touch memories that were actually recalled this turn
-            recalled_ids = getattr(self, "_last_recalled_ids", None) or []
-            for mem_id in recalled_ids:
+            # Use explicitly-passed IDs; fall back to instance attr for compat
+            ids_to_touch = recalled_ids if recalled_ids is not None else (
+                getattr(self, "_last_recalled_ids", None) or []
+            )
+            for mem_id in ids_to_touch:
                 try:
                     await mem_store.touch(mem_id)
                 except Exception:

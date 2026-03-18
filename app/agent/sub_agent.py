@@ -62,6 +62,15 @@ def active_sub_agent_count(parent_session_key: str) -> int:
 
 
 def _register(parent: str, sub_key: str) -> None:
+    # TD-354: Enforce _MAX_TRACKED_PARENTS to prevent unbounded dict growth
+    if parent not in _active and len(_active) >= _MAX_TRACKED_PARENTS:
+        # Evict idle parent entries (those with no active sub-agents)
+        for k in list(_active):
+            if not _active.get(k):
+                del _active[k]
+                _spawn_locks.pop(k, None)
+                if len(_active) < _MAX_TRACKED_PARENTS:
+                    break
     _active.setdefault(parent, set()).add(sub_key)
 
 

@@ -28,6 +28,9 @@ def _now_iso() -> str:
 # ── MemoryStore ───────────────────────────────────────────────────────────────
 
 
+_SQLITE_MAX_VARS = 900  # conservative limit (SQLite default is 999)
+
+
 class MemoryStore:
     """CRUD access to the ``memory_extracts`` table (§5.3)."""
 
@@ -124,21 +127,49 @@ class MemoryStore:
 
         Returns a dict mapping *memory_id → MemoryExtract* for all found IDs.
         Missing IDs are silently omitted.
+        TD-347: Queries are chunked to stay under SQLite's variable limit.
         """
         if not memory_ids:
             return {}
-        placeholders = ",".join("?" * len(memory_ids))
-        async with self._db.execute(
-            f"SELECT * FROM memory_extracts WHERE id IN ({placeholders})",
-            memory_ids,
-        ) as cur:
-            rows = await cur.fetchall()
         result: dict[str, MemoryExtract] = {}
-        for row in rows:
-            d = row_to_dict(row)
-            mem = MemoryExtract.from_row(d)
-            result[mem.id] = mem
+        for offset in range(0, len(memory_ids), _SQLITE_MAX_VARS):
+            chunk = memory_ids[offset : offset + _SQLITE_MAX_VARS]
+            placeholders = ",".join("?" * len(chunk))
+            async with self._db.execute(
+                f"SELECT * FROM memory_extracts WHERE id IN ({placeholders})",
+                chunk,
+            ) as cur:
+                rows = await cur.fetchall()
+            for row in rows:
+                d = row_to_dict(row)
+                mem = MemoryExtract.from_row(d)
+                result[mem.id] = mem
         return result
+
+    async def update_decay_scores_bulk(
+        self,
+        scores: list[tuple[str, float]],
+    ) -> int:
+        """Batch-update ``decay_score`` for multiple memories (TD-365).
+
+        Parameters
+        ----------
+        scores:
+            List of *(memory_id, new_decay_score)* pairs.
+
+        Returns the number of rows updated.
+        """
+        if not scores:
+            return 0
+        now = _now_iso()
+        async with write_transaction(self._db):
+            await self._db.executemany(
+                "UPDATE memory_extracts SET decay_score = ?, updated_at = ? WHERE id = ?",
+                [(s, now, mid) for mid, s in scores],
+            )
+            async with self._db.execute("SELECT changes()") as cur:
+                row = await cur.fetchone()
+        return row[0] if row else 0
 
     async def touch(self, memory_id: str) -> None:
         """Bump ``last_accessed`` and ``access_count`` for *memory_id* (TD-62).
@@ -312,6 +343,8 @@ class MemoryStore:
 
     async def link_entity(self, memory_id: str, entity_id: str) -> None:
         """Create a ``memory_entity_links`` row if it doesn't already exist."""
+        # TD-350: Run INSERT and JSON sync in the same transaction (SAVEPOINT for
+        # nested write_transaction handled by TD-340 fix).
         async with write_transaction(self._db):
             await self._db.execute(
                 """
@@ -320,18 +353,19 @@ class MemoryStore:
                 """,
                 (memory_id, entity_id),
             )
-        # TD-112: rebuild JSON column from link table (single source of truth)
-        await self._sync_entity_ids_json(memory_id)
+            # TD-112: rebuild JSON column from link table (single source of truth)
+            await self._sync_entity_ids_json(memory_id)
 
     async def unlink_entity(self, memory_id: str, entity_id: str) -> None:
         """Remove the ``memory_entity_links`` row and update the entity_ids JSON column."""
+        # TD-350: Run DELETE and JSON sync in the same transaction
         async with write_transaction(self._db):
             await self._db.execute(
                 "DELETE FROM memory_entity_links WHERE memory_id = ? AND entity_id = ?",
                 (memory_id, entity_id),
             )
-        # TD-112: rebuild JSON column from link table (single source of truth)
-        await self._sync_entity_ids_json(memory_id)
+            # TD-112: rebuild JSON column from link table (single source of truth)
+            await self._sync_entity_ids_json(memory_id)
 
 
 # ── Module-level singleton ────────────────────────────────────────────────────

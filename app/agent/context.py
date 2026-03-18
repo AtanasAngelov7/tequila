@@ -383,7 +383,8 @@ class ContextBudget:
 
         try:
             summary_text_parts: list[str] = []
-            stream = await provider.stream_completion(
+            # TD-366: stream_completion is an async generator — do NOT await it.
+            stream = provider.stream_completion(
                 messages=summary_prompt,
                 model=model,
             )

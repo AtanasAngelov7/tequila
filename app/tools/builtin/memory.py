@@ -576,6 +576,10 @@ async def entity_merge(
     reason: str | None = None,
 ) -> str:
     """Merge two entities."""
+    # TD-378: Guard against self-merge which would corrupt the entity record
+    if source_entity_id == target_entity_id:
+        return f"Cannot merge entity {source_entity_id!r} with itself."
+
     try:
         from app.memory.entity_store import get_entity_store
         store = get_entity_store()

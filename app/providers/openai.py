@@ -135,7 +135,26 @@ class OpenAIProvider(LLMProvider):
         import os
 
         resolved_key = api_key or os.environ.get("OPENAI_API_KEY") or None
-        self._client = openai.AsyncOpenAI(api_key=resolved_key, base_url=base_url)
+        # TD-361: Warn early so the error surfaces at startup, not mid-request
+        if not resolved_key:
+            logger.warning(
+                "OpenAIProvider: no API key found. "
+                "Set OPENAI_API_KEY or pass api_key= to the constructor."
+            )
+        # TD-368: Set explicit timeout; openai SDK default is 600s which is too long
+        # for interactive streaming. 60s connect, 300s read allows long generations.
+        self._client = openai.AsyncOpenAI(
+            api_key=resolved_key,
+            base_url=base_url,
+            timeout=300.0,
+        )
+
+    async def close(self) -> None:
+        """TD-362: Close the underlying httpx client to release connection pools."""
+        try:
+            await self._client.close()
+        except Exception:
+            pass
 
     async def stream_completion(
         self,
@@ -194,12 +213,20 @@ class OpenAIProvider(LLMProvider):
                             if idx not in tool_call_buf:
                                 tc_id = tc_delta.id or str(uuid.uuid4())
                                 tc_name = tc_delta.function.name if tc_delta.function else ""
-                                tool_call_buf[idx] = {"id": tc_id, "name": tc_name, "args_raw": ""}
+                                # TD-345: capture first chunk's arguments (previously discarded)
+                                first_args = (tc_delta.function.arguments or "") if tc_delta.function else ""
+                                tool_call_buf[idx] = {"id": tc_id, "name": tc_name, "args_raw": first_args}
                                 yield ProviderStreamEvent(
                                     kind="tool_call_start",
                                     tool_call_id=tc_id,
                                     tool_name=tc_name,
                                 )
+                                if first_args:
+                                    yield ProviderStreamEvent(
+                                        kind="tool_call_delta",
+                                        tool_call_id=tc_id,
+                                        tool_args_delta=first_args,
+                                    )
                             else:
                                 if tc_delta.function and tc_delta.function.arguments:
                                     tool_call_buf[idx]["args_raw"] += tc_delta.function.arguments

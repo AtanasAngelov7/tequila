@@ -81,16 +81,29 @@ class TurnLoop:
         self._max_session_locks = 1000
 
     def _get_session_lock(self, session_key: str) -> asyncio.Lock:
-        """Return the lock for *session_key*, evicting oldest if at capacity."""
+        """Return the lock for *session_key*, evicting oldest if at capacity.
+
+        TD-343: Only unlocked entries are evicted to avoid discarding a lock
+        that is currently held by another coroutine (which would allow two
+        concurrent turns on the same session).
+        """
         if session_key in self._session_locks:
             # Move to end (most recently used)
             lock = self._session_locks.pop(session_key)
             self._session_locks[session_key] = lock
             return lock
         if len(self._session_locks) >= self._max_session_locks:
-            # Evict oldest entry
-            oldest = next(iter(self._session_locks))
-            del self._session_locks[oldest]
+            # Evict oldest *unlocked* entry to avoid racing with held locks
+            for key in list(self._session_locks):
+                if not self._session_locks[key].locked():
+                    del self._session_locks[key]
+                    break
+            else:
+                # All locks are held — log and continue without eviction
+                logger.warning(
+                    "TurnLoop: session lock table at capacity (%d), all held",
+                    self._max_session_locks,
+                )
         lock = asyncio.Lock()
         self._session_locks[session_key] = lock
         return lock
@@ -460,12 +473,16 @@ class TurnLoop:
                 always_recall_content=ctx.memory_always,
                 always_memories=_always_memories,
             )
+            # TD-348: Capture recalled IDs synchronously (no await between here and
+            # create_task) so concurrent sessions cannot overwrite the instance attr.
+            _prefetch_ids = list(getattr(recall, "_last_recalled_ids", None) or [])
             # TD-218: Track fire-and-forget tasks with exception logging
             task = asyncio.create_task(
                 recall.prefetch_background(
                     user_message=current_content,
                     session_id=session_id,
                     agent_id=agent_id_str,
+                    recalled_ids=_prefetch_ids,
                 )
             )
             task.add_done_callback(lambda t: t.exception() and logger.warning("Recall prefetch error: %s", t.exception()))
@@ -499,7 +516,8 @@ class TurnLoop:
         in_tokens = 0
         out_tokens = 0
 
-        stream = await provider.stream_completion(
+        # TD-366: stream_completion is an async generator — do NOT await it.
+        stream = provider.stream_completion(
             messages=messages,
             model=model,
             tools=tool_defs or [],

@@ -205,14 +205,19 @@ class CircuitBreaker:
         async def _guarded_stream() -> AsyncIterator[Any]:
             attempt = 0
             while True:
+                started = False
                 try:
                     async for item in fn():
+                        started = True  # at least one event yielded
                         yield item
                     await self.record_success()
                     return  # stream consumed successfully
                 except Exception as exc:
                     await self.record_failure()
-                    if attempt >= self.retry_policy.max_retries:
+                    # TD-341: Never retry after streaming has started — events
+                    # already yielded to the caller cannot be replayed, so
+                    # a retry would send duplicate events.
+                    if started or attempt >= self.retry_policy.max_retries:
                         raise
                     delay = self.retry_policy.delay_for(attempt)
                     logger.warning(

@@ -125,6 +125,7 @@ class BudgetTracker:
     def __init__(self, db: aiosqlite.Connection) -> None:
         self._db = db
         self._notifier: Any = None  # set by wire_notifier()
+        self._last_alert_times: dict[str, float] = {}  # TD-386: init here not lazily
 
     def wire_notifier(self, notifier: Any) -> None:
         """Inject notification dispatcher (called after both are initialised)."""
@@ -342,15 +343,17 @@ class BudgetTracker:
     async def _maybe_alert(
         self, current: float, cap: BudgetCap, period_label: str
     ) -> None:
-        ratio = current / cap.limit_usd if cap.limit_usd > 0 else 0.0
+        # TD-357: treat $0 cap as immediately exceeded when any spending occurs
+        if cap.limit_usd <= 0:
+            ratio = 1.0 if current > 0 else 0.0
+        else:
+            ratio = current / cap.limit_usd
         if ratio < 0.8:
             return
 
         # Throttle: at most one alert per period_label per 60 seconds
         import time as _time
         now_mono = _time.monotonic()
-        if not hasattr(self, "_last_alert_times"):
-            self._last_alert_times: dict[str, float] = {}
         last = self._last_alert_times.get(period_label, 0.0)
         if now_mono - last < 60.0:
             return

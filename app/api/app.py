@@ -359,6 +359,13 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except RuntimeError:
         pass
 
+    # TD-385: Stop knowledge source registry.
+    try:
+        from app.knowledge.sources.registry import get_knowledge_source_registry as _get_ksr
+        await _get_ksr().stop()
+    except Exception:  # noqa: BLE001
+        pass
+
     # TD-282: Close Ollama httpx client if registered.
     try:
         from app.providers.registry import ProviderRegistry

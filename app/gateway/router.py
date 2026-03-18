@@ -133,18 +133,23 @@ class GatewayRouter:
             },
         )
 
-        for handler in all_handlers:
-            try:
-                await handler(event)
-            except Exception:
-                logger.exception(
-                    "Handler raised an exception during event dispatch",
-                    extra={
-                        "handler": handler.__qualname__,
-                        "event_type": event.event_type,
-                        "event_id": event.event_id,
-                    },
-                )
+        # TD-358: Dispatch handlers concurrently so a slow handler does not
+        # block subsequent ones.  Exceptions are logged individually.
+        if all_handlers:
+            results = await asyncio.gather(
+                *[handler(event) for handler in all_handlers],
+                return_exceptions=True,
+            )
+            for handler, result in zip(all_handlers, results):
+                if isinstance(result, Exception):
+                    logger.exception(
+                        "Handler raised an exception during event dispatch",
+                        extra={
+                            "handler": handler.__qualname__,
+                            "event_type": event.event_type,
+                            "event_id": event.event_id,
+                        },
+                    )
 
         return seq
 

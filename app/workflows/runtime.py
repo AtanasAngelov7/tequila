@@ -81,23 +81,28 @@ async def _run_step(
 
     sem = _get_semaphore()
     async with sem:
-        sub_key = await spawn_sub_agent(
-            agent_id=step.agent_id,
-            initial_message=prompt,
-            policy_preset="worker",
-            parent_session_key=parent_session_key,
-            auto_archive_minutes=5,  # quick cleanup for workflow steps
-        )
-
         _router = get_router()
         done = asyncio.Event()
+        _sub_key_holder: list[str] = []
 
         async def _on_complete(evt: GatewayEvent) -> None:
-            if evt.session_key == sub_key:
+            # _sub_key_holder is populated synchronously (no await) right
+            # after spawn_sub_agent returns, so this check is race-free.
+            if _sub_key_holder and evt.session_key == _sub_key_holder[0]:
                 done.set()
 
+        # TD-346: Register handler BEFORE spawning to avoid missing a fast
+        # completion event that fires before on() is called.
         _router.on(ET.AGENT_RUN_COMPLETE, _on_complete)
         try:
+            sub_key = await spawn_sub_agent(
+                agent_id=step.agent_id,
+                initial_message=prompt,
+                policy_preset="worker",
+                parent_session_key=parent_session_key,
+                auto_archive_minutes=5,  # quick cleanup for workflow steps
+            )
+            _sub_key_holder.append(sub_key)
             await asyncio.wait_for(done.wait(), timeout=float(step.timeout_s))
         except asyncio.TimeoutError:
             raise RuntimeError(

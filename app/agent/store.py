@@ -25,6 +25,13 @@ logger = logging.getLogger(__name__)
 MAX_OCC_RETRIES = 3
 
 
+# TD-364: Allow-list for extra columns accepted by AgentStore.create()
+_ALLOWED_EXTRA_COLUMNS: frozenset[str] = frozenset({
+    "tools", "skills", "default_policy", "memory_scope",
+    "escalation", "fallback_provider_id",
+})
+
+
 class AgentStore:
     """Database operations for the ``agents`` table."""
 
@@ -73,7 +80,11 @@ class AgentStore:
             "updated_at": now,
         }
         if extra:
-            row.update(extra)
+            filtered = {k: v for k, v in extra.items() if k in _ALLOWED_EXTRA_COLUMNS}
+            if len(filtered) < len(extra):
+                unknown = set(extra) - _ALLOWED_EXTRA_COLUMNS
+                logger.warning("AgentStore.create: ignoring unknown extra keys: %s", unknown)
+            row.update(filtered)
 
         async with write_transaction(self._db):
             await self._db.execute(

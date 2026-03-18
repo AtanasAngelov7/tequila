@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -66,6 +67,9 @@ class _ReentrantAsyncLock:
 
 
 _write_locks: dict[Path, _ReentrantAsyncLock] = {}
+
+# TD-340: Track current write-transaction nesting depth per asyncio Task
+_write_depth: contextvars.ContextVar[int] = contextvars.ContextVar("_write_depth", default=0)
 
 
 def _get_write_lock(path: Path) -> _ReentrantAsyncLock:
@@ -163,23 +167,48 @@ async def write_transaction(
     Acquires the write lock for *path* (or ``_app_db_path`` if ``None``),
     issues ``BEGIN IMMEDIATE``, commits on success, rolls back on any exception.
 
+    TD-340: Nested calls (same Task) use ``SAVEPOINT`` instead of
+    ``BEGIN IMMEDIATE`` to avoid ``OperationalError: cannot start a
+    transaction within a transaction``.
+
     Usage::
 
         async with write_transaction(db):
             await db.execute("INSERT INTO ...", (...))
     """
+    depth = _write_depth.get()
+    if depth > 0:
+        # Already inside a write transaction — use SAVEPOINT for nesting
+        sp = f"sp_{depth}"
+        await conn.execute(f"SAVEPOINT {sp}")
+        token = _write_depth.set(depth + 1)
+        try:
+            yield conn
+            await conn.execute(f"RELEASE SAVEPOINT {sp}")
+        except BaseException:
+            await conn.execute(f"ROLLBACK TO SAVEPOINT {sp}")
+            await conn.execute(f"RELEASE SAVEPOINT {sp}")
+            raise
+        finally:
+            _write_depth.reset(token)
+        return
+
     effective_path = path or _app_db_path
     if effective_path is None:
         raise RuntimeError("No database path available; did startup() run?")
     lock = _get_write_lock(effective_path)
-    async with lock:
-        await conn.execute("BEGIN IMMEDIATE")
-        try:
-            yield conn
-            await conn.commit()
-        except BaseException:
-            await conn.rollback()
-            raise
+    token = _write_depth.set(1)
+    try:
+        async with lock:
+            await conn.execute("BEGIN IMMEDIATE")
+            try:
+                yield conn
+                await conn.commit()
+            except BaseException:
+                await conn.rollback()
+                raise
+    finally:
+        _write_depth.reset(token)
 
 
 # ── Lifecycle ─────────────────────────────────────────────────────────────────

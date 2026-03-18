@@ -160,6 +160,12 @@ class AnthropicProvider(LLMProvider):
         import os
 
         resolved_key = api_key or os.environ.get("ANTHROPIC_API_KEY") or None
+        # TD-361: Warn early so the error surfaces at startup, not mid-request
+        if not resolved_key:
+            logger.warning(
+                "AnthropicProvider: no API key found. "
+                "Set ANTHROPIC_API_KEY or pass api_key= to the constructor."
+            )
         self._client = anthropic.AsyncAnthropic(api_key=resolved_key)
 
     async def stream_completion(
@@ -190,8 +196,10 @@ class AnthropicProvider(LLMProvider):
             kwargs["tools"] = api_tools
 
         # TD-273/274: Send extended thinking params if model supports it
+        # TD-339: budget_tokens must be strictly less than max_tokens (Anthropic API constraint)
         if caps.supports_thinking:
-            kwargs["thinking"] = {"type": "enabled", "budget_tokens": min(_max_tokens, 10_000)}
+            budget = max(1, min(_max_tokens - 1, 10_000))
+            kwargs["thinking"] = {"type": "enabled", "budget_tokens": budget}
 
         # Track active tool calls during stream
         active_tool: dict[str, Any] | None = None
@@ -218,6 +226,12 @@ class AnthropicProvider(LLMProvider):
                             )
                         elif block.type == "thinking":
                             pass  # thinking deltas will follow
+                        else:
+                            # TD-367: Log unknown block types instead of silently dropping
+                            logger.debug(
+                                "AnthropicProvider: unknown content block type %r — skipping",
+                                block.type,
+                            )
 
                     elif event_type == "RawContentBlockDeltaEvent":
                         delta = event.delta

@@ -28,6 +28,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+
+_MAX_WS_PAYLOAD_BYTES = 1_048_576  # 1 MiB — TD-381
 from typing import Any
 
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
@@ -294,6 +296,11 @@ async def websocket_endpoint(
     try:
         while True:
             raw = await ws.receive_text()
+            if len(raw) > _MAX_WS_PAYLOAD_BYTES:  # TD-381
+                await send_json(
+                    {"id": "?", "ok": False, "payload": {}, "error": "Payload too large"}
+                )
+                continue
             try:
                 frame = json.loads(raw)
             except json.JSONDecodeError:

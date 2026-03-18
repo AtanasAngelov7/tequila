@@ -122,8 +122,10 @@ def _load_plugin_class(
         spec.loader.exec_module(module)  # type: ignore[union-attr]
     except Exception as exc:  # noqa: BLE001
         logger.exception("Failed to load custom plugin %r: %s", pkg_name, exc)
-        # Clean up partial module entry to avoid poisoning future imports
-        sys.modules.pop(module_name, None)
+        # Clean up partial module entry and all sub-modules to avoid
+        # poisoning future imports (TD-388).
+        for _key in [k for k in sys.modules if k == module_name or k.startswith(module_name + ".")]:
+            sys.modules.pop(_key, None)
         return None
     finally:
         # TD-171: Restore sys.path to prevent permanent mutation

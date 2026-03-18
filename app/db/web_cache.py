@@ -161,7 +161,7 @@ class WebCache:
                 """
                 DELETE FROM web_cache
                 WHERE (julianday('now') - julianday(
-                    REPLACE(REPLACE(fetched_at, 'T', ' '), '+00:00', '')
+                    REPLACE(REPLACE(REPLACE(fetched_at, 'T', ' '), '+00:00', ''), 'Z', '')
                 )) * 86400.0 > COALESCE(ttl_s, ?)
                 """,
                 (self._default_ttl_s,),

@@ -226,9 +226,19 @@ async def assemble_prompt(ctx: AssemblyContext) -> list[Message]:
             if used + row_tokens > history_budget:
                 if len(selected) < budget.min_recent_messages:
                     # TD-223: Must include at least min_recent_messages
-                    selected.append(row)
-                    used += row_tokens
-                    continue  # keep going until min_recent_messages met
+                    # TD-353: But cap forced inclusion at 150% of history budget
+                    # to prevent a single huge message from blowing the context.
+                    max_forced = int(history_budget * 1.5) if history_budget > 0 else row_tokens
+                    if used + row_tokens <= max_forced:
+                        selected.append(row)
+                        used += row_tokens
+                        continue  # keep going until min_recent_messages met
+                    else:
+                        logger.warning(
+                            "min_recent_messages (%d) not fully met: message (%d tok) "
+                            "would exceed forced-inclusion cap (%d tok)",
+                            budget.min_recent_messages, row_tokens, max_forced,
+                        )
                 break
             selected.append(row)
             used += row_tokens

@@ -102,13 +102,16 @@ class SessionPolicy(BaseModel):
 
         TD-320: Paths are normalised via ``os.path.normpath`` to prevent
         ``../`` traversal bypasses.
+        TD-352: Compare with trailing separator so ``/tmp/safe`` does not
+        match ``/tmp/safety-bypass``.
         """
         import os
         if self.allowed_paths == ["*"]:
             return True
         norm = os.path.normpath(path)
         return any(
-            norm.startswith(os.path.normpath(allowed))
+            norm == os.path.normpath(allowed)
+            or norm.startswith(os.path.normpath(allowed) + os.sep)
             for allowed in self.allowed_paths
         )
 

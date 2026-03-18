@@ -171,7 +171,11 @@ class MockProvider(LLMProvider):
                 )
             yield ProviderStreamEvent(kind="done")
 
-        return _generate()
+        # TD-366: yield directly so stream_completion is an async generator —
+        # consistent with AnthropicProvider / OpenAIProvider (which yield events
+        # in the body).  Callers must iterate directly, NOT await first.
+        async for event in _generate():
+            yield event
 
     async def count_tokens(self, messages: list[Message], model: str) -> int:
         return self._count_messages(messages)

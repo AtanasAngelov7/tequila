@@ -28,11 +28,14 @@ from app.agent.models import DEFAULT_SYSTEM_PROMPT, SoulConfig
 logger = logging.getLogger(__name__)
 
 
-def _make_env(strict: bool = False) -> Environment:
-    """Return a Jinja2 ``Environment``.
+def _make_env(strict: bool = False) -> SandboxedEnvironment:
+    """Return a Jinja2 ``SandboxedEnvironment``.
 
     In ``strict=True`` mode (used by tests) missing variables raise
     ``UndefinedError``.  In normal mode missing variables become empty strings.
+
+    TD-360: return type changed to ``SandboxedEnvironment`` (which is imported)
+    instead of bare ``Environment`` (which was not imported).
     """
     return SandboxedEnvironment(
         undefined=StrictUndefined if strict else _SilentUndefined,
