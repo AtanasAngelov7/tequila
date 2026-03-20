@@ -171,20 +171,7 @@ export default function SoulEditorPage() {
     }
   };
 
-  /* ---------- save manually ---------- */
-  const saveCurrent = async () => {
-    if (!selectedAgent) { setError('Select an agent first.'); return; }
-    try {
-      // Preview ensures soul is applied to agent config on backend; save via generate endpoint w/o description
-      await api.post(`/agents/${selectedAgent}/soul/generate`, { description: '(manual save)', save: true });
-      // Better: use preview route to just validate, then save current soul fields to agent via existing PATCH /agents/{id}
-      // For now, wrap soul fields into PATCH
-      await api.patch(`/agents/${selectedAgent}`, { soul: soul });
-      await loadHistory(selectedAgent);
-    } catch (err: unknown) {
-      setError((err as { message?: string })?.message ?? 'Save failed');
-    }
-  };
+
 
   /* ----------------------------------------------------------------------- */
   return (

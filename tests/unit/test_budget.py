@@ -22,7 +22,7 @@ def _make_turn_cost(**kwargs) -> TurnCost:
         "session_id": "sess-test-001",
         "agent_id": "main",
         "provider_id": "anthropic",
-        "model": "claude-sonnet-4-5",
+        "model": "claude-sonnet-4-6",
         "input_tokens": 100,
         "output_tokens": 50,
         "cost_usd": 0.001,
@@ -58,7 +58,7 @@ async def test_seed_default_pricing_idempotent(migrated_db):
 async def test_calculate_cost_known_model(migrated_db):
     tracker = init_budget_tracker(migrated_db)
     await tracker.seed_default_pricing()
-    cost = await tracker._calculate_cost("anthropic", "claude-sonnet-4-5", 1000, 500)
+    cost = await tracker._calculate_cost("anthropic", "claude-sonnet-4-6", 1000, 500)
     assert cost > 0
 
 
@@ -175,7 +175,7 @@ async def test_get_summary_with_data(migrated_db):
         session_id="sess-sum",
         agent_id="main",
         provider_id="anthropic",
-        model="claude-sonnet-4-5",
+        model="claude-sonnet-4-6",
         input_tokens=200,
         output_tokens=100,
         cost_usd=0.005,

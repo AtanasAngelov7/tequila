@@ -104,9 +104,16 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         _enc_key = config_store.get("auth.encryption_key", None)
     if not _enc_key:
         _enc_key = generate_key()
+        # Persist auto-generated key so it survives restarts and
+        # previously encrypted credentials remain decryptable.
+        try:
+            await config_store.set("auth.encryption_key", _enc_key)
+            logger.info("Auto-generated encryption key persisted to ConfigStore.")
+        except Exception as _ek_exc:
+            logger.warning("Could not persist encryption key: %s", _ek_exc)
         logger.warning(
-            "No TEQUILA_SECRET_KEY env var set. Generated ephemeral key. "
-            "Set TEQUILA_SECRET_KEY for persistent credential encryption."
+            "No TEQUILA_SECRET_KEY env var set. Generated and stored a key. "
+            "Set TEQUILA_SECRET_KEY for env-based credential encryption."
         )
     init_encryption(_enc_key)
     logger.info("Credential encryption ready.")
@@ -128,14 +135,20 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     init_agent_store(db_conn.get_app_db())
     logger.info("AgentStore ready.")
 
-    # 8c. Register LLM providers in ProviderRegistry (Sprint 04).
+    # 8c. Register LLM providers in ProviderRegistry (Sprint 04, updated Sprint 17).
     from app.providers.registry import get_registry
     from app.providers.anthropic import AnthropicProvider
     from app.providers.openai import OpenAIProvider
     from app.providers.ollama import OllamaProvider
+    from app.providers.gemini import GeminiProvider
+    from app.providers.openai_web import OpenAIWebProvider
+    from app.providers.anthropic_web import AnthropicWebProvider
+    from app.providers.gemini_web import GeminiWebProvider
 
     registry = get_registry()
-    for _provider_cls in (AnthropicProvider, OpenAIProvider, OllamaProvider):
+
+    # API-key providers — always register; warn if no key is configured
+    for _provider_cls in (AnthropicProvider, OpenAIProvider, OllamaProvider, GeminiProvider):
         try:
             registry.register(_provider_cls())
         except Exception as _exc:
@@ -144,8 +157,56 @@ async def _lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 getattr(_provider_cls, "provider_id", _provider_cls.__name__),
                 _exc,
             )
+
+    # 8c1. Re-register API-key providers using keys stored in plugin_credentials
+    #      (persisted by the setup wizard or the auth settings page).  This covers
+    #      the case where the app is restarted after setup — env vars are absent but
+    #      the encrypted key is in the DB.
+    from app.auth.providers import get_provider_key as _get_provider_key
+    _cred_db = db_conn.get_app_db()
+    for _pid, _pcls in (
+        ("anthropic", AnthropicProvider),
+        ("openai", OpenAIProvider),
+        ("gemini", GeminiProvider),
+    ):
+        try:
+            _stored_key = await _get_provider_key(_cred_db, _pid)
+            if _stored_key:
+                registry.register(_pcls(api_key=_stored_key))
+                logger.info("Provider '%s' reconfigured from stored credentials.", _pid)
+        except Exception as _exc:
+            logger.warning("Could not reconfigure provider '%s' from credentials: %s", _pid, _exc)
+
+    # Web-session providers — register if OAuth tokens OR a legacy session token is stored.
+    from app.auth.providers import get_oauth_tokens as _get_oauth_tokens
+    from app.auth.providers import get_session_token as _get_session_token
+    _auth_db = db_conn.get_app_db()
+    for _web_cls, _web_id in (
+        (OpenAIWebProvider, "openai_web"),
+        (AnthropicWebProvider, "anthropic_web"),
+        (GeminiWebProvider, "gemini_web"),
+    ):
+        try:
+            _has_oauth = await _get_oauth_tokens(_auth_db, _web_id) is not None
+            _token = None if _has_oauth else await _get_session_token(_auth_db, _web_id)
+            if _has_oauth or _token:
+                # OAuth providers don't need the token at construction time.
+                registry.register(_web_cls(session_token=_token))
+            else:
+                logger.info("Web provider '%s' not configured — skipping.", _web_id)
+        except Exception as _exc:
+            logger.warning("Skipping web provider '%s': %s", _web_id, _exc)
+
     provider_health = await registry.health_check_all()
     logger.info("ProviderRegistry ready", extra={"providers": provider_health})
+
+    # 8c2. Initialise live pricing cache (Sprint 17).
+    import asyncio as _asyncio
+    from app.providers.pricing import _load_cache as _load_pricing, get_cache_age, refresh_pricing_cache, _CACHE_TTL
+    _load_pricing()
+    _age = get_cache_age()
+    if _age is None or _age > _CACHE_TTL:
+        _asyncio.create_task(refresh_pricing_cache())
 
     # 8d. Initialise TurnLoop and register on gateway (Sprint 05).
     from app.gateway.router import get_router
@@ -518,6 +579,7 @@ def create_app() -> FastAPI:
     from app.api import ws
     from app.workflows import api as workflows_api
     from app.auth import api as auth_api
+    from app.auth import session_api as auth_session_api
     from app.plugins import api as plugins_api
     from app.scheduler import api as scheduler_api
     from app.api.routers import web_policy
@@ -537,6 +599,7 @@ def create_app() -> FastAPI:
     app.include_router(knowledge_sources.router)
     app.include_router(graph.router)
     app.include_router(auth_api.router)
+    app.include_router(auth_session_api.router)
     app.include_router(plugins_api.router)
     app.include_router(scheduler_api.router)
     app.include_router(web_policy.router)

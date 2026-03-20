@@ -28,10 +28,57 @@ logger = logging.getLogger(__name__)
 # ── Per-model capability registry ─────────────────────────────────────────────
 
 _ANTHROPIC_MODELS: dict[str, ModelCapabilities] = {
+    "claude-opus-4-6": ModelCapabilities(
+        model_id="claude-opus-4-6",
+        provider_id="anthropic",
+        display_name="Claude Opus 4.6 (most intelligent)",
+        context_window=1_000_000,
+        max_output_tokens=128_000,
+        supports_tools=True,
+        supports_vision=True,
+        supports_structured_output=True,
+        supports_streaming=True,
+        supports_thinking=True,
+        input_cost_per_1k=0.005,
+        output_cost_per_1k=0.025,
+    ),
+    "claude-sonnet-4-6": ModelCapabilities(
+        model_id="claude-sonnet-4-6",
+        provider_id="anthropic",
+        display_name="Claude Sonnet 4.6 (balanced)",
+        context_window=1_000_000,
+        max_output_tokens=64_000,
+        supports_tools=True,
+        supports_vision=True,
+        supports_structured_output=True,
+        supports_streaming=True,
+        supports_thinking=True,
+        input_cost_per_1k=0.003,
+        output_cost_per_1k=0.015,
+    ),
+    "claude-haiku-4-5": ModelCapabilities(
+        model_id="claude-haiku-4-5",
+        provider_id="anthropic",
+        display_name="Claude Haiku 4.5 (fastest)",
+        context_window=200_000,
+        max_output_tokens=64_000,
+        supports_tools=True,
+        supports_vision=True,
+        supports_structured_output=True,
+        supports_streaming=True,
+        supports_thinking=True,
+        input_cost_per_1k=0.001,
+        output_cost_per_1k=0.005,
+    ),
+}
+
+# Deprecated/superseded models kept for backwards-compatibility.
+# list_models() does NOT include these.
+_ANTHROPIC_LEGACY_MODELS: dict[str, ModelCapabilities] = {
     "claude-opus-4-5": ModelCapabilities(
         model_id="claude-opus-4-5",
         provider_id="anthropic",
-        display_name="Claude Opus 4.5 (powerful)",
+        display_name="Claude Opus 4.5 (legacy)",
         context_window=200_000,
         max_output_tokens=16_000,
         supports_tools=True,
@@ -45,7 +92,7 @@ _ANTHROPIC_MODELS: dict[str, ModelCapabilities] = {
     "claude-sonnet-4-5": ModelCapabilities(
         model_id="claude-sonnet-4-5",
         provider_id="anthropic",
-        display_name="Claude Sonnet 4.5 (balanced)",
+        display_name="Claude Sonnet 4.5 (legacy)",
         context_window=200_000,
         max_output_tokens=8_192,
         supports_tools=True,
@@ -55,20 +102,6 @@ _ANTHROPIC_MODELS: dict[str, ModelCapabilities] = {
         supports_thinking=False,
         input_cost_per_1k=0.003,
         output_cost_per_1k=0.015,
-    ),
-    "claude-haiku-4-5": ModelCapabilities(
-        model_id="claude-haiku-4-5",
-        provider_id="anthropic",
-        display_name="Claude Haiku 4.5 (fast)",
-        context_window=200_000,
-        max_output_tokens=4_096,
-        supports_tools=True,
-        supports_vision=True,
-        supports_structured_output=True,
-        supports_streaming=True,
-        supports_thinking=False,
-        input_cost_per_1k=0.00025,
-        output_cost_per_1k=0.00125,
     ),
 }
 
@@ -321,17 +354,18 @@ class AnthropicProvider(LLMProvider):
         ]
 
     def get_model_capabilities(self, model: str) -> ModelCapabilities:
-        return _ANTHROPIC_MODELS.get(
-            model,
-            ModelCapabilities(
-                model_id=model,
-                provider_id="anthropic",
-                display_name=model,
-                context_window=200_000,
-                max_output_tokens=4_096,
-                supports_tools=True,
-                supports_streaming=True,
-            ),
+        if model in _ANTHROPIC_MODELS:
+            return _ANTHROPIC_MODELS[model]
+        if model in _ANTHROPIC_LEGACY_MODELS:
+            return _ANTHROPIC_LEGACY_MODELS[model]
+        return ModelCapabilities(
+            model_id=model,
+            provider_id="anthropic",
+            display_name=model,
+            context_window=200_000,
+            max_output_tokens=4_096,
+            supports_tools=True,
+            supports_streaming=True,
         )
 
     def cost_per_token(self, model: str) -> CostRate:

@@ -263,8 +263,8 @@ class GracefulDegradation:
 
         gd = GracefulDegradation(
             chain=[
-                (anthropic_provider, "claude-sonnet-4-5"),
-                (openai_provider,    "gpt-4o"),
+                (anthropic_provider, "claude-sonnet-4-6"),
+                (openai_provider,    "gpt-5.4"),
                 (ollama_provider,    "llama3.1"),
             ]
         )

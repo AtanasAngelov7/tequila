@@ -173,7 +173,7 @@ class ModelCapabilities(BaseModel):
     """Per-model capability metadata used by prompt assembly and vision."""
 
     model_id: str
-    """Provider's model identifier, e.g. ``claude-sonnet-4-5``."""
+    """Provider's model identifier, e.g. ``claude-sonnet-4-6``."""
 
     provider_id: str
     """Provider name, e.g. ``anthropic``."""
@@ -213,7 +213,7 @@ class ModelInfo(BaseModel):
     """Lightweight model listing entry for the UI model selector."""
 
     id: str
-    """Provider-qualified model ID, e.g. ``anthropic:claude-sonnet-4-5``."""
+    """Provider-qualified model ID, e.g. ``anthropic:claude-sonnet-4-6``."""
 
     name: str
     """Display name, e.g. ``Claude Sonnet 4.5 (balanced)``."""

@@ -1,9 +1,61 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import StreamingMessage from './StreamingMessage';
 import ToolCallDisplay from './ToolCallDisplay';
 import InlineMedia from './InlineMedia';
 import type { Message } from '../../types';
+
+// ── Thinking indicator ────────────────────────────────────────────────────────
+
+// Inject keyframes once.
+if (typeof document !== 'undefined') {
+  const styleId = '__tq_thinking_style';
+  if (!document.getElementById(styleId)) {
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      @keyframes tq-dot-bounce {
+        0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+        40% { transform: translateY(-5px); opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+}
+
+function ThinkingBubble() {
+  const dotStyle = (delay: string): React.CSSProperties => ({
+    width: 7,
+    height: 7,
+    borderRadius: '50%',
+    background: 'currentColor',
+    display: 'inline-block',
+    animation: `tq-dot-bounce 1.2s ease-in-out ${delay} infinite`,
+  });
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+      <div
+        style={{
+          padding: '10px 16px',
+          borderRadius: 10,
+          backgroundColor: 'var(--color-msg-assistant)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          color: 'var(--color-on-surface)',
+          minWidth: 52,
+        }}
+        aria-label="Agent is thinking"
+        role="status"
+      >
+        <span style={dotStyle('0s')} />
+        <span style={dotStyle('0.2s')} />
+        <span style={dotStyle('0.4s')} />
+      </div>
+    </div>
+  );
+}
 
 const roleColors: Record<string, string> = {
   user: 'var(--color-msg-user)',
@@ -229,11 +281,14 @@ function MessageBubble({ msg }: { msg: Message }) {
 // ── MessageList ───────────────────────────────────────────────────────────────
 
 export default function MessageList() {
-  const { messages, isLoadingMessages, isStreaming, streamingContent } = useChatStore();
+  const { messages, isLoadingMessages, isStreaming, streamingContent, turnPhase } = useChatStore();
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isNearBottom = useRef(true);
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Show the thinking bubble when the turn has started but no text has streamed yet.
+  const isThinking = isStreaming && turnPhase === 'thinking' && streamingContent.length === 0;
 
   // Track whether user is near the bottom of the scroll container
   const handleScroll = useCallback(() => {
@@ -283,8 +338,11 @@ export default function MessageList() {
         <MessageBubble key={msg.id} msg={msg} />
       ))}
 
-      {/* Streaming placeholder */}
-      {isStreaming && <StreamingMessage content={streamingContent} />}
+      {/* Thinking dots — shown before any text arrives from the agent */}
+      {isThinking && <ThinkingBubble />}
+
+      {/* Streaming placeholder — shown once text starts arriving */}
+      {isStreaming && !isThinking && <StreamingMessage content={streamingContent} />}
 
       <div ref={bottomRef} />
     </div>

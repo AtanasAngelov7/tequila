@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=70"]
-build-backend = "setuptools.backends.legacy:build"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "tequila"
@@ -23,9 +23,11 @@ dependencies = [
     "tiktoken>=0.7",
     "numpy>=1.26",
     "cryptography>=42.0",
+    "google-genai>=1.0",
 ]
 
 [project.optional-dependencies]
+session = ["playwright>=1.40"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",

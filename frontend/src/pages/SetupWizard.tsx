@@ -14,12 +14,21 @@
  */
 import React, { useState, useEffect } from 'react';
 import { api } from '../api/client';
+import SessionCaptureFlow from '../components/SessionCaptureFlow';
 
 interface Props {
   onComplete: () => void;
 }
 
-type Provider = 'anthropic' | 'openai' | 'ollama';
+type Provider = 'anthropic' | 'openai' | 'gemini' | 'ollama';
+type AuthMode = 'api_key' | 'web_session';
+
+// Web counterpart provider id for each api-key provider
+const WEB_PROVIDER: Partial<Record<Provider, string>> = {
+  anthropic: 'anthropic_web',
+  openai: 'openai_web',
+  gemini: 'gemini_web',
+};
 
 interface ModelItem {
   id: string;
@@ -43,6 +52,10 @@ export default function SetupWizard({ onComplete }: Props) {
 
   // Step 1 — Provider
   const [provider, setProvider] = useState<Provider>('anthropic');
+  const [authMode, setAuthMode] = useState<AuthMode>('api_key');
+
+  // Web session capture state
+  const [webSessionDone, setWebSessionDone] = useState(false);
 
   // Step 2 — API key
   const [apiKey, setApiKey] = useState('');
@@ -99,6 +112,11 @@ export default function SetupWizard({ onComplete }: Props) {
           valid: false,
           message: "OpenAI keys start with 'sk-'. Check your key.",
         });
+      } else if (provider === 'gemini' && !apiKey.startsWith('AIza')) {
+        setKeyValidation({
+          valid: false,
+          message: "Gemini keys start with 'AIza'. Check your key.",
+        });
       } else {
         setKeyValidation({ valid: true, message: 'Key accepted.' });
       }
@@ -115,6 +133,7 @@ export default function SetupWizard({ onComplete }: Props) {
         user_name: userName,
         provider,
         api_key: apiKey || null,
+        auth_mode: authMode,
         default_model: selectedModel,
         agent_name: agentName,
         agent_persona: agentPersona || null,
@@ -177,17 +196,16 @@ export default function SetupWizard({ onComplete }: Props) {
         {/* ── Step 0: Welcome ────────────────────────────────────────── */}
         {step === 0 && (
           <div>
-            <h1 style={headingStyle}>Welcome to Tequila 🌵</h1>
+            <h1 style={headingStyle}>Hi! What's your name? 👋</h1>
             <p style={subtitleStyle}>
-              Your personal AI assistant. Let's get you set up in a few quick steps.
+              I'm Tequila, your personal AI assistant. I'll use your name to personalise our conversations.
             </p>
-            <label style={labelStyle}>Your display name</label>
             <input
               autoFocus
               value={userName}
               onChange={(e) => setUserName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && userName.trim() && setStep(1)}
-              placeholder="e.g. Alice"
+              placeholder="Your name…"
               style={inputStyle}
             />
             <div style={btnRowStyle}>
@@ -213,7 +231,8 @@ export default function SetupWizard({ onComplete }: Props) {
               {(
                 [
                   { id: 'anthropic', label: 'Anthropic', sub: 'Claude models — recommended' },
-                  { id: 'openai', label: 'OpenAI', sub: 'GPT-4o and o3 models' },
+                  { id: 'openai', label: 'OpenAI', sub: 'GPT-5.4 models' },
+                  { id: 'gemini', label: 'Google Gemini', sub: 'Gemini 2.5 & 3 models' },
                   { id: 'ollama', label: 'Ollama', sub: 'Local models — no API key needed' },
                 ] as { id: Provider; label: string; sub: string }[]
               ).map((p) => (
@@ -240,12 +259,13 @@ export default function SetupWizard({ onComplete }: Props) {
           </div>
         )}
 
-        {/* ── Step 2: API Key ────────────────────────────────────────── */}
+        {/* ── Step 2: Auth Mode + Key / Session ─────────────────────── */}
         {step === 2 && (
           <div>
             <h2 style={headingStyle}>
-              {provider === 'ollama' ? 'No API key needed' : 'Enter your API key'}
+              {provider === 'ollama' ? 'No API key needed' : 'Connect your account'}
             </h2>
+
             {provider === 'ollama' ? (
               <p style={subtitleStyle}>
                 Ollama runs locally on your machine. Make sure it's running at{' '}
@@ -253,32 +273,78 @@ export default function SetupWizard({ onComplete }: Props) {
               </p>
             ) : (
               <>
-                <p style={subtitleStyle}>
-                  {provider === 'anthropic'
-                    ? 'Find your key at console.anthropic.com → API Keys.'
-                    : 'Find your key at platform.openai.com → API keys.'}
-                </p>
-                <label style={labelStyle}>
-                  {provider === 'anthropic' ? 'Anthropic' : 'OpenAI'} API key
-                </label>
-                <input
-                  type="password"
-                  autoFocus
-                  value={apiKey}
-                  onChange={(e) => { setApiKey(e.target.value); setKeyValidation(null); }}
-                  placeholder={provider === 'anthropic' ? 'sk-ant-...' : 'sk-...'}
-                  style={inputStyle}
-                />
-                <button
-                  onClick={validateKey}
-                  disabled={validating || !apiKey.trim()}
-                  style={{ ...secondaryBtnStyle, marginBottom: 12 }}
-                >
-                  {validating ? 'Checking…' : 'Validate key'}
-                </button>
+                {/* Auth mode toggle */}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                  {(['api_key', 'web_session'] as AuthMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => { setAuthMode(mode); setKeyValidation(null); setWebSessionDone(false); }}
+                      style={{
+                        padding: '7px 16px',
+                        borderRadius: 6,
+                        border: `1px solid ${authMode === mode ? 'var(--color-primary)' : 'var(--color-border)'}`,
+                        background: authMode === mode ? 'var(--color-primary)11' : 'transparent',
+                        color: authMode === mode ? 'var(--color-primary)' : 'var(--color-on-surface)',
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        fontWeight: authMode === mode ? 600 : 400,
+                      }}
+                    >
+                      {mode === 'api_key' ? '🔑 I have an API key' : '🌐 I have a subscription'}
+                    </button>
+                  ))}
+                </div>
+
+                {authMode === 'api_key' ? (
+                  <>
+                    <p style={subtitleStyle}>
+                      {provider === 'anthropic'
+                        ? 'Find your key at console.anthropic.com → API Keys.'
+                        : provider === 'openai'
+                        ? 'Find your key at platform.openai.com → API keys.'
+                        : 'Find your key at aistudio.google.com → Get API key.'}
+                    </p>
+                    <label style={labelStyle}>
+                      {provider === 'anthropic' ? 'Anthropic' : provider === 'openai' ? 'OpenAI' : 'Gemini'} API key
+                    </label>
+                    <input
+                      type="password"
+                      autoFocus
+                      value={apiKey}
+                      onChange={(e) => { setApiKey(e.target.value); setKeyValidation(null); }}
+                      placeholder={
+                        provider === 'anthropic' ? 'sk-ant-...' :
+                        provider === 'openai' ? 'sk-...' : 'AIza...'
+                      }
+                      style={inputStyle}
+                    />
+                    <button
+                      onClick={validateKey}
+                      disabled={validating || !apiKey.trim()}
+                      style={{ ...secondaryBtnStyle, marginBottom: 12 }}
+                    >
+                      {validating ? 'Checking…' : 'Validate key'}
+                    </button>
+                  </>
+                ) : (
+                  /* Web session capture */
+                  WEB_PROVIDER[provider] && (
+                    <div style={{ marginBottom: 16 }}>
+                      <SessionCaptureFlow
+                        provider={WEB_PROVIDER[provider]!}
+                        providerLabel={
+                          provider === 'anthropic' ? 'Anthropic' :
+                          provider === 'openai' ? 'OpenAI' : 'Google Gemini'
+                        }
+                        onSuccess={() => setWebSessionDone(true)}
+                      />
+                    </div>
+                  )
+                )}
               </>
             )}
-            {keyValidation && (
+
+            {keyValidation && authMode === 'api_key' && (
               <div
                 style={{
                   padding: '8px 12px',
@@ -294,25 +360,42 @@ export default function SetupWizard({ onComplete }: Props) {
                 {keyValidation.message}
               </div>
             )}
+
             <div style={btnRowStyle}>
               <button onClick={() => setStep(1)} style={secondaryBtnStyle}>← Back</button>
               <button
                 onClick={() => {
-                  if (provider === 'ollama' || keyValidation?.valid) {
+                  if (provider === 'ollama') {
+                    setStep(3);
+                  } else if (authMode === 'web_session') {
+                    if (webSessionDone) setStep(3);
+                  } else if (keyValidation?.valid) {
                     setStep(3);
                   } else {
-                    validateKey().then(() => {
-                      // Step transition happens on next interaction after validation
-                    });
+                    validateKey().then(() => {/* transition on next interaction */});
                   }
                 }}
-                disabled={provider !== 'ollama' && !apiKey.trim()}
+                disabled={
+                  provider !== 'ollama' &&
+                  authMode === 'api_key' &&
+                  !apiKey.trim()
+                  || (provider !== 'ollama' && authMode === 'web_session' && !webSessionDone)
+                }
                 style={{
                   ...primaryBtnStyle,
-                  opacity: provider !== 'ollama' && !apiKey.trim() ? 0.45 : 1,
+                  opacity:
+                    provider !== 'ollama' &&
+                    authMode === 'api_key' &&
+                    !apiKey.trim()
+                      ? 0.45
+                      : provider !== 'ollama' && authMode === 'web_session' && !webSessionDone
+                      ? 0.45
+                      : 1,
                 }}
               >
-                Continue →
+                {provider !== 'ollama' && authMode === 'web_session' && !webSessionDone
+                  ? 'Connect first →'
+                  : 'Continue →'}
               </button>
             </div>
           </div>

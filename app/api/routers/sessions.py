@@ -19,7 +19,7 @@ from typing import Any, Literal
 from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
 
-from app.api.deps import require_gateway_token
+from app.api.deps import get_config_dep, require_gateway_token
 from app.exceptions import SessionNotFoundError
 from app.sessions.models import Session
 from app.sessions.store import get_session_store
@@ -33,7 +33,7 @@ router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 class CreateSessionRequest(BaseModel):
     session_key: str | None = None
     kind: str = "user"
-    agent_id: str = "main"
+    agent_id: str | None = None  # None → resolved from setup.main_agent_id
     channel: str = "webchat"
     policy: dict[str, Any] | None = None
     parent_session_key: str | None = None
@@ -99,11 +99,20 @@ async def create_session(
     _token: None = Depends(require_gateway_token),
 ) -> SessionResponse:
     """Create a new session."""
+    # Resolve agent_id: if not explicitly provided, use the agent created during
+    # setup; fall back to "main" for backwards compatibility.
+    if body.agent_id:
+        resolved_agent_id = body.agent_id
+    else:
+        try:
+            resolved_agent_id = get_config_dep().get("setup.main_agent_id", "") or "main"
+        except Exception:
+            resolved_agent_id = "main"
     store = get_session_store()
     session = await store.create(
         session_key=body.session_key,
         kind=body.kind,
-        agent_id=body.agent_id,
+        agent_id=resolved_agent_id,
         channel=body.channel,
         policy=body.policy,
         parent_session_key=body.parent_session_key,

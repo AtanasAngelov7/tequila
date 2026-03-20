@@ -58,9 +58,9 @@ def test_vision_config_defaults() -> None:
 
 def test_set_vision_config() -> None:
     original = get_vision_config()
-    custom = VisionConfig(preferred_model="anthropic:claude-opus-4-5")
+    custom = VisionConfig(preferred_model="anthropic:claude-opus-4-6")
     set_vision_config(custom)
-    assert get_vision_config().preferred_model == "anthropic:claude-opus-4-5"
+    assert get_vision_config().preferred_model == "anthropic:claude-opus-4-6"
     set_vision_config(original)
 
 

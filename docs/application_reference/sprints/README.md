@@ -40,8 +40,9 @@
 | **[S14b](sprint_14b.md)** | 6 – Polish (I) | Notifications, budget, audit, backup, export | ✅ Done | §6.2, §12.1–12.3, §13.4, §23.1, §24.1–24.5, §26.1–26.6 |
 | **[S15](sprint_15.md)** | 6 – Polish (II) | Full UI, file cleanup, packaging | ✅ Done | §9.1–9.2b, §21.6–21.7, §29.1–29.5 |
 | **[S16](sprint_16.md)** | 7 – Future | Image gen, additional connectors, auto-update | ✅ Done | §8.6 (future), §29.5 |
+| **[S17](sprint_17.md)** | 8 – Provider Expansion & Auth | Web session login, Gemini provider, model refresh, live pricing | 🔧 In Progress | §6.1, §4.6, §4.6b, §15.1 |
 
-**Progress**: 17 / 17 sprints complete — Phase 1 (S01–S03) ✅, Phase 2 (S04–S07) ✅, Phase 3 (S08) ✅, Phase 4 (S09–S11) ✅, Phase 5 (S12–S13) ✅, Phase 6 (S14a, S14b, S15) ✅, and Phase 7 (S16) ✅ complete.
+**Progress**: 17 / 17 original sprints complete — Phase 1 (S01–S03) ✅, Phase 2 (S04–S07) ✅, Phase 3 (S08) ✅, Phase 4 (S09–S11) ✅, Phase 5 (S12–S13) ✅, Phase 6 (S14a, S14b, S15) ✅, Phase 7 (S16) ✅. Phase 8 (S17) 🔧 in progress.
 
 ---
 
@@ -55,8 +56,9 @@ Phase 4: Memory         → S09 ✅, S10 ✅, S11 ✅      (6 weeks) ← PHASE 4
 Phase 5: Plugins        → S12 ✅, S13 ✅              (4 weeks) ← PHASE 5 COMPLETE
 Phase 6: Polish         → S14a ✅, S14b ✅, S15 ✅    (6 weeks) ← PHASE 6 COMPLETE
 Phase 7: Future         → S16 ✅                     (2 weeks, open-ended) ← PHASE 7 COMPLETE
+Phase 8: Provider Auth  → S17 🔧                     (2–3 weeks)          ← IN PROGRESS
                           ─────────────────
-                          Total: 34 weeks
+                          Total: 36–37 weeks
 ```
 
 ---

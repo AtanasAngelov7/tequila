@@ -33,29 +33,36 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/setup", tags=["setup"])
 
-# ── Provider→model stub catalogue ────────────────────────────────────────────
-# Full provider integration (circuit breaker, live model listing, credential
-# validation) is implemented in Sprint 04.  For now we return a static list
-# so the wizard can be exercised end-to-end with stub responses.
+# ── Provider → model catalogue ────────────────────────────────────────────────
+# Derives model lists from the live provider registries so choices are always
+# up-to-date.  Only Ollama uses a static suggestion list (models are dynamic).
 
-_STUB_MODELS: dict[str, list[dict[str, str]]] = {
-    "anthropic": [
-        {"id": "claude-opus-4-5", "name": "Claude Opus 4.5 (most capable)"},
-        {"id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5 (balanced)"},
-        {"id": "claude-haiku-3-5", "name": "Claude Haiku 3.5 (fastest)"},
-    ],
-    "openai": [
-        {"id": "gpt-4o", "name": "GPT-4o (most capable)"},
-        {"id": "gpt-4o-mini", "name": "GPT-4o Mini (fast & cheap)"},
-        {"id": "o3-mini", "name": "o3-mini (reasoning)"},
-    ],
-    "ollama": [
-        {"id": "llama3.3", "name": "Llama 3.3 (70B)"},
-        {"id": "llama3.2", "name": "Llama 3.2 (3B)"},
-        {"id": "mistral", "name": "Mistral 7B"},
-        {"id": "gemma3", "name": "Gemma 3 (27B)"},
-    ],
-}
+_OLLAMA_SUGGESTIONS: list[dict[str, str]] = [
+    {"id": "llama3.3", "name": "Llama 3.3 (70B)"},
+    {"id": "llama3.2", "name": "Llama 3.2 (3B)"},
+    {"id": "mistral", "name": "Mistral 7B"},
+    {"id": "gemma3", "name": "Gemma 3 (27B)"},
+]
+
+
+def _get_setup_models(provider: str) -> list[dict[str, str]] | None:
+    """Return ``[{"id": ..., "name": ...}]`` entries for *provider*.
+
+    Pulls from the live provider registries so model names stay current.
+    Returns ``None`` for unrecognised providers.
+    """
+    if provider == "anthropic":
+        from app.providers.anthropic import _ANTHROPIC_MODELS
+        return [{"id": m.model_id, "name": m.display_name} for m in _ANTHROPIC_MODELS.values()]
+    if provider == "openai":
+        from app.providers.openai import _OPENAI_MODELS
+        return [{"id": m.model_id, "name": m.display_name} for m in _OPENAI_MODELS.values()]
+    if provider == "gemini":
+        from app.providers.gemini import _GEMINI_MODELS
+        return [{"id": m.model_id, "name": m.display_name} for m in _GEMINI_MODELS.values()]
+    if provider == "ollama":
+        return _OLLAMA_SUGGESTIONS
+    return None
 
 
 # ── Request / response models ─────────────────────────────────────────────────
@@ -75,13 +82,18 @@ class SetupRequest(BaseModel):
     """Body for ``POST /api/setup`` (§15.1)."""
 
     user_name: str
-    provider: Literal["anthropic", "openai", "ollama"]
+    provider: Literal["anthropic", "openai", "gemini", "ollama"]
     api_key: str | None = None
-    """API key.  Required for ``anthropic`` and ``openai``; omit for ``ollama``."""
+    """API key.  Required for ``anthropic``, ``openai``, and ``gemini`` when
+    ``auth_mode`` is ``"api_key"``; omit for ``ollama`` or ``"web_session"``."""
+    auth_mode: Literal["api_key", "web_session"] = "api_key"
+    """How the user authenticated.  ``"web_session"`` skips the API-key
+    requirement because a browser session was captured via
+    ``SessionCaptureFlow`` instead."""
     oauth_code: str | None = None
     """Reserved for future OAuth providers — not used in Sprint 03."""
     default_model: str
-    """Provider-qualified model ID, e.g. ``"anthropic:claude-sonnet-4-5"``."""
+    """Provider-qualified model ID, e.g. ``"anthropic:claude-sonnet-4-6"``."""
     agent_name: str = "Tequila"
     agent_persona: str | None = None
     """Optional free-text persona description stored for Sprint 04 soul generation."""
@@ -113,15 +125,43 @@ class ValidationResult(BaseModel):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
-def _validate_api_key(provider: str, api_key: str | None) -> ValidationResult:
+def _reload_provider(provider_id: str, api_key: str) -> None:
+    """Instantiate and re-register *provider_id* with *api_key* in the live registry.
+
+    Called after the setup wizard saves a key so turns work immediately without
+    a server restart.  Failures are logged and swallowed — a restart will always
+    fix the state.
+    """
+    try:
+        from app.providers.registry import get_registry
+        registry = get_registry()
+        if provider_id == "anthropic":
+            from app.providers.anthropic import AnthropicProvider
+            registry.register(AnthropicProvider(api_key=api_key))
+        elif provider_id == "openai":
+            from app.providers.openai import OpenAIProvider
+            registry.register(OpenAIProvider(api_key=api_key))
+        elif provider_id == "gemini":
+            from app.providers.gemini import GeminiProvider
+            registry.register(GeminiProvider(api_key=api_key))
+        # ollama never needs a key — nothing to do
+    except Exception:
+        logger.warning("_reload_provider: failed to re-register '%s' — restart may be required", provider_id, exc_info=True)
+
+
+def _validate_api_key(
+    provider: str,
+    api_key: str | None,
+    auth_mode: str = "api_key",
+) -> ValidationResult:
     """Stub API-key validation.
 
     In Sprint 04 this will make a real provider call (e.g. list models).
     For now it applies minimal structural checks so the wizard returns
     meaningful error messages for obviously-wrong inputs.
     """
-    if provider == "ollama":
-        return ValidationResult(valid=True, message="Ollama runs locally — no key required.")
+    if provider == "ollama" or auth_mode == "web_session":
+        return ValidationResult(valid=True, message="No API key required.")
 
     if not api_key:
         return ValidationResult(valid=False, message="API key is required for this provider.")
@@ -136,6 +176,12 @@ def _validate_api_key(provider: str, api_key: str | None) -> ValidationResult:
         return ValidationResult(
             valid=False,
             message="OpenAI API keys start with 'sk-'. Verify your key.",
+        )
+
+    if provider == "gemini" and not api_key.startswith("AI"):
+        return ValidationResult(
+            valid=False,
+            message="Google API keys typically start with 'AI'. Verify your key.",
         )
 
     return ValidationResult(valid=True, message="API key accepted.")
@@ -184,19 +230,20 @@ async def setup_status(
 
 @router.get("/models/{provider}", response_model=ModelListResponse)
 async def list_models(provider: str) -> ModelListResponse:
-    """Return available models for a provider (stub — replaced in Sprint 04).
+    """Return available models for *provider* from the live provider registries.
 
     Called from the model-selection step of the setup wizard to populate
     the dropdown without the user having to know exact model IDs.
     """
-    if provider not in _STUB_MODELS:
+    models = _get_setup_models(provider)
+    if models is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Unknown provider '{provider}'. Choose from: {list(_STUB_MODELS)}",
+            detail=f"Unknown provider '{provider}'. Choose from: anthropic, openai, gemini, ollama.",
         )
     return ModelListResponse(
         provider=provider,
-        models=[ModelListItem(**m) for m in _STUB_MODELS[provider]],
+        models=[ModelListItem(**m) for m in models],
     )
 
 
@@ -224,7 +271,7 @@ async def run_setup(
         )
 
     # 2. Validate API key.
-    validation = _validate_api_key(body.provider, body.api_key)
+    validation = _validate_api_key(body.provider, body.api_key, body.auth_mode)
     if not validation.valid:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -257,9 +304,14 @@ async def run_setup(
     await config.set("setup.provider", body.provider)
     await config.set("setup.default_model", default_model)
     await config.set("setup.main_agent_id", agent_id)
-    # TD-324: Persist the API key so the provider can use it.
-    if body.api_key:
-        await config.set(f"provider.{body.provider}.api_key", body.api_key)
+    # Persist the API key through the encrypted credential store (not config table,
+    # which has no provider key rows).
+    if body.api_key and body.auth_mode == "api_key":
+        from app.auth.providers import save_provider_key
+        await save_provider_key(db, body.provider, body.api_key)
+        # Re-register the provider in the live ProviderRegistry so it is
+        # immediately usable without requiring a server restart.
+        _reload_provider(body.provider, body.api_key)
     await config.set("setup.complete", True)
 
     logger.info(

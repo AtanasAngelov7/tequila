@@ -98,3 +98,30 @@ async def list_provider_models(provider_id: str) -> dict[str, Any]:
         "models": [m.model_dump(mode="json") for m in models],
         "count": len(models),
     }
+
+
+@router.get("/pricing/status", summary="Pricing cache status")
+async def pricing_status() -> dict[str, Any]:
+    """Return the age and size of the in-memory pricing cache."""
+    from app.providers.pricing import get_cache_age, _pricing_data
+
+    age = get_cache_age()
+    return {
+        "last_updated": None if age is None else (
+            (
+                __import__("datetime").datetime.now(__import__("datetime").timezone.utc)
+                - age
+            ).isoformat()
+        ),
+        "age_hours": None if age is None else round(age.total_seconds() / 3600, 2),
+        "model_count": len(_pricing_data),
+    }
+
+
+@router.post("/pricing/refresh", status_code=204, summary="Trigger pricing cache refresh")
+async def pricing_refresh() -> None:
+    """Immediately fetch fresh pricing data from the upstream LiteLLM JSON."""
+    import asyncio
+    from app.providers.pricing import refresh_pricing_cache
+
+    asyncio.create_task(refresh_pricing_cache())

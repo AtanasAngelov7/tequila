@@ -48,7 +48,7 @@ class VisionConfig(BaseModel):
     """Global configuration for the vision tools."""
 
     preferred_model: str = ""
-    """Provider-qualified model id, e.g. 'anthropic:claude-opus-4-5'. Auto-select if empty."""
+    """Provider-qualified model id, e.g. 'anthropic:claude-opus-4-6'. Auto-select if empty."""
 
     max_image_size_px: int | None = 1568
     """Resize images to this maximum dimension if Pillow is available. None = no resize."""
@@ -195,7 +195,7 @@ async def _get_vision_provider_and_model() -> tuple[Any, str]:
 
     raise RuntimeError(
         "No vision-capable model is available. "
-        "Configure a vision-capable model (e.g. claude-opus-4-5, gpt-4o) in your provider settings."
+        "Configure a vision-capable model (e.g. claude-opus-4-6, gpt-5.4) in your provider settings."
     )
 
 

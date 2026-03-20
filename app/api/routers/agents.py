@@ -42,7 +42,7 @@ router = APIRouter(
 class AgentCreateRequest(BaseModel):
     name: str
     provider: str = "anthropic"
-    default_model: str = "anthropic:claude-sonnet-4-5"
+    default_model: str = "anthropic:claude-sonnet-4-6"
     persona: str = "a helpful AI assistant"
     role: str = "main"
     is_admin: bool = False
@@ -250,7 +250,7 @@ async def import_agent(
     agent = await store.create(
         name=agent_data.get("name", "Imported Agent"),
         provider=agent_data.get("provider", "anthropic"),
-        default_model=agent_data.get("default_model", "anthropic:claude-sonnet-4-5"),
+        default_model=agent_data.get("default_model", "anthropic:claude-sonnet-4-6"),
         persona=agent_data.get("persona", "a helpful AI assistant"),
         soul=soul,
         role=agent_data.get("role", "main"),

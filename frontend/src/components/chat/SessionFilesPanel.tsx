@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '../../stores/chatStore';
 import { filesApi, formatBytes, mimeCategory } from '../../api/files-api';
 import type { FileRecord } from '../../api/files-api';
-import FileCard from '../chat/FileCard';
 
 type SortKey = 'date' | 'name' | 'size';
 type MimeCat = 'all' | 'images' | 'documents' | 'audio' | 'other';

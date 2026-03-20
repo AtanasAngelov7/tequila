@@ -19,10 +19,10 @@ Typical usage
 -------------
 ::
 
-    budget = ContextBudget.for_model("anthropic:claude-sonnet-4-5")
+    budget = ContextBudget.for_model("anthropic:claude-sonnet-4-6")
     if budget.needs_compression(messages):
         messages = await budget.auto_compress(
-            messages, provider=provider, model="claude-sonnet-4-5"
+            messages, provider=provider, model="claude-sonnet-4-6"
         )
 """
 from __future__ import annotations
@@ -36,29 +36,39 @@ logger = logging.getLogger(__name__)
 # ── Default model context windows ────────────────────────────────────────────
 
 _MODEL_CONTEXT_WINDOWS: dict[str, int] = {
-    # Anthropic
-    "claude-opus-4-5": 200_000,
-    "claude-sonnet-4-5": 200_000,
-    "claude-haiku-4-5": 200_000,
-    "claude-3-opus": 200_000,
-    "claude-3-7-sonnet": 200_000,
-    "claude-3-5-sonnet": 200_000,
-    "claude-3-5-haiku": 200_000,
-    # OpenAI
-    "gpt-4o": 128_000,
-    "gpt-4o-mini": 128_000,
-    "gpt-4-turbo": 128_000,
-    "gpt-4": 8_192,
-    "gpt-3-5-turbo": 16_385,
-    "o1": 200_000,
-    "o1-mini": 128_000,
+    # Anthropic — current
+    "claude-opus-4-6":    1_000_000,
+    "claude-sonnet-4-6":  1_000_000,
+    "claude-haiku-4-5":     200_000,
+    # Anthropic — legacy (backwards-compat for saved sessions)
+    "claude-opus-4-5":    200_000,
+    "claude-sonnet-4-5":  200_000,
+    "claude-3-opus":      200_000,
+    "claude-3-7-sonnet":  200_000,
+    "claude-3-5-sonnet":  200_000,
+    "claude-3-5-haiku":   200_000,
+    # OpenAI — current
+    "gpt-5.4":          1_000_000,
+    "gpt-5.4-mini":       400_000,
+    "gpt-5.4-nano":       400_000,
+    # OpenAI — legacy (backwards-compat for saved sessions)
+    "gpt-4o":             128_000,
+    "gpt-4o-mini":        128_000,
+    "gpt-4-turbo":        128_000,
+    "gpt-4":                8_192,
+    "gpt-3-5-turbo":       16_385,
+    "o1":                 200_000,
+    "o1-mini":            128_000,
+    # Gemini — current
+    "gemini-2.5-pro":   1_000_000,
+    "gemini-2.5-flash": 1_000_000,
     # Ollama / local (conservative defaults)
-    "llama3": 8_192,
-    "llama3.1": 128_000,
-    "llama3.2": 128_000,
-    "mistral": 32_768,
-    "mixtral": 32_768,
-    "qwen2": 128_000,
+    "llama3":               8_192,
+    "llama3.1":           128_000,
+    "llama3.2":           128_000,
+    "mistral":             32_768,
+    "mixtral":             32_768,
+    "qwen2":              128_000,
 }
 
 _DEFAULT_CONTEXT_WINDOW = 128_000
@@ -166,7 +176,7 @@ class ContextBudget:
     Parameters
     ----------
     model_id:
-        Provider-qualified model ID (e.g. ``anthropic:claude-sonnet-4-5``).
+        Provider-qualified model ID (e.g. ``anthropic:claude-sonnet-4-6``).
         Used to select the tiktoken encoding and look up the default
         context-window size.
     context_window:

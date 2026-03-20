@@ -1,8 +1,8 @@
-"""Auth API — LLM provider key management (Sprint 12, §6.1).
+"""Auth API — LLM provider key management (Sprint 12 + 17, §6.1).
 
 Endpoints:
-    GET    /api/auth/providers                   — list providers (key status)
-    POST   /api/auth/providers/{provider}/key    — save API key
+    GET    /api/auth/providers                   — list providers (key/session status)
+    POST   /api/auth/providers/{provider}/key    — save API key (API-key providers only)
     DELETE /api/auth/providers/{provider}/key    — revoke API key
 """
 from __future__ import annotations
@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import require_gateway_token
 from app.auth.providers import (
     KNOWN_PROVIDERS,
+    _SESSION_PROVIDERS,
     get_provider_key,
     list_configured_providers,
     revoke_provider_key,
@@ -55,9 +56,16 @@ async def save_key(provider: str, body: SaveKeyRequest) -> None:
     """Encrypt and persist an API key for *provider*.
 
     The raw key is never stored — only the encrypted token is persisted.
+    Web-session providers (openai_web, anthropic_web, gemini_web) cannot use
+    this endpoint — use ``POST /api/auth/session/{provider}/manual`` instead.
     """
     if provider not in KNOWN_PROVIDERS:
         raise NotFoundError("Provider", provider)
+    if provider in _SESSION_PROVIDERS:
+        raise ValidationError(
+            f"Provider '{provider}' uses web session auth, not an API key. "
+            "Use POST /api/auth/session/{provider}/manual instead."
+        )
 
     db = get_app_db()
     try:

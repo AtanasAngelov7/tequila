@@ -245,7 +245,7 @@ class Message(BaseModel):
     # ── LLM metadata ─────────────────────────────────────────────────────────
 
     model: str | None = None
-    """Which model generated this (e.g. ``'anthropic:claude-sonnet-4-5'``)."""
+    """Which model generated this (e.g. ``'anthropic:claude-sonnet-4-6'``)."""
 
     input_tokens: int | None = None
     """Input token count (assistant messages only)."""

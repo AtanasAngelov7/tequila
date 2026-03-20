@@ -20,7 +20,7 @@ def _make_mock_message(role="user", content="Hello", i=0):
     msg.content = content
     msg.tool_calls = None
     msg.tool_call_id = None
-    msg.model = "claude-sonnet-4-5"
+    msg.model = "claude-sonnet-4-6"
     msg.input_tokens = 100
     msg.output_tokens = 50
     ts = datetime(2024, 1, 15, 10, i % 60, 0, tzinfo=timezone.utc)

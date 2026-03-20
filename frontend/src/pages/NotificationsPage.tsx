@@ -2,7 +2,7 @@
  * NotificationsPage — view and manage notifications (Sprint 14b D1).
  * Route: /notifications
  */
-import React, { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { api } from '../api/client';
 
 interface Notification {

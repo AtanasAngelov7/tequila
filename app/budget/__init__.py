@@ -99,16 +99,28 @@ class BudgetSummary(BaseModel):
 
 
 # ── Default pricing table ─────────────────────────────────────────────────────
-# Approximate pricing as of early 2026. Users can override via API.
+# Pricing sourced from provider registries (ModelCapabilities). March 2026.
 
 _DEFAULT_PRICING: list[dict[str, Any]] = [
-    {"provider_id": "anthropic", "model": "claude-opus-4-5", "input_cost_per_1k": 0.015, "output_cost_per_1k": 0.075},
-    {"provider_id": "anthropic", "model": "claude-sonnet-4-5", "input_cost_per_1k": 0.003, "output_cost_per_1k": 0.015},
-    {"provider_id": "anthropic", "model": "claude-haiku-3", "input_cost_per_1k": 0.00025, "output_cost_per_1k": 0.00125},
-    {"provider_id": "openai", "model": "gpt-4o", "input_cost_per_1k": 0.005, "output_cost_per_1k": 0.015},
-    {"provider_id": "openai", "model": "gpt-4o-mini", "input_cost_per_1k": 0.00015, "output_cost_per_1k": 0.0006},
-    {"provider_id": "openai", "model": "gpt-4-turbo", "input_cost_per_1k": 0.01, "output_cost_per_1k": 0.03},
-    {"provider_id": "ollama", "model": "*", "input_cost_per_1k": 0.0, "output_cost_per_1k": 0.0},
+    # Current Anthropic models
+    {"provider_id": "anthropic", "model": "claude-opus-4-6",       "input_cost_per_1k": 0.005,    "output_cost_per_1k": 0.025},
+    {"provider_id": "anthropic", "model": "claude-sonnet-4-6",     "input_cost_per_1k": 0.003,    "output_cost_per_1k": 0.015},
+    {"provider_id": "anthropic", "model": "claude-haiku-4-5",      "input_cost_per_1k": 0.001,    "output_cost_per_1k": 0.005},
+    # Current OpenAI models
+    {"provider_id": "openai",    "model": "gpt-5.4",               "input_cost_per_1k": 0.0025,   "output_cost_per_1k": 0.015},
+    {"provider_id": "openai",    "model": "gpt-5.4-mini",          "input_cost_per_1k": 0.00075,  "output_cost_per_1k": 0.0045},
+    {"provider_id": "openai",    "model": "gpt-5.4-nano",          "input_cost_per_1k": 0.0002,   "output_cost_per_1k": 0.00125},
+    # Current Gemini models
+    {"provider_id": "gemini",    "model": "gemini-2.5-pro",        "input_cost_per_1k": 0.00125,  "output_cost_per_1k": 0.01},
+    {"provider_id": "gemini",    "model": "gemini-2.5-flash",      "input_cost_per_1k": 0.00015,  "output_cost_per_1k": 0.0006},
+    {"provider_id": "gemini",    "model": "gemini-2.5-flash-lite", "input_cost_per_1k": 0.000075, "output_cost_per_1k": 0.0003},
+    # Legacy models (backwards-compat for saved sessions)
+    {"provider_id": "anthropic", "model": "claude-opus-4-5",       "input_cost_per_1k": 0.015,   "output_cost_per_1k": 0.075},
+    {"provider_id": "anthropic", "model": "claude-sonnet-4-5",     "input_cost_per_1k": 0.003,   "output_cost_per_1k": 0.015},
+    {"provider_id": "openai",    "model": "gpt-4o",                "input_cost_per_1k": 0.005,   "output_cost_per_1k": 0.015},
+    {"provider_id": "openai",    "model": "gpt-4o-mini",           "input_cost_per_1k": 0.00015, "output_cost_per_1k": 0.0006},
+    # Ollama wildcard (always free)
+    {"provider_id": "ollama",    "model": "*",                     "input_cost_per_1k": 0.0,     "output_cost_per_1k": 0.0},
 ]
 
 

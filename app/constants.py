@@ -46,5 +46,5 @@ MAX_OCC_RETRIES: int = 3
 
 # ── Agent defaults ────────────────────────────────────────────────────────────
 
-DEFAULT_MODEL: str = "anthropic:claude-sonnet-4-5"
+DEFAULT_MODEL: str = "anthropic:claude-sonnet-4-6"
 """System-wide fallback model used when an agent has no ``default_model`` set."""

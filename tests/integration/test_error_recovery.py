@@ -145,7 +145,7 @@ async def test_context_budget_drop_tool_results_reduces_usage(migrated_db: Any) 
     from app.agent.context import ContextBudget
     from app.providers.base import Message
 
-    cb = ContextBudget.for_model("gpt-4o")
+    cb = ContextBudget.for_model("gpt-5.4")
     msgs_before = [
         Message(role="user", content="run tool"),
         Message(role="tool", content="x" * 2000),

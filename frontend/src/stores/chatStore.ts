@@ -24,6 +24,7 @@ interface ChatState {
   streamingContent: string;
   turnPhase: TurnPhase;
   isStreaming: boolean;
+  turnError: string | null;  // visible error from last failed turn
   pendingApproval: PendingApproval | null;
   activeToolCallId: string | null;
   activeToolName: string | null;
@@ -48,6 +49,7 @@ interface ChatState {
   _finalizeStream: (content?: string) => void;
   _setPendingApproval: (approval: PendingApproval | null) => void;
   _setTurnPhase: (phase: TurnPhase) => void;
+  _setTurnError: (error: string | null) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -59,6 +61,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   streamingContent: '',
   turnPhase: 'idle',
   isStreaming: false,
+  turnError: null,
   pendingApproval: null,
   activeToolCallId: null,
   activeToolName: null,
@@ -127,15 +130,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   setActiveSession: async (sessionId: string) => {
+    console.log('[chatStore] setActiveSession', sessionId);
     set({ activeSessionId: sessionId, messages: [], streamingContent: '', turnPhase: 'idle', isStreaming: false });
     await get().loadMessages(sessionId);
     const session = get().sessions.find((s) => s.session_id === sessionId);
     if (session) {
+      console.log('[chatStore] sending session.resume key=%s', session.session_key.slice(0, 8));
       wsClient.send({
         method: 'session.resume',
         id: crypto.randomUUID(),
         payload: { session_key: session.session_key },
       });
+    } else {
+      console.warn('[chatStore] setActiveSession: session not found in sessions array for', sessionId);
     }
   },
 
@@ -153,10 +160,39 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   sendMessage: (content: string) => {
     const { activeSessionId, sessions } = get();
-    if (!activeSessionId) return;
+    if (!activeSessionId) {
+      console.warn('[chatStore] sendMessage: no activeSessionId — aborting');
+      return;
+    }
     const session = sessions.find((s) => s.session_id === activeSessionId);
-    if (!session) return;
-    set({ turnPhase: 'thinking', isStreaming: true, streamingContent: '' });
+    if (!session) {
+      console.warn('[chatStore] sendMessage: session not found for', activeSessionId);
+      return;
+    }
+
+    // Optimistic user message so the user sees their input immediately.
+    const optimisticId = `opt-${crypto.randomUUID()}`;
+    const optimisticMsg: Message = {
+      id: optimisticId,
+      session_id: activeSessionId,
+      role: 'user',
+      content,
+      content_blocks: [],
+      tool_calls: [],
+      file_ids: [],
+      active: true,
+      provenance: 'user_input',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    set((s) => ({
+      messages: [...s.messages, optimisticMsg],
+      turnPhase: 'thinking' as const,
+      isStreaming: true,
+      streamingContent: '',
+      turnError: null,
+    }));
+    console.log('[chatStore] sendMessage: dispatching message.send session_key=%s', session.session_key.slice(0, 8));
     wsClient.send({
       method: 'message.send',
       id: crypto.randomUUID(),
@@ -167,10 +203,23 @@ export const useChatStore = create<ChatState>((set, get) => ({
   receiveMessage: (msg: Message) => {
     set((s) => {
       if (msg.session_id !== s.activeSessionId) return s;
-      // Replace optimistic message if same id, otherwise append
+      // Replace optimistic message if same id, otherwise append.
+      // Also replace optimistic user messages (id starts with "opt-") to avoid
+      // duplicates when the server echoes the persisted message back.
       const exists = s.messages.some((m) => m.id === msg.id);
       if (exists) {
         return { messages: s.messages.map((m) => m.id === msg.id ? msg : m) };
+      }
+      // Replace the first optimistic placeholder that matches role+content
+      if (msg.role === 'user') {
+        const optIdx = s.messages.findIndex(
+          (m) => m.id.startsWith('opt-') && m.role === 'user' && m.content === msg.content,
+        );
+        if (optIdx !== -1) {
+          const updated = [...s.messages];
+          updated[optIdx] = msg;
+          return { messages: updated };
+        }
       }
       return { messages: [...s.messages, msg] };
     });
@@ -259,7 +308,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((s) => ({ streamingContent: s.streamingContent + text, turnPhase: 'responding' }));
   },
 
-  _finalizeStream: (content?: string) => {
+  _finalizeStream: (_content?: string) => {
     set({ isStreaming: false, turnPhase: 'idle', streamingContent: '', pendingApproval: null });
     // Reload messages to get the persisted assistant message
     const { activeSessionId, loadMessages } = get();
@@ -270,6 +319,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   _setPendingApproval: (approval) => set({ pendingApproval: approval }),
   _setTurnPhase: (phase) => set({ turnPhase: phase }),
+  _setTurnError: (error) => set({ turnError: error }),
 }));
 
 // ── WS frame routing (Sprint 05) ──────────────────────────────────────────────
@@ -282,6 +332,7 @@ _wc.onFrame((frame) => {
 
   // Persisted message echo
   if (frame.event === 'message.created' && frame.payload) {
+    console.log('[chatStore] message.created received', frame.payload);
     // TD-254: Runtime validation of WS payload before cast
     const p = frame.payload as Record<string, unknown>;
     if (typeof p.id === 'string' && typeof p.role === 'string' && typeof p.content === 'string') {
@@ -292,6 +343,7 @@ _wc.onFrame((frame) => {
 
   // Agent run events
   if (frame.event === 'agent.run.start') {
+    console.log('[chatStore] agent.run.start — entering thinking phase');
     store._setTurnPhase('thinking');
     return;
   }
@@ -333,12 +385,16 @@ _wc.onFrame((frame) => {
   }
 
   if (frame.event === 'agent.run.complete') {
+    console.log('[chatStore] agent.run.complete — finalizing stream');
     store._finalizeStream();
     return;
   }
 
   if (frame.event === 'agent.run.error') {
-    useChatStore.setState({ isStreaming: false, turnPhase: 'idle' });
+    const errPayload = frame.payload as Record<string, unknown> | undefined;
+    const msg = (errPayload?.error as string) || 'The AI response failed. Please try again.';
+    console.error('[chatStore] agent.run.error:', msg);
+    useChatStore.setState({ isStreaming: false, turnPhase: 'idle', turnError: msg });
     return;
   }
 });

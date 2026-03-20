@@ -4,7 +4,8 @@
  */
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useChatStore } from '../../stores/chatStore';
+import { useChatStore } from '../stores/chatStore';
+import type { Session } from '../types';
 
 interface SearchResult {
   id: string;
@@ -80,12 +81,12 @@ export default function SearchPalette({ open, onClose }: SearchPaletteProps) {
     const sessionResults: SearchResult[] = q
       ? sessions
           .filter(
-            (s) =>
+            (s: Session) =>
               s.title?.toLowerCase().includes(q) ||
               s.session_id.toLowerCase().includes(q)
           )
           .slice(0, 8)
-          .map((s) => ({
+          .map((s: Session) => ({
             id: `session-${s.session_id}`,
             icon: '💬',
             title: s.title ?? 'Untitled session',

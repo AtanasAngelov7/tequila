@@ -140,13 +140,20 @@ class TurnLoop:
         session_key: str,
         user_content: str,
         user_name: str = "",
+        user_message_id: str | None = None,
     ) -> None:
-        """Start a turn from the API layer (e.g. POST /messages or /regenerate)."""
+        """Start a turn from the API layer (e.g. POST /messages or /regenerate).
+
+        When *user_message_id* is provided the caller has already persisted the
+        user message (e.g. ``handle_message_send`` in ws.py).  The turn loop
+        will skip its own insert and use the given ID instead.
+        """
         await self._run_full_turn(
             session_key=session_key,
             session_id=session_id,
             user_content=user_content,
             user_name=user_name,
+            user_message_id=user_message_id,
         )
 
     # ── Core execution ────────────────────────────────────────────────────────
@@ -158,6 +165,7 @@ class TurnLoop:
         session_id: str,
         user_content: str,
         user_name: str = "",
+        user_message_id: str | None = None,
     ) -> None:
         """Execute one full turn: user message → assistant response."""
         # TD-201: Acquire per-session lock to prevent parallel turns
@@ -172,6 +180,7 @@ class TurnLoop:
                     session_id=session_id,
                     user_content=user_content,
                     user_name=user_name,
+                    user_message_id=user_message_id,
                 )
             finally:
                 mark_turn_inactive(session_key)
@@ -183,9 +192,11 @@ class TurnLoop:
         session_id: str,
         user_content: str,
         user_name: str = "",
+        user_message_id: str | None = None,
     ) -> None:
         """Inner implementation of a full turn (wrapped by _run_full_turn)."""
         # ── Step 1: Load session + agent config ───────────────────────────────
+        logger.info("TurnLoop: starting turn for session=%s key=%s", session_id, session_key[:8])
         try:
             session = await self._session_store.get_by_id(session_id)
         except NotFoundError:
@@ -211,32 +222,39 @@ class TurnLoop:
                 soul=SoulConfig(persona="a helpful assistant"),
             )
 
-        # Resolve provider from qualified model ID (e.g. "anthropic:claude-sonnet-4-5")
+        # Resolve provider from qualified model ID (e.g. "anthropic:claude-sonnet-4-6")
         qualified_model = getattr(agent_config, "default_model", "") or DEFAULT_MODEL
+        logger.info("TurnLoop: resolved model=%r agent=%s", qualified_model, agent_config.agent_id)
         try:
             provider, model = get_provider_registry().get_provider_for_model(qualified_model)
-        except Exception:
-            await self._emit_error(session_key, f"Provider not available for model {qualified_model!r}")
+        except Exception as exc:
+            logger.error("Provider resolution failed for model %r: %s", qualified_model, exc)
+            await self._emit_error(session_key, f"Provider not available for model {qualified_model!r}: {exc}")
             return
 
-        # ── Step 2: Persist user message ──────────────────────────────────────
-        try:
-            user_msg = await self._message_store.insert(
-                session_id=session_id,
-                role="user",
-                content=user_content,
-                provenance="user_input",
-                active=True,
-            )
-        except Exception as exc:
-            logger.error("Failed to persist user message: %s", exc)
-            await self._emit_error(session_key, "Failed to persist user message")
-            return
+        # ── Step 2: Persist user message (skip if already persisted by caller) ──
+        if user_message_id:
+            # Caller (e.g. handle_message_send) already inserted the message.
+            user_msg_id = user_message_id
+        else:
+            try:
+                user_msg = await self._message_store.insert(
+                    session_id=session_id,
+                    role="user",
+                    content=user_content,
+                    provenance="user_input",
+                    active=True,
+                )
+                user_msg_id = user_msg.id
+            except Exception as exc:
+                logger.error("Failed to persist user message: %s", exc)
+                await self._emit_error(session_key, "Failed to persist user message")
+                return
 
         # Emit run start
         await self._emit(session_key, ET.AGENT_RUN_START, {
             "session_id": session_id,
-            "user_message_id": user_msg.id,
+            "user_message_id": user_msg_id,
         })
 
         # ── Main tool loop ─────────────────────────────────────────────────────
@@ -591,6 +609,9 @@ class TurnLoop:
                     kind="error",
                     error_message=event.error_message or "Unknown provider error",
                 ))
+                # Abort the turn so the outer handler emits agent.run.error
+                # and no empty assistant message is persisted.
+                raise RuntimeError(event.error_message or "Unknown provider error")
 
             elif kind == "done":
                 break

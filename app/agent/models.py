@@ -240,7 +240,7 @@ class AgentConfig(BaseModel):
     """Personality, system-prompt template, and behavioural rules."""
 
     default_model: str = ""
-    """Provider-qualified model ID, e.g. ``anthropic:claude-sonnet-4-5``."""
+    """Provider-qualified model ID, e.g. ``anthropic:claude-sonnet-4-6``."""
 
     fallback_provider_id: str | None = None
     """Provider to switch to when the primary provider's circuit-breaker opens."""

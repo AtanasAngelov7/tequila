@@ -1,6 +1,7 @@
 // Sprint 04 — Agent management page
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAgents, type AgentConfig, type SoulConfig } from '../hooks/useAgents';
+import { api } from '../api/client';
 import AgentCard from '../components/agent/AgentCard';
 import SoulEditor from '../components/agent/SoulEditor';
 
@@ -44,10 +45,72 @@ interface CreateForm {
 
 const defaultForm: CreateForm = {
   name: '',
-  default_model: 'anthropic:claude-sonnet-4-5',
+  default_model: 'anthropic:claude-sonnet-4-6',
   persona: 'a helpful AI assistant',
   role: 'main',
 };
+
+// Grouped model options for the dropdown
+const GROUPED_MODELS: { group: string; models: { id: string; name: string }[] }[] = [
+  {
+    group: 'Anthropic',
+    models: [
+      { id: 'anthropic:claude-opus-4-6', name: 'Claude Opus 4.6' },
+      { id: 'anthropic:claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
+      { id: 'anthropic:claude-haiku-4-5', name: 'Claude Haiku 4.5' },
+    ],
+  },
+  {
+    group: 'OpenAI',
+    models: [
+      { id: 'openai:gpt-5.4', name: 'GPT-5.4' },
+      { id: 'openai:gpt-5.4-mini', name: 'GPT-5.4 Mini' },
+      { id: 'openai:gpt-5.4-nano', name: 'GPT-5.4 Nano' },
+    ],
+  },
+  {
+    group: 'Google Gemini',
+    models: [
+      { id: 'gemini:gemini-2.5-pro', name: 'Gemini 2.5 Pro' },
+      { id: 'gemini:gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+      { id: 'gemini:gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite' },
+    ],
+  },
+  {
+    group: 'Anthropic (web)',
+    models: [
+      { id: 'anthropic_web:claude-opus-4-6', name: 'Claude Opus 4.6 (web)' },
+      { id: 'anthropic_web:claude-sonnet-4-6', name: 'Claude Sonnet 4.6 (web)' },
+    ],
+  },
+  {
+    group: 'OpenAI (web)',
+    models: [
+      { id: 'openai_web:gpt-5.4', name: 'GPT-5.4 (web)' },
+      { id: 'openai_web:gpt-5.4-mini', name: 'GPT-5.4 Mini (web)' },
+    ],
+  },
+  {
+    group: 'Gemini (web)',
+    models: [
+      { id: 'gemini_web:gemini-2.5-pro', name: 'Gemini 2.5 Pro (web)' },
+      { id: 'gemini_web:gemini-2.5-flash', name: 'Gemini 2.5 Flash (web)' },
+    ],
+  },
+  {
+    group: 'Ollama (local)',
+    models: [
+      { id: 'ollama:llama3', name: 'Llama 3' },
+      { id: 'ollama:mistral', name: 'Mistral' },
+      { id: 'ollama:phi3', name: 'Phi-3' },
+    ],
+  },
+];
+
+// Flat list of all known model IDs for validation
+const ALL_KNOWN_MODEL_IDS = new Set(
+  GROUPED_MODELS.flatMap((g) => g.models.map((m) => m.id))
+);
 
 const overlayStyle: React.CSSProperties = {
   position: 'fixed',
@@ -89,13 +152,39 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
 };
 
+interface EditForm {
+  name: string;
+  default_model: string;
+  persona: string;
+  role: string;
+}
+
 export default function AgentsPage() {
-  const { agents, loading, error, createAgent, deleteAgent, cloneAgent, updateSoul } = useAgents();
+  const { agents, loading, error, createAgent, updateAgent, deleteAgent, cloneAgent, updateSoul } = useAgents();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState<CreateForm>(defaultForm);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [soulTarget, setSoulTarget] = useState<AgentConfig | null>(null);
+  const [modelFilter, setModelFilter] = useState('');
+  const [providerHealth, setProviderHealth] = useState<Record<string, boolean>>({});
+
+  // Edit modal state
+  const [editTarget, setEditTarget] = useState<AgentConfig | null>(null);
+  const [editForm, setEditForm] = useState<EditForm>({ name: '', default_model: '', persona: '', role: 'main' });
+  const [editing, setEditing] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editModelFilter, setEditModelFilter] = useState('');
+
+  useEffect(() => {
+    api.get<{ providers: Array<{ provider_id: string; healthy: boolean }> }>('/providers')
+      .then((data) => {
+        const map: Record<string, boolean> = {};
+        for (const p of data.providers) map[p.provider_id] = p.healthy;
+        setProviderHealth(map);
+      })
+      .catch(() => {/* ignore — warning simply won't show */});
+  }, []);
 
   const handleCreate = async () => {
     if (!form.name.trim()) return;
@@ -138,6 +227,38 @@ export default function AgentsPage() {
     await updateSoul(agentId, version, soul);
   };
 
+  const openEditModal = (agent: AgentConfig) => {
+    setEditTarget(agent);
+    setEditForm({
+      name: agent.name,
+      default_model: agent.default_model,
+      persona: agent.soul?.persona || agent.persona || '',
+      role: agent.role,
+    });
+    setEditError(null);
+    setEditModelFilter('');
+  };
+
+  const handleEdit = async () => {
+    if (!editTarget) return;
+    setEditing(true);
+    setEditError(null);
+    try {
+      await updateAgent(editTarget.agent_id, {
+        version: editTarget.version,
+        name: editForm.name.trim(),
+        default_model: editForm.default_model,
+        persona: editForm.persona,
+        role: editForm.role,
+      });
+      setEditTarget(null);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setEditing(false);
+    }
+  };
+
   return (
     <div style={pageStyle}>
       <div style={headerStyle}>
@@ -166,7 +287,7 @@ export default function AgentsPage() {
           <AgentCard
             key={agent.agent_id}
             agent={agent}
-            onEdit={() => {/* edit inline via soul editor for now */}}
+            onEdit={openEditModal}
             onEditSoul={setSoulTarget}
             onClone={handleClone}
             onDelete={handleDelete}
@@ -194,11 +315,50 @@ export default function AgentsPage() {
             <div>
               <label style={labelStyle}>Default Model</label>
               <input
-                style={inputStyle}
-                value={form.default_model}
-                onChange={(e) => setForm((f) => ({ ...f, default_model: e.target.value }))}
-                placeholder="anthropic:claude-sonnet-4-5"
+                style={{ ...inputStyle, marginBottom: 4 }}
+                placeholder="Filter models…"
+                value={modelFilter}
+                onChange={(e) => setModelFilter(e.target.value)}
               />
+              <select
+                style={inputStyle}
+                value={ALL_KNOWN_MODEL_IDS.has(form.default_model) ? form.default_model : ''}
+                onChange={(e) => {
+                  if (e.target.value) setForm((f) => ({ ...f, default_model: e.target.value }));
+                }}
+              >
+                {!ALL_KNOWN_MODEL_IDS.has(form.default_model) && (
+                  <option value="" disabled>
+                    {form.default_model} (custom)
+                  </option>
+                )}
+                {GROUPED_MODELS.map((group) => {
+                  const filtered = group.models.filter((m) =>
+                    !modelFilter || m.name.toLowerCase().includes(modelFilter.toLowerCase()) || m.id.toLowerCase().includes(modelFilter.toLowerCase())
+                  );
+                  if (filtered.length === 0) return null;
+                  return (
+                    <optgroup key={group.group} label={group.group}>
+                      {filtered.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+              {(() => {
+                const providerPrefix = form.default_model.split(':')[0];
+                if (providerHealth[providerPrefix] === false) {
+                  return (
+                    <div style={{ color: '#f59e0b', fontSize: 12, marginTop: 4 }}>
+                      ⚠ This model&apos;s provider is not configured
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
             <div>
@@ -239,6 +399,115 @@ export default function AgentsPage() {
               </button>
               <button style={btnPrimary} onClick={handleCreate} disabled={creating}>
                 {creating ? 'Creating…' : 'Create'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit modal */}
+      {editTarget && (
+        <div style={overlayStyle} onClick={(e) => e.target === e.currentTarget && setEditTarget(null)}>
+          <div style={modalStyle}>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>Edit Agent</div>
+
+            <div>
+              <label style={labelStyle}>Name</label>
+              <input
+                style={inputStyle}
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Default Model</label>
+              <input
+                style={{ ...inputStyle, marginBottom: 4 }}
+                placeholder="Filter models…"
+                value={editModelFilter}
+                onChange={(e) => setEditModelFilter(e.target.value)}
+              />
+              <select
+                style={inputStyle}
+                value={ALL_KNOWN_MODEL_IDS.has(editForm.default_model) ? editForm.default_model : ''}
+                onChange={(e) => {
+                  if (e.target.value) setEditForm((f) => ({ ...f, default_model: e.target.value }));
+                }}
+              >
+                {!ALL_KNOWN_MODEL_IDS.has(editForm.default_model) && (
+                  <option value="" disabled>
+                    {editForm.default_model} (custom)
+                  </option>
+                )}
+                {GROUPED_MODELS.map((group) => {
+                  const filtered = group.models.filter((m) =>
+                    !editModelFilter || m.name.toLowerCase().includes(editModelFilter.toLowerCase()) || m.id.toLowerCase().includes(editModelFilter.toLowerCase())
+                  );
+                  if (filtered.length === 0) return null;
+                  return (
+                    <optgroup key={group.group} label={group.group}>
+                      {filtered.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </select>
+              {(() => {
+                const providerPrefix = editForm.default_model.split(':')[0];
+                if (providerHealth[providerPrefix] === false) {
+                  return (
+                    <div style={{ color: '#f59e0b', fontSize: 12, marginTop: 4 }}>
+                      ⚠ This model&apos;s provider is not configured
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+
+            <div>
+              <label style={labelStyle}>Persona</label>
+              <input
+                style={inputStyle}
+                value={editForm.persona}
+                onChange={(e) => setEditForm((f) => ({ ...f, persona: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label style={labelStyle}>Role</label>
+              <select
+                style={inputStyle}
+                value={editForm.role}
+                onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
+              >
+                {['main', 'support', 'analyst', 'cron', 'webhook'].map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+            </div>
+
+            {editError && (
+              <div style={{ color: '#ef4444', fontSize: 12 }}>{editError}</div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                style={{
+                  padding: '8px 16px', borderRadius: 4, border: '1px solid var(--color-border)',
+                  background: 'transparent', color: 'var(--color-on-surface)', cursor: 'pointer', fontSize: 13,
+                }}
+                onClick={() => setEditTarget(null)}
+              >
+                Cancel
+              </button>
+              <button style={btnPrimary} onClick={handleEdit} disabled={editing}>
+                {editing ? 'Saving…' : 'Save'}
               </button>
             </div>
           </div>

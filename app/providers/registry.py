@@ -30,7 +30,7 @@ class ProviderRegistry:
         registry.register(OpenAIProvider())
 
         provider = registry.get("anthropic")
-        costs = provider.cost_per_token("claude-sonnet-4-5")
+        costs = provider.cost_per_token("claude-sonnet-4-6")
     """
 
     _instance: "ProviderRegistry | None" = None

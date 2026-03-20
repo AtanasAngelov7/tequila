@@ -25,14 +25,14 @@ async def test_create_agent_with_model(test_app):
         "/api/agents",
         json={
             "name": "Advanced Bot",
-            "default_model": "anthropic:claude-opus-4-5",
+            "default_model": "anthropic:claude-opus-4-6",
             "persona": "a powerful assistant",
             "role": "support",
         },
     )
     assert resp.status_code == 201
     data = resp.json()
-    assert data["default_model"] == "anthropic:claude-opus-4-5"
+    assert data["default_model"] == "anthropic:claude-opus-4-6"
     assert data["role"] == "support"
 
 
@@ -164,7 +164,7 @@ async def test_delete_agent_not_found(test_app):
 async def test_clone_agent(test_app):
     create_resp = await test_app.post(
         "/api/agents",
-        json={"name": "Original", "default_model": "openai:gpt-4o"},
+        json={"name": "Original", "default_model": "openai:gpt-5.4"},
     )
     agent_id = create_resp.json()["agent_id"]
 
@@ -176,7 +176,7 @@ async def test_clone_agent(test_app):
     cloned = clone_resp.json()
     assert cloned["name"] == "Clone"
     assert cloned["agent_id"] != agent_id
-    assert cloned["default_model"] == "openai:gpt-4o"
+    assert cloned["default_model"] == "openai:gpt-5.4"
 
 
 # ── Soul ─────────────────────────────────────────────────────────────────────

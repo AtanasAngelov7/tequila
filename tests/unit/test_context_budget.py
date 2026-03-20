@@ -74,18 +74,18 @@ def _msg(role: str, content: str) -> Message:
 
 
 def test_token_counter_empty_string():
-    tc = TokenCounter("gpt-4o")
+    tc = TokenCounter("gpt-5.4")
     assert tc.count("") == 0
 
 
 def test_token_counter_non_empty():
-    tc = TokenCounter("gpt-4o")
+    tc = TokenCounter("gpt-5.4")
     n = tc.count("hello world")
     assert n > 0
 
 
 def test_token_counter_cache_hit():
-    tc = TokenCounter("gpt-4o")
+    tc = TokenCounter("gpt-5.4")
     first = tc.count("cached text")
     tc._enc = None  # remove encoder — must still return cached value
     second = tc.count("cached text")
@@ -101,14 +101,14 @@ def test_token_counter_fallback_without_tiktoken(monkeypatch):
 
 
 def test_token_counter_count_messages():
-    tc = TokenCounter("gpt-4o")
+    tc = TokenCounter("gpt-5.4")
     msgs = [_msg("user", "hello"), _msg("assistant", "hi")]
     total = tc.count_messages(msgs)
     assert total > 0
 
 
 def test_token_counter_clear_cache():
-    tc = TokenCounter("gpt-4o")
+    tc = TokenCounter("gpt-5.4")
     tc.count("hello")
     assert len(tc._cache) == 1
     tc.clear_cache()
@@ -119,9 +119,9 @@ def test_token_counter_clear_cache():
 
 
 def test_for_model_known():
-    cb = CB07.for_model("anthropic:claude-sonnet-4-5")
-    assert cb.context_window == 200_000
-    assert cb.total_budget == 200_000 - 4_096
+    cb = CB07.for_model("anthropic:claude-sonnet-4-6")
+    assert cb.context_window == 1_000_000
+    assert cb.total_budget == 1_000_000 - 4_096
 
 
 def test_for_model_unknown_uses_default():
@@ -139,7 +139,7 @@ def test_usage_ratio_zero_budget():
 
 
 def test_needs_compression_below_threshold():
-    cb = CB07.for_model("gpt-4o")  # large context window
+    cb = CB07.for_model("gpt-5.4")  # large context window
     messages = [_msg("user", "hi")]
     assert cb.needs_compression(messages, threshold=0.80) is False
 
@@ -156,7 +156,7 @@ def test_needs_compression_above_threshold():
 
 
 def test_compress_drop_tool_results_long():
-    cb = CB07.for_model("gpt-4o")
+    cb = CB07.for_model("gpt-5.4")
     long_content = "x" * 600
     msgs = [_msg("tool", long_content)]
     result = cb.compress_drop_tool_results(msgs)
@@ -165,14 +165,14 @@ def test_compress_drop_tool_results_long():
 
 
 def test_compress_drop_tool_results_short():
-    cb = CB07.for_model("gpt-4o")
+    cb = CB07.for_model("gpt-5.4")
     msgs = [_msg("tool", "short")]
     result = cb.compress_drop_tool_results(msgs)
     assert result[0].content == "short"
 
 
 def test_compress_drop_tool_results_preserves_non_tool():
-    cb = CB07.for_model("gpt-4o")
+    cb = CB07.for_model("gpt-5.4")
     msgs = [_msg("user", "x" * 600), _msg("tool", "x" * 600)]
     result = cb.compress_drop_tool_results(msgs)
     assert result[0].content == "x" * 600  # user not truncated
@@ -198,7 +198,7 @@ def test_compress_trim_oldest_preserves_system():
 
 
 def test_compress_trim_oldest_returns_new_list():
-    cb = CB07.for_model("gpt-4o")
+    cb = CB07.for_model("gpt-5.4")
     msgs = [_msg("user", "hello")]
     result = cb.compress_trim_oldest(msgs)
     assert result is not msgs
@@ -209,16 +209,16 @@ def test_compress_trim_oldest_returns_new_list():
 
 @pytest.mark.asyncio
 async def test_compress_summarize_old_not_enough_history():
-    cb = CB07.for_model("gpt-4o")
+    cb = CB07.for_model("gpt-5.4")
     msgs = [_msg("user", "only one"), _msg("assistant", "response")]
     # keep_recent=10 means nothing to summarise → same list returned
-    result = await cb.compress_summarize_old(msgs, provider=None, model="gpt-4o", keep_recent=10)
+    result = await cb.compress_summarize_old(msgs, provider=None, model="gpt-5.4", keep_recent=10)
     assert result == msgs
 
 
 @pytest.mark.asyncio
 async def test_compress_summarize_old_uses_provider():
-    cb = CB07.for_model("gpt-4o")
+    cb = CB07.for_model("gpt-5.4")
 
     async def _fake_stream_completion(*_, **__):
         from app.providers.base import ProviderStreamEvent
@@ -229,7 +229,7 @@ async def test_compress_summarize_old_uses_provider():
     provider.stream_completion = _fake_stream_completion
 
     msgs = [_msg("user", f"message {i}") for i in range(15)]
-    result = await cb.compress_summarize_old(msgs, provider=provider, model="gpt-4o", keep_recent=5)
+    result = await cb.compress_summarize_old(msgs, provider=provider, model="gpt-5.4", keep_recent=5)
     # Should have system=0 + 1 summary + 5 recent = 6 messages
     assert len(result) == 6
     assert "summary" in result[0].content.lower()
@@ -257,7 +257,7 @@ async def test_compress_summarize_old_fallback_on_empty_summary():
 
 @pytest.mark.asyncio
 async def test_auto_compress_no_op_when_below_threshold():
-    cb = CB07.for_model("gpt-4o")
+    cb = CB07.for_model("gpt-5.4")
     msgs = [_msg("user", "hi")]
     result = await cb.auto_compress(msgs)
     assert result is msgs  # exact same object — nothing was done
@@ -289,23 +289,23 @@ async def test_auto_compress_strategy1_sufficient():
 
 def test_get_or_create_budget_same_model():
     evict_budget("test-session-cb")
-    b1 = get_or_create_budget("test-session-cb", "gpt-4o")
-    b2 = get_or_create_budget("test-session-cb", "gpt-4o")
+    b1 = get_or_create_budget("test-session-cb", "gpt-5.4")
+    b2 = get_or_create_budget("test-session-cb", "gpt-5.4")
     assert b1 is b2
 
 
 def test_get_or_create_budget_new_on_model_change():
     evict_budget("test-session-cb2")
-    b1 = get_or_create_budget("test-session-cb2", "gpt-4o")
-    b2 = get_or_create_budget("test-session-cb2", "gpt-4o-mini")
+    b1 = get_or_create_budget("test-session-cb2", "gpt-5.4")
+    b2 = get_or_create_budget("test-session-cb2", "gpt-5.4-mini")
     assert b1 is not b2
 
 
 def test_evict_budget():
     evict_budget("test-session-evict")
-    b1 = get_or_create_budget("test-session-evict", "gpt-4o")
+    b1 = get_or_create_budget("test-session-evict", "gpt-5.4")
     evict_budget("test-session-evict")
-    b2 = get_or_create_budget("test-session-evict", "gpt-4o")
+    b2 = get_or_create_budget("test-session-evict", "gpt-5.4")
     assert b1 is not b2
 
 

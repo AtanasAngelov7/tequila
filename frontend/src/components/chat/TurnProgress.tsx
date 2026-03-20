@@ -3,9 +3,38 @@ import { useChatStore } from '../../stores/chatStore';
 /**
  * TurnProgress — a compact status bar shown while a turn is in progress.
  * Displays "Thinking…", "Calling tool X…", or "Responding…" based on turnPhase.
+ * Also shows a dismissible error banner when a turn fails.
  */
 export default function TurnProgress() {
-  const { turnPhase, isStreaming, activeToolName } = useChatStore();
+  const { turnPhase, isStreaming, activeToolName, turnError, _setTurnError } = useChatStore();
+
+  if (turnError) {
+    return (
+      <div
+        style={{
+          padding: '6px 16px',
+          fontSize: 12,
+          color: '#c0392b',
+          background: 'rgba(192,57,43,0.08)',
+          borderTop: '1px solid rgba(192,57,43,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 8,
+        }}
+        role="alert"
+      >
+        <span>⚠ {turnError}</span>
+        <button
+          onClick={() => _setTurnError(null)}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, color: 'inherit', padding: '0 4px' }}
+          aria-label="Dismiss error"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
 
   if (!isStreaming || turnPhase === 'idle') return null;
 

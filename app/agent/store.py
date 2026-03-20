@@ -45,7 +45,7 @@ class AgentStore:
         *,
         name: str,
         provider: str = "anthropic",
-        default_model: str = "anthropic:claude-sonnet-4-5",
+        default_model: str = "anthropic:claude-sonnet-4-6",
         persona: str = "a helpful AI assistant",
         soul: SoulConfig | None = None,
         role: str = "main",

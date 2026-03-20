@@ -26,10 +26,58 @@ logger = logging.getLogger(__name__)
 # ── Per-model capability registry ─────────────────────────────────────────────
 
 _OPENAI_MODELS: dict[str, ModelCapabilities] = {
+    "gpt-5.4": ModelCapabilities(
+        model_id="gpt-5.4",
+        provider_id="openai",
+        display_name="GPT-5.4 (flagship)",
+        context_window=1_000_000,
+        max_output_tokens=128_000,
+        supports_tools=True,
+        supports_vision=True,
+        supports_structured_output=True,
+        supports_streaming=True,
+        supports_thinking=False,
+        input_cost_per_1k=0.0025,
+        output_cost_per_1k=0.015,
+    ),
+    "gpt-5.4-mini": ModelCapabilities(
+        model_id="gpt-5.4-mini",
+        provider_id="openai",
+        display_name="GPT-5.4 Mini (fast)",
+        context_window=400_000,
+        max_output_tokens=128_000,
+        supports_tools=True,
+        supports_vision=True,
+        supports_structured_output=True,
+        supports_streaming=True,
+        supports_thinking=False,
+        input_cost_per_1k=0.00075,
+        output_cost_per_1k=0.0045,
+    ),
+    "gpt-5.4-nano": ModelCapabilities(
+        model_id="gpt-5.4-nano",
+        provider_id="openai",
+        display_name="GPT-5.4 Nano (budget)",
+        context_window=400_000,
+        max_output_tokens=128_000,
+        supports_tools=True,
+        supports_vision=True,
+        supports_structured_output=True,
+        supports_streaming=True,
+        supports_thinking=False,
+        input_cost_per_1k=0.0002,
+        output_cost_per_1k=0.00125,
+    ),
+}
+
+# Deprecated/superseded models kept for backwards-compatibility.
+# list_models() does NOT include these; get_model_capabilities() resolves them
+# so that existing sessions with legacy model IDs don't break.
+_OPENAI_LEGACY_MODELS: dict[str, ModelCapabilities] = {
     "gpt-4o": ModelCapabilities(
         model_id="gpt-4o",
         provider_id="openai",
-        display_name="GPT-4o (flagship)",
+        display_name="GPT-4o (legacy)",
         context_window=128_000,
         max_output_tokens=16_384,
         supports_tools=True,
@@ -43,7 +91,7 @@ _OPENAI_MODELS: dict[str, ModelCapabilities] = {
     "gpt-4o-mini": ModelCapabilities(
         model_id="gpt-4o-mini",
         provider_id="openai",
-        display_name="GPT-4o Mini (fast)",
+        display_name="GPT-4o Mini (legacy)",
         context_window=128_000,
         max_output_tokens=16_384,
         supports_tools=True,
@@ -57,7 +105,7 @@ _OPENAI_MODELS: dict[str, ModelCapabilities] = {
     "o1": ModelCapabilities(
         model_id="o1",
         provider_id="openai",
-        display_name="o1 (reasoning)",
+        display_name="o1 (legacy)",
         context_window=200_000,
         max_output_tokens=100_000,
         supports_tools=True,
@@ -71,7 +119,7 @@ _OPENAI_MODELS: dict[str, ModelCapabilities] = {
     "o3-mini": ModelCapabilities(
         model_id="o3-mini",
         provider_id="openai",
-        display_name="o3 Mini (compact reasoning)",
+        display_name="o3 Mini (legacy)",
         context_window=200_000,
         max_output_tokens=100_000,
         supports_tools=True,
@@ -292,17 +340,18 @@ class OpenAIProvider(LLMProvider):
         ]
 
     def get_model_capabilities(self, model: str) -> ModelCapabilities:
-        return _OPENAI_MODELS.get(
-            model,
-            ModelCapabilities(
-                model_id=model,
-                provider_id="openai",
-                display_name=model,
-                context_window=128_000,
-                max_output_tokens=4_096,
-                supports_tools=True,
-                supports_streaming=True,
-            ),
+        if model in _OPENAI_MODELS:
+            return _OPENAI_MODELS[model]
+        if model in _OPENAI_LEGACY_MODELS:
+            return _OPENAI_LEGACY_MODELS[model]
+        return ModelCapabilities(
+            model_id=model,
+            provider_id="openai",
+            display_name=model,
+            context_window=128_000,
+            max_output_tokens=4_096,
+            supports_tools=True,
+            supports_streaming=True,
         )
 
     def cost_per_token(self, model: str) -> CostRate:

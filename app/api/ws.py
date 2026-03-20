@@ -146,13 +146,24 @@ async def websocket_endpoint(
         nonlocal active_session_id, active_session_key
 
         from app.sessions.store import get_session_store
+        from app.api.deps import get_config_dep
 
         try:
+            # Resolve agent_id: use param if supplied, otherwise fall back to
+            # the main agent created during setup.  "main" is kept as a last
+            # resort for backwards-compat (older frontends / tests).
+            agent_id_param: str = params.get("agent_id", "")
+            if not agent_id_param:
+                try:
+                    agent_id_param = get_config_dep().get("setup.main_agent_id", "") or "main"
+                except Exception:
+                    agent_id_param = "main"
+
             store = get_session_store()
             session = await store.create(
                 session_key=params.get("session_key"),
                 kind=params.get("kind", "user"),
-                agent_id=params.get("agent_id", "main"),
+                agent_id=agent_id_param,
                 channel="webchat",
                 title=params.get("title"),
             )
@@ -186,6 +197,7 @@ async def websocket_endpoint(
                 "session_key": session.session_key,
                 "status": session.status,
             }
+            logger.info("session.resume success: session_id=%s key=%s", active_session_id, session_key[:8])
             await send_json(_response(frame_id, ok=True, payload=payload))
         except SessionNotFoundError:
             await send_json(
@@ -234,16 +246,23 @@ async def websocket_endpoint(
                     turn_loop = get_turn_loop()
                     # TD-326: Track task reference to prevent GC and log exceptions
                     from app.api.tasks import track_task
+                    logger.info(
+                        "message.send: triggering turn loop session=%s msg=%s",
+                        active_session_id, message.id[:8],
+                    )
                     track_task(
                         turn_loop.run_turn_from_api(
                             session_id=active_session_id,
                             session_key=active_session_key,
                             user_content=content,
+                            user_message_id=message.id,
                         ),
                         name=f"turn_loop_{message.id[:8]}",
                     )
                 except RuntimeError:
-                    pass  # Turn loop not initialised (test / early startup)
+                    logger.warning("message.send: turn loop not initialised — skipping")
+            elif role == "user":
+                logger.warning("message.send: no active_session_key — cannot trigger turn loop")
 
         except Exception as exc:
             logger.exception("message.send failed")
@@ -281,6 +300,10 @@ async def websocket_endpoint(
     # as server push frames to this WebSocket client.
     async def _gateway_forwarder(event: Any) -> None:
         if active_session_key and event.session_key == active_session_key:
+            logger.info(
+                "WS forwarding gateway event: %s session=%s",
+                event.event_type, active_session_key[:8] if active_session_key else None,
+            )
             await send_json(_push(event.event_type, event.payload))
 
     # Register on the gateway (if available)
@@ -312,6 +335,11 @@ async def websocket_endpoint(
             frame_id: str = frame.get("id", "")
             method: str = frame.get("method", "")
             params: dict[str, Any] = frame.get("params", frame.get("payload", {}))
+
+            logger.info(
+                "WS frame received: method=%r connected=%s session=%s",
+                method, connected, active_session_id,
+            )
 
             # Require connect before any other method (except pong)
             if not connected and method not in ("connect", "pong"):

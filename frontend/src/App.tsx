@@ -28,7 +28,7 @@ type AppMode = 'loading' | 'setup' | 'app' | 'error';
 
 function MainApp() {
   const { theme, toggleSidebar, toggleShortcutsHelp, closeShortcutsHelp } = useUiStore();
-  const { createSession, setActiveSession } = useChatStore();
+  const { createSession, setActiveSession, loadSessions } = useChatStore();
   const [searchPaletteOpen, setSearchPaletteOpen] = useState(false);
 
   // Apply theme reactively
@@ -38,11 +38,37 @@ function MainApp() {
     return cleanup;
   }, [theme]);
 
-  // Start WebSocket on mount
+  // Start WebSocket on mount.
+  // wsClient is a module-level singleton — do not destroy it on cleanup so that
+  // React StrictMode's simulated unmount/remount cycle does not kill the connection.
+  // The browser closes WebSocket automatically on real page unload.
   useEffect(() => {
     wsClient.connect();
-    return () => wsClient.destroy();
   }, []);
+
+  // After initial mount, ensure a session is active so the user can chat
+  // immediately (e.g. right after setup wizard completes).
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const store = useChatStore.getState();
+      // Skip if a session is already selected (e.g. page reload with state).
+      if (store.activeSessionId) return;
+      await store.loadSessions();
+      const { sessions } = useChatStore.getState();
+      if (cancelled) return;
+      if (sessions.length > 0) {
+        await store.setActiveSession(sessions[0].session_id);
+      } else {
+        // No sessions exist yet (fresh setup) — create one.
+        const session = await store.createSession();
+        if (!cancelled) {
+          await store.setActiveSession(session.session_id);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Register global keyboard shortcuts
   useEffect(() => {

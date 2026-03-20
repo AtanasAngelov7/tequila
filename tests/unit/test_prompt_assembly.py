@@ -11,7 +11,7 @@ from app.providers.base import ToolDef
 def _make_agent(**kwargs) -> AgentConfig:
     defaults: dict = {
         "name": "Test Agent",
-        "default_model": "anthropic:claude-sonnet-4-5",
+        "default_model": "anthropic:claude-sonnet-4-6",
         "soul": SoulConfig(persona="a test agent", instructions=["be helpful"]),
     }
     defaults.update(kwargs)

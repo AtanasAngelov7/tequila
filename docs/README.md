@@ -48,5 +48,6 @@ This directory documents the *implementation* — what is built, how the pieces 
 | S14b | Notifications, Audit Sinks/Retention, Budget Tracking, App Lock, Backup & Restore, Session Export | ✅ Done |
 | S15 | Full UI build-out, file management (download/export/cleanup), Windows packaging (PyInstaller + Inno Setup) | ✅ Done |
 | S16 | Image Gen (DALL-E 3 + Stable Diffusion), Slack/Discord/WhatsApp/Signal connectors, Auto-update service | ✅ Done |
+| S17 | Provider Auth Overhaul: web session login, Gemini provider, model catalog refresh, live pricing | 🔧 In Progress |
 
 Full sprint plan: [sprints/README.md](./application_reference/sprints/README.md)
